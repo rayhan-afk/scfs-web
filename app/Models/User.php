@@ -48,4 +48,21 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function wallet()
+    {
+        return $this->hasOne(Wallet::class);
+    }
+
+    // Relasi: User punya banyak Produk (Khusus Merchant/Pemasok)
+    public function products()
+    {
+        return $this->hasMany(Product::class);
+    }
+
+    // Relasi: User punya banyak Transaksi
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
+    }
 }
