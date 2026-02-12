@@ -13,79 +13,84 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // ==========================================
-        // 1. BUAT AKUN USER
+        // 1. BUAT AKUN USER (7 ROLE UTAMA)
         // ==========================================
         
-        // 1. Admin (Email diubah jadi admin@admin)
+        // 1. Admin
         User::create([
             'name' => 'Super Admin',
-            'email' => 'admin@admin', // 👈 INI SUDAH DIGANTI
+            'email' => 'admin@gmail.com', // 👈 Email Admin
             'password' => Hash::make('password'),
             'role' => 'admin',
             'identity_code' => 'ADM-001',
-            'phone_number' => '081211111111',
+            'phone_number' => '081200000001',
         ]);
 
         // 2. LKBB (Keuangan)
         User::create([
             'name' => 'Petugas Keuangan',
-            'email' => 'finance@scfs.com',
+            'email' => 'finance@gmail.com',
             'password' => Hash::make('password'),
             'role' => 'lkbb',
             'identity_code' => 'LKB-001',
+            'phone_number' => '081200000002',
         ]);
 
         // 3. Merchant (Kantin)
         $merchant = User::create([
-            'name' => 'Kantin Bu Bariah',
-            'email' => 'kantin@scfs.com',
+            'name' => 'Kantin Berkah',
+            'email' => 'kantin@gmail.com', // 👈 Email Penjual
             'password' => Hash::make('password'),
             'role' => 'merchant',
             'identity_code' => 'MER-001',
-            'phone_number' => '081233333333',
+            'phone_number' => '081200000003',
         ]);
 
         // 4. Pemasok (Supplier)
         $pemasok = User::create([
             'name' => 'CV. Sumber Rejeki',
-            'email' => 'pemasok@scfs.com',
+            'email' => 'pemasok@gmail.com',
             'password' => Hash::make('password'),
             'role' => 'pemasok',
             'identity_code' => 'SUP-001',
+            'phone_number' => '081200000004',
         ]);
 
         // 5. Mahasiswa (Penerima Beasiswa)
         $mahasiswa = User::create([
             'name' => 'Budi Santoso',
-            'email' => 'mhs@scfs.com',
+            'email' => 'mhs@gmail.com', // 👈 Email Pembeli (Mahasiswa)
             'password' => Hash::make('password'),
             'role' => 'mahasiswa',
             'identity_code' => '13521099',
-            'phone_number' => '081255555555',
+            'phone_number' => '081200000005',
         ]);
 
         // 6. Investor
         User::create([
             'name' => 'Pak Hartono',
-            'email' => 'investor@scfs.com',
+            'email' => 'investor@gmail.com',
             'password' => Hash::make('password'),
             'role' => 'investor',
             'identity_code' => 'INV-001',
+            'phone_number' => '081200000006',
         ]);
 
         // 7. Donatur
         User::create([
             'name' => 'Ibu Sri Mulyani',
-            'email' => 'donatur@scfs.com',
+            'email' => 'donatur@gmail.com',
             'password' => Hash::make('password'),
             'role' => 'donatur',
             'identity_code' => 'DON-001',
+            'phone_number' => '081200000007',
         ]);
 
         // ==========================================
         // 2. BUAT DOMPET (WALLET)
         // ==========================================
 
+        // Buat Dompet untuk Mahasiswa (Saldo Bantuan Rp 1.500.000)
         Wallet::create([
             'user_id' => $mahasiswa->id,
             'account_number' => 'W-MHS-' . time(),
@@ -98,6 +103,7 @@ class DatabaseSeeder extends Seeder
         // 3. BUAT PRODUK (DAGANGAN)
         // ==========================================
 
+        // Produk Merchant (Makanan & Minuman)
         Product::create([
             'user_id' => $merchant->id,
             'name' => 'Nasi Ayam Penyet',
@@ -115,10 +121,20 @@ class DatabaseSeeder extends Seeder
             'category' => 'minuman',
             'is_active' => true,
         ]);
+        
+        Product::create([
+            'user_id' => $merchant->id,
+            'name' => 'Kerupuk Kaleng',
+            'price' => 1000,
+            'stock' => 200,
+            'category' => 'snack',
+            'is_active' => true,
+        ]);
 
+        // Produk Pemasok (Bahan Baku)
         Product::create([
             'user_id' => $pemasok->id,
-            'name' => 'Beras 50kg',
+            'name' => 'Beras Premium 50kg',
             'price' => 600000,
             'stock' => 10,
             'category' => 'bahan_baku',
