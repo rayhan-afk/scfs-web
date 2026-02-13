@@ -47,7 +47,7 @@ new class extends Component {
     
     <div class="flex justify-between items-end">
         <div>
-            <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Dashboard</h2>
+            <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Dashboard Utama Admin</h2>
             <p class="text-gray-500 mt-1">Ringkasan performa hari ini, {{ date('d M Y') }}</p>
         </div>
         <button class="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition shadow-lg shadow-gray-200">

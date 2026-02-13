@@ -17,11 +17,7 @@ new class extends Component
     <div class="h-20 flex items-center px-8 border-b border-gray-100">
         <div class="flex items-center gap-3">
             <div class="p-2 bg-blue-50 rounded-lg">
-                <img src="{{ asset('images/logo-lapi.png') }}" alt="SCFS" class="h-8 w-auto">
-            </div>
-            <div>
-                <h1 class="font-bold text-gray-800 text-lg tracking-wide">SCFS ADMIN</h1>
-                <p class="text-[10px] text-gray-400 uppercase tracking-wider font-semibold">LAPI ITB Panel</p>
+                <img src="{{ asset('images/logo-lapi.png') }}" alt="SCFS" class="h-16 w-auto">
             </div>
         </div>
     </div>
