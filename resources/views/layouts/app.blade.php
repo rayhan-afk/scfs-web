@@ -7,30 +7,52 @@
 
         <title>{{ config('app.name', 'Laravel') }}</title>
 
-        <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
-        <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100 dark:bg-gray-900">
-            <livewire:layout.navigation />
+    <body class="font-sans antialiased bg-gray-50">
+        
+        @if(Auth::user()->role === 'admin')
+            
+            {{-- LAYOUT KHUSUS ADMIN (SIDEBAR KIRI) --}}
+            <div class="flex h-screen overflow-hidden">
+                
+                <livewire:layout.admin-sidebar />
 
-            <!-- Page Heading -->
-            @if (isset($header))
-                <header class="bg-white dark:bg-gray-800 shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        {{ $header }}
-                    </div>
-                </header>
-            @endif
+                <div class="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+                    
+                    <header class="bg-white shadow-sm flex items-center justify-between px-6 py-4 md:hidden">
+                        <span class="font-bold text-lg">Admin Panel</span>
+                        </header>
 
-            <!-- Page Content -->
-            <main>
-                {{ $slot }}
-            </main>
-        </div>
+                    <main class="p-6">
+                        {{ $slot }}
+                    </main>
+                </div>
+            </div>
+
+        @else
+            
+            {{-- LAYOUT STANDAR (MAHASISWA/MERCHANT) --}}
+            <div class="min-h-screen bg-gray-100">
+                <livewire:layout.navigation />
+
+                @if (isset($header))
+                    <header class="bg-white shadow">
+                        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+                            {{ $header }}
+                        </div>
+                    </header>
+                @endif
+
+                <main>
+                    {{ $slot }}
+                </main>
+            </div>
+
+        @endif
+        
     </body>
 </html>

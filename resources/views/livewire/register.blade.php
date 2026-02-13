@@ -47,11 +47,11 @@ class extends Component {
     
     <header class="w-full max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
         <div class="flex items-center gap-3">
-            <img src="{{ asset('images/logo-lapi.png') }}" alt="PT LAPI ITB" class="h-14 w-auto object-contain">
+            <img src="{{ asset('images/logo-lapi.png') }}" alt="PT LAPI ITB" class="h-20 w-auto object-contain">
         </div>
         
         <div class="flex items-center space-x-8 text-lg font-medium">
-            <a href="{{ route('welcome') }}" class="text-gray-500 hover:text-blue-600 transition">Masuk</a>
+            <a href="{{ route('login') }}" class="text-gray-500 hover:text-blue-600 transition">Masuk</a>
             
             <span class="text-black border-b-2 border-black pb-1 cursor-default">Daftar</span>
         </div>
@@ -124,7 +124,7 @@ class extends Component {
                         
                         <div class="text-center mt-4">
                             <span class="text-sm text-gray-600">Sudah punya akun? </span>
-                            <a href="{{ route('welcome') }}" class="text-sm font-bold text-[#1e73be] hover:underline">Masuk sekarang</a>
+                            <a href="{{ route('login') }}" class="text-sm font-bold text-[#1e73be] hover:underline">Masuk sekarang</a>
                         </div>
 
                     </form>
