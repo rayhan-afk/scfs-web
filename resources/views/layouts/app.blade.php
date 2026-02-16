@@ -16,18 +16,33 @@
         
         @if(Auth::user()->role === 'admin')
             
-            {{-- LAYOUT KHUSUS ADMIN (SIDEBAR KIRI) --}}
-            <div class="flex h-screen overflow-hidden">
+            {{-- ========================================== --}}
+            {{-- LAYOUT KHUSUS ADMIN (DENGAN LOGIKA BUKA TUTUP) --}}
+            {{-- ========================================== --}}
+            
+            {{-- Kita pasang x-data di sini agar Sidebar & Header bisa saling komunikasi --}}
+            <div x-data="{ sidebarOpen: true }" class="flex h-screen overflow-hidden">
                 
+                {{-- 1. SIDEBAR (Akan baca status sidebarOpen) --}}
                 <livewire:layout.admin-sidebar />
 
-                <div class="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
+                {{-- 2. KONTEN UTAMA (KANAN) --}}
+                <div class="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 transition-all duration-300">
                     
-                    <header class="bg-white shadow-sm flex items-center justify-between px-6 py-4 md:hidden">
-                        <span class="font-bold text-lg">Admin Panel</span>
-                        </header>
+                    {{-- Header Mobile (Hanya muncul di HP) --}}
+                    <header class="bg-white shadow-sm flex items-center justify-between px-6 py-4 md:hidden sticky top-0 z-20">
+                        <span class="font-bold text-lg text-gray-800">Admin Panel</span>
+                        
+                        {{-- Tombol Buka Tutup Sidebar di HP --}}
+                        <button @click="sidebarOpen = !sidebarOpen" class="text-gray-500 hover:text-blue-600 focus:outline-none">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
+                            </svg>
+                        </button>
+                    </header>
 
-                    <main class="p-6">
+                    {{-- Isi Halaman (Slot) --}}
+                    <main class="w-full h-full">
                         {{ $slot }}
                     </main>
                 </div>
@@ -35,7 +50,9 @@
 
         @else
             
-            {{-- LAYOUT STANDAR (MAHASISWA/MERCHANT) --}}
+            {{-- ========================================== --}}
+            {{-- LAYOUT STANDAR (MAHASISWA/MERCHANT)        --}}
+            {{-- ========================================== --}}
             <div class="min-h-screen bg-gray-100">
                 <livewire:layout.navigation />
 
