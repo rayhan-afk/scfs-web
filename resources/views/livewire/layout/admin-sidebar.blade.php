@@ -57,17 +57,22 @@ new class extends Component
             <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">Dashboard</span>
         </a>
 
-        <a href="#" 
-           class="flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 group whitespace-nowrap text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-           :class="sidebarOpen ? '' : 'justify-center'"
-           title="Verifikasi Mahasiswa">
-            <svg class="w-6 h-6 flex-shrink-0 text-gray-400 group-hover:text-gray-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">Verifikasi Mahasiswa</span>
-            
-            <span x-show="sidebarOpen" class="ml-auto bg-red-100 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-200">3</span>
-            <span x-show="!sidebarOpen" class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+        <a href="{{ route('admin.verification') }}" 
+        class="flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 group whitespace-nowrap
+        {{ request()->routeIs('admin.verification') 
+            ? 'bg-blue-50 text-blue-700' 
+            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' }}"
+        :class="sidebarOpen ? '' : 'justify-center'"
+        title="Verifikasi Mahasiswa">
+        
+        <svg class="w-6 h-6 flex-shrink-0 {{ request()->routeIs('admin.verification') ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-500' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        
+        <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">Verifikasi Mahasiswa</span>
+        
+        <span x-show="sidebarOpen" class="ml-auto bg-red-100 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-200">3</span>
+        <span x-show="!sidebarOpen" class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
         </a>
 
         <a href="#" 
