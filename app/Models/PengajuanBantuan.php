@@ -5,16 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class MerchantProfile extends Model
+class PengajuanBantuan extends Model
 {
     use HasFactory;
 
     protected $guarded = ['id'];
 
-    // Relasi balik ke User penciptanya
-    // Relasi balik ke tabel User
-    public function user()
+    // Relasi balik ke Profil Mahasiswa
+    public function mahasiswaProfile()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(MahasiswaProfile::class);
     }
 }

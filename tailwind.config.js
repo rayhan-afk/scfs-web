@@ -26,6 +26,7 @@ export default {
                     red: "#EE5D50",
                     green: "#05CD99",
                 },
+                sans: ['"Plus Jakarta Sans"', ...defaultTheme.fontFamily.sans],
             },
         },
     },

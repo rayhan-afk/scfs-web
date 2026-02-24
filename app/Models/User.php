@@ -21,9 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role',
-        'identity_code',
-        'phone_number',
+        'role',              // Pastikan ini ada
     ];
 
     /**
@@ -84,4 +82,17 @@ class User extends Authenticatable
     {
         return $this->hasMany(Wallet::class, 'user_id');
     }
+    // Relasi ke profil mahasiswa
+    public function mahasiswaProfile()
+    {
+        return $this->hasOne(MahasiswaProfile::class);
+    }
+    public function pemasokProfile()
+    {
+        return $this->hasOne(PemasokProfile::class);
+    }
+    public function investorProfile()
+    {
+        return $this->hasOne(InvestorProfile::class);
+    }   
 }
