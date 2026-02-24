@@ -73,4 +73,12 @@ class User extends Authenticatable
     {
         return $this->hasOne(MerchantProfile::class);
     }
+    public function pemasokProfile()
+    {
+        return $this->hasOne(PemasokProfile::class);
+    }
+    public function investorProfile()
+    {
+        return $this->hasOne(InvestorProfile::class);
+    }   
 }
