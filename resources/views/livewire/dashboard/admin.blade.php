@@ -1,8 +1,20 @@
 <?php
 
 use Livewire\Volt\Component;
+use Livewire\Attributes\Layout;
+use Illuminate\Support\Facades\Auth;
 
-new class extends Component {
+new 
+#[Layout('layouts.app')]
+class extends Component {
+    // 2. TAMBAHKAN FUNGSI MOUNT INI
+    public function mount()
+    {
+        // Jika user yang login BUKAN 'admin', paksa pindah
+        if (Auth::user()->role !== 'admin') {
+            return $this->redirectRoute('dashboard', navigate: true);
+        }
+    }
     public $activities = [
         [
             'name' => 'Budi Santoso',
