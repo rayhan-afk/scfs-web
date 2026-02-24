@@ -2,6 +2,7 @@
 
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
+use App\Models\User;
 
 new 
 #[Layout('layouts.app')] 
@@ -12,58 +13,45 @@ class extends Component {
 
     public function getStudentsProperty()
     {
-        $data = [
-            [
-                'id' => 1,
-                'name' => 'Budi Santoso',
-                'nim' => 'NIM-1234',
-                'jurusan' => 'S1 Informatika',
-                'ktm' => 'KTM.jpg',
-                'status' => 'Disetujui',
-                'avatar_color' => 'bg-green-100 text-green-600'
-            ],
-            [
-                'id' => 2,
-                'name' => 'Siti Aminah',
-                'nim' => 'NIM-5678',
-                'jurusan' => 'S1 Teknik Fisika',
-                'ktm' => 'KTM.jpg',
-                'status' => 'Ditolak',
-                'avatar_color' => 'bg-pink-100 text-pink-600'
-            ],
-            [
-                'id' => 3,
-                'name' => 'Ahmad Dani',
-                'nim' => 'NIM-9012',
-                'jurusan' => 'S1 Teknik Elektro',
-                'ktm' => 'KTM.jpg',
-                'status' => 'Menunggu',
-                'avatar_color' => 'bg-blue-100 text-blue-600'
-            ],
-            [
-                'id' => 4,
-                'name' => 'Rina Wati',
-                'nim' => 'NIM-3344',
-                'jurusan' => 'S1 Manajemen',
-                'ktm' => 'KTM.jpg',
-                'status' => 'Menunggu',
-                'avatar_color' => 'bg-purple-100 text-purple-600'
-            ],
-        ];
+        // Ambil user mahasiswa beserta relasi profilnya
+        $query = User::where('role', 'mahasiswa')->with('mahasiswaProfile');
 
-        return collect($data)->filter(function ($item) {
-            if ($this->activeTab !== 'Semua' && $item['status'] !== $this->activeTab) {
-                return false;
-            }
-            if ($this->search && stripos($item['name'], $this->search) === false && stripos($item['jurusan'], $this->search) === false) {
-                return false;
-            }
-            return true;
-        });
+        // Filter dari tabel relasi
+        if ($this->activeTab !== 'Semua') {
+            $status = strtolower($this->activeTab);
+            $query->whereHas('mahasiswaProfile', function($q) use ($status) {
+                $q->where('status_verifikasi', $status);
+            });
+        }
+
+        if ($this->search) {
+            $query->where(function($q) {
+                $q->where('name', 'like', '%' . $this->search . '%')
+                  ->orWhereHas('mahasiswaProfile', function($q2) {
+                      $q2->where('nim', 'like', '%' . $this->search . '%')
+                         ->orWhere('jurusan', 'like', '%' . $this->search . '%');
+                  });
+            });
+        }
+
+        return $query->latest()->get();
     }
 
-    public function approve($id) { }
-    public function reject($id) { }
+    public function approve($id)
+    {
+        $user = User::find($id);
+        if ($user && $user->mahasiswaProfile) {
+            $user->mahasiswaProfile->update(['status_verifikasi' => 'disetujui']);
+        }
+    }
+
+    public function reject($id)
+    {
+        $user = User::find($id);
+        if ($user && $user->mahasiswaProfile) {
+            $user->mahasiswaProfile->update(['status_verifikasi' => 'ditolak']);
+        }
+    }
 }; ?>
 
 <div class="py-12 px-6 md:px-8 w-full space-y-6">
@@ -97,8 +85,9 @@ class extends Component {
 
     <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         
-        <div class="px-6 py-4 border-b border-gray-100">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
             <h3 class="font-bold text-gray-900">Status Verifikasi</h3>
+            <span class="text-sm text-gray-500">Total: {{ $this->students->count() }} Data</span>
         </div>
 
         <div class="overflow-x-auto">
@@ -115,45 +104,60 @@ class extends Component {
                 <tbody class="divide-y divide-gray-100">
                     @forelse($this->students as $student)
                     <tr class="hover:bg-gray-50/80 transition group">
+                        
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
-                                <div class="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold {{ $student['avatar_color'] }}">
-                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                <div class="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold bg-blue-100 text-blue-600">
+                                    {{ strtoupper(substr($student->name, 0, 2)) }}
                                 </div>
                                 <div>
-                                    <div class="font-bold text-gray-900 text-sm">{{ $student['name'] }}</div>
-                                    <div class="text-xs text-gray-400 font-mono">{{ $student['nim'] }}</div>
+                                    <div class="font-bold text-gray-900 text-sm">{{ $student->name }}</div>
+                                    <div class="text-xs text-gray-400 font-mono">{{ $student->mahasiswaProfile->nim ?? 'Belum isi NIM' }}</div>
                                 </div>
                             </div>
                         </td>
-                        <td class="px-6 py-4 text-sm font-medium text-gray-700">{{ $student['jurusan'] }}</td>
-                        <td class="px-6 py-4">
-                            <a href="#" class="text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline flex items-center gap-1">
-                                {{ $student['ktm'] }}
-                            </a>
+
+                        <td class="px-6 py-4 text-sm font-medium text-gray-700">
+                            {{ $student->mahasiswaProfile->jurusan ?? '-' }}
                         </td>
+
                         <td class="px-6 py-4">
-                            @if($student['status'] == 'Disetujui')
+                            @if($student->mahasiswaProfile->ktm_image)
+                                <a href="#" class="text-blue-600 hover:text-blue-800 text-sm font-medium hover:underline flex items-center gap-1">
+                                    Lihat KTM
+                                </a>
+                            @else
+                                <span class="text-gray-400 text-sm">Belum Upload</span>
+                            @endif
+                        </td>
+
+                        <td class="px-6 py-4">
+                            @if($student->mahasiswaProfile->status_verifikasi== 'disetujui')
                                 <span class="bg-green-100 text-green-700 text-xs px-3 py-1 rounded-full font-bold border border-green-200">Disetujui</span>
-                            @elseif($student['status'] == 'Ditolak')
+                            @elseif($student->status_verifikasi == 'ditolak')
                                 <span class="bg-red-100 text-red-700 text-xs px-3 py-1 rounded-full font-bold border border-red-200">Ditolak</span>
                             @else
                                 <span class="bg-yellow-100 text-yellow-700 text-xs px-3 py-1 rounded-full font-bold border border-yellow-200">Menunggu</span>
                             @endif
                         </td>
+
                         <td class="px-6 py-4 text-right">
-                            @if($student['status'] == 'Menunggu')
+                            @if($student->mahasiswaProfile->status_verifikasi == 'menunggu')
                                 <div class="flex justify-end gap-2">
-                                    <button class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded shadow-sm transition">Setuju</button>
-                                    <button class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded shadow-sm transition">Tolak</button>
+                                    <button wire:click="approve({{ $student->id }})" class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded shadow-sm transition">
+                                        Setuju
+                                    </button>
+                                    <button wire:click="reject({{ $student->id }})" class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded shadow-sm transition">
+                                        Tolak
+                                    </button>
                                 </div>
                             @else
-                                <button class="text-gray-400 p-2"><svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg></button>
+                                <span class="text-gray-400 text-xs italic">Selesai</span>
                             @endif
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">Tidak ada data.</td></tr>
+                    <tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">Tidak ada data mahasiswa ditemukan.</td></tr>
                     @endforelse
                 </tbody>
             </table>

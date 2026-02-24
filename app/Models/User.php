@@ -21,9 +21,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'role',
-        'identity_code',
-        'phone_number',
+        'role',              // Pastikan ini ada
     ];
 
     /**
@@ -64,5 +62,15 @@ class User extends Authenticatable
     public function transactions()
     {
         return $this->hasMany(Transaction::class);
+    }
+    // Relasi ke profil mahasiswa
+    public function mahasiswaProfile()
+    {
+        return $this->hasOne(MahasiswaProfile::class);
+    }
+    // Relasi ke profil merchant/kantin
+    public function merchantProfile()
+    {
+        return $this->hasOne(MerchantProfile::class);
     }
 }
