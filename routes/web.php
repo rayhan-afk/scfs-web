@@ -58,10 +58,16 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/admin/data-pemasok', 'admin.pemasok-data')->name('admin.pemasok.index');
     Volt::route('/admin/data-pemasok/{id}', 'admin.pemasok-detail')->name('admin.pemasok.detail');
 
-// Investor
-Volt::route('/admin/data-investor', 'admin.investor-data')->name('admin.investor.index');
-Volt::route('/admin/data-investor/{id}', 'admin.investor-detail')->name('admin.investor.detail');
+    // Investor
+    Volt::route('/admin/data-investor', 'admin.investor-data')->name('admin.investor.index');
+    Volt::route('/admin/data-investor/{id}', 'admin.investor-detail')->name('admin.investor.detail');
 
+    // Donatur
+    Volt::route('/admin/data-donatur', 'admin.donatur-data')->name('admin.donatur.index');
+    Volt::route('/admin/data-donatur/{id}', 'admin.donatur-detail')->name('admin.donatur.detail');
+
+    // Monitoring Transaksi
+    Volt::route('/admin/monitoring-transaksi', 'admin.monitoring-transaksi')->name('admin.monitoring.index');
     // ----------------------------------------------------------
     // LKBB ROUTES
     // ----------------------------------------------------------

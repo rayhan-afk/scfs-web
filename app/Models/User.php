@@ -68,16 +68,6 @@ class User extends Authenticatable
     {
         return $this->hasOne(\App\Models\MerchantProfile::class);
     }
-   public function studentProfile()
-    {
-        return $this->hasOne(\App\Models\StudentProfile::class);
-    }
-    public function studentWallet()
-    {
-        // Mengambil dompet khusus mahasiswa, asumsikan tipenya 'STUDENT_WALLET' atau 'MAHASISWA_WALLET'
-        // Silakan sesuaikan tipe ini dengan yang ada di database Anda jika berbeda.
-        return $this->hasOne(Wallet::class, 'user_id')->where('type', 'STUDENT_WALLET');
-    }
     public function wallets()
     {
         return $this->hasMany(Wallet::class, 'user_id');

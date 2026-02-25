@@ -21,33 +21,27 @@ class extends Component {
         // ---------------------------------------------------------
         
         // A. MODAL KERJA (Saldo Real Dompet LKBB)
-        // Kita cari wallet dengan tipe 'LKBB_MASTER'
         $lkbbWallet = Wallet::where('type', 'LKBB_MASTER')->first();
         $modalKerja = $lkbbWallet ? $lkbbWallet->balance : 0;
 
         // B. SALDO DONASI TERSEDIA
-        // Asumsi: Ada wallet khusus penampung donasi ('DONATION_POOL')
-        // Jika belum ada, kita hitung dari sisa transaksi donasi yg belum terpakai
         $walletDonasi = Wallet::where('type', 'DONATION_POOL')->first();
+        
+        // PASTIKAN ADA TITIK KOMA (;) DI AKHIR BARIS INI 👇
         $saldoDonasi = $walletDonasi 
             ? $walletDonasi->balance 
             : Transaction::where('type', 'donation')->where('status', 'lunas')->sum('total_amount');
 
         // C. TAGIHAN MERCHANT (Piutang)
-        // Uang yang ada di luar (Status pending/loan)
         $tagihanMerchant = Transaction::where('type', 'loan') 
             ->where('status', 'pending') 
             ->sum('total_amount');
 
         // D. PROFIT / PENDAPATAN
-        // Cara 1: Jika ada Wallet khusus profit ('LKBB_PROFIT')
-        // $profit = Wallet::where('type', 'LKBB_PROFIT')->value('balance');
-        
-        // Cara 2 (Sementara): Hitung margin 5% dari transaksi lunas bulan ini
         $totalTrxBulanIni = Transaction::where('status', 'lunas')
             ->whereMonth('created_at', Carbon::now()->month)
             ->sum('total_amount');
-        $profit = $totalTrxBulanIni * 0.05; 
+        $profit = $totalTrxBulanIni * 0.05;
 
 
         // ---------------------------------------------------------
@@ -58,12 +52,13 @@ class extends Component {
         // Ini lebih akurat daripada tabel Transaction karena mencatat mutasi uang asli
         $cashflowData = [];
         if ($lkbbWallet) {
-            $cashflowData = LedgerEntry::select(
-                    DB::raw('SUM(amount) as total'),
+            $cashflowData = Transaction::select(
+                    DB::raw('SUM(total_amount) as total'),
                     DB::raw('MONTH(created_at) as month')
                 )
-                ->where('wallet_id', $lkbbWallet->id)
-                ->where('entry_type', 'CREDIT') // Uang Masuk
+                // Kita ambil dari transaksi donasi yang sukses (lunas)
+                ->where('type', 'donation') 
+                ->where('status', 'lunas')
                 ->where('created_at', '>=', Carbon::now()->subMonths(6))
                 ->groupBy('month')
                 ->pluck('total', 'month')
