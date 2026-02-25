@@ -11,6 +11,7 @@ class MerchantProfile extends Model
 
     protected $guarded = ['id'];
 
+    // Relasi balik ke User penciptanya
     // Relasi balik ke tabel User
     public function user()
     {
