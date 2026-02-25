@@ -80,5 +80,9 @@ class User extends Authenticatable
     public function investorProfile()
     {
         return $this->hasOne(InvestorProfile::class);
+    }
+    public function donaturProfile()
+    {
+        return $this->hasOne(DonaturProfile::class);
     }   
 }

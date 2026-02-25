@@ -6,33 +6,27 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-        public function up(): void
+    public function up(): void
     {
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
+            $table->string('reference_number')->unique(); // Nomor resi, cth: TRX-260224-001
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete(); // Pemilik mutasi ini
+            $table->foreignId('related_user_id')->nullable()->constrained('users')->nullOnDelete(); // Pihak lawan (opsional)
             
-            // Pembeli (Mahasiswa)
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->enum('type', ['kredit', 'debit']); // KREDIT = Uang Masuk, DEBIT = Uang Keluar
             
-            $table->string('order_id')->unique(); // TRX-2026xxxx
-            $table->decimal('total_amount', 15, 2);
+            // Kategori transaksi
+            $table->string('category'); // cth: donasi_masuk, beli_makan, pencairan_merchant, bayar_po, dll
             
-            // Status Transaksi
-            $table->enum('status', ['pending', 'success', 'failed', 'cancelled'])->default('pending');
+            $table->decimal('amount', 15, 2); // Nominal transaksi
+            $table->string('description')->nullable(); // Keterangan transaksi
             
-            // Tipe Transaksi (Beli Makan, Topup Donasi, Bayar Pemasok)
-            $table->string('type')->default('purchase');
-            
+            $table->enum('status', ['pending', 'success', 'failed'])->default('success');
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('transactions');
