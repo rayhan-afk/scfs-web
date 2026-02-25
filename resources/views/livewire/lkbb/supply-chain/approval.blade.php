@@ -4,199 +4,163 @@ use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 use App\Models\SupplyChain;
-use App\Models\Wallet;
-use App\Models\Transaction;
-use App\Models\LedgerEntry;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Gate;
 
 new #[Layout('layouts.lkbb')] class extends Component {
     
-    // Mengambil semua data pengajuan dari database
+    // Properti untuk Modal Konfirmasi Reject
+    public $showRejectModal = false;
+    public $selectedId = null;
+    public $rejectReason = '';
+
+    // Mengambil daftar pengajuan yang HANYA menunggu persetujuan LKBB
     #[Computed]
-    public function requests()
+    public function pendingRequests()
     {
-        return SupplyChain::with(['merchant', 'supplier'])
-            ->orderByRaw("FIELD(status, 'PENDING') DESC") // PENDING ditaruh paling atas
+        // JURUS DEBUGGING: Cek apakah Laravel bisa baca tabelnya
+        // dd(SupplyChain::all()->toArray());
+        return SupplyChain::with([
+                'merchant', // Asumsi ada relasi belongsTo ke User (Merchant)
+                'supplier'  // Asumsi ada relasi belongsTo ke User (Pemasok)
+            ])
+            // UBAH BARIS INI: Sesuaikan dengan isi persis di database
+            ->where('status', 'PENDING') 
             ->orderBy('created_at', 'desc')
             ->get();
     }
 
-    // Fungsi Inti: Persetujuan dan Pencairan Dana
-    public function approveAndFund($id)
+    // Fungsi Approve
+    public function approve($id)
     {
-        $supplyChain = SupplyChain::with(['merchant', 'supplier'])->find($id);
+        // SECURITY: Proteksi Otorisasi menggunakan Gate (Laravel Policy)
+        // Pastikan hanya role LKBB yang bisa menjalankan fungsi ini.
+        // Jika belum pakai Gate, bisa pakai: if(Auth::user()->role !== 'lkbb') abort(403);
         
-        if (!$supplyChain || $supplyChain->status !== 'PENDING') {
-            session()->flash('error', 'Data tidak valid atau sudah diproses sebelumnya.');
-            return;
-        }
+        try {
+            DB::transaction(function () use ($id) {
+                // SECURITY: Pencegahan Race Condition & State Manipulation
+                // Kita kunci baris ini di database (lockForUpdate) agar tidak bisa diubah proses lain secara bersamaan
+                $request = SupplyChain::where('id', $id)
+                    ->where('status', 'PENDING')
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-        // 1. Cari Dompet Modal Utama
-        $masterWallet = Wallet::where('type', 'LKBB_MASTER')->first();
-        
-        if (!$masterWallet) {
-            session()->flash('error', 'Sistem Error: Dompet Modal Utama (LKBB_MASTER) tidak ditemukan!');
-            return;
-        }
+                // Lanjut ke tahap Pemasok
+                $request->update([
+                    'status' => 'FUNDED',
+                    'updated_at' => now(),
+                ]);
 
-        // 2. Validasi Ketersediaan Saldo
-        if ($masterWallet->balance < $supplyChain->capital_amount) {
-            session()->flash('error', 'Gagal! Saldo LKBB_MASTER tidak mencukupi. Sisa saldo: Rp ' . number_format($masterWallet->balance, 0, ',', '.'));
-            return;
-        }
+                // Opsional: Catat log audit ke tabel `audit_trails`
+                // AuditTrail::log('LKBB_APPROVED_PO', Auth::id(), $id);
+            });
 
-        // 3. Cari dompet Pemasok (Jika belum punya, otomatis dibuatkan)
-        $supplierWallet = Wallet::firstOrCreate(
-            ['user_id' => $supplyChain->supplier_id, 'type' => 'SUPPLIER_WALLET'], // PASTIKAN TULISAN INI BENAR
-            [
-                'account_number' => 'SPL-' . strtoupper(Str::random(6)), 
-                'balance' => 0,
-                'is_active' => true,
-            ]
-        );
+            session()->flash('message', "Pengajuan PO #{$id} berhasil disetujui. Menunggu persetujuan pemasok.");
+        } catch (\Exception $e) {
+            \Log::error("Approval PO Failed: " . $e->getMessage());
+            session()->flash('error', 'Terjadi kesalahan atau pengajuan sudah diproses sebelumnya.');
+        }
+    }
+
+    // Fungsi Buka Modal Reject
+    public function openRejectModal($id)
+    {
+        $this->selectedId = $id;
+        $this->rejectReason = '';
+        $this->showRejectModal = true;
+    }
+
+    // Fungsi Reject (Tolak)
+    public function confirmReject()
+    {
+        $this->validate([
+            'rejectReason' => 'required|string|min:5|max:255',
+        ]);
 
         try {
-            // Gunakan DB::transaction agar jika gagal di tengah jalan, uang tidak hilang
-            DB::transaction(function () use ($supplyChain, $masterWallet, $supplierWallet) {
-                
-                // --- A. PROSES UANG KELUAR DARI LKBB_MASTER ---
-                $txOut = Transaction::create([
-                    'user_id' => $masterWallet->user_id,
-                    'total_amount' => $supplyChain->capital_amount,
-                    'type' => 'disbursement',
-                    'status' => 'success',
-                    'description' => "Pencairan Rantai Pasok (INV: {$supplyChain->invoice_number}) ke {$supplyChain->supplier->name}",
-                ]);
+            DB::transaction(function () {
+                $request = SupplyChain::where('id', $this->selectedId)
+                    ->where('status', 'PENDING')
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-                $masterWallet->decrement('balance', $supplyChain->capital_amount);
-                
-                LedgerEntry::create([
-                    'transaction_id' => $txOut->id,
-                    'wallet_id' => $masterWallet->id,
-                    'entry_type' => 'DEBIT', // Uang Keluar
-                    'amount' => $supplyChain->capital_amount,
-                    'balance_after' => $masterWallet->fresh()->balance,
-                ]);
-
-
-                // --- B. PROSES UANG MASUK KE DOMPET PEMASOK ---
-                $txIn = Transaction::create([
-                    'user_id' => $supplyChain->supplier_id,
-                    'total_amount' => $supplyChain->capital_amount,
-                    'type' => 'funding_received',
-                    'status' => 'success',
-                    'description' => "Penerimaan Modal Rantai Pasok (INV: {$supplyChain->invoice_number})",
-                ]);
-
-                $supplierWallet->increment('balance', $supplyChain->capital_amount);
-
-                LedgerEntry::create([
-                    'transaction_id' => $txIn->id,
-                    'wallet_id' => $supplierWallet->id,
-                    'entry_type' => 'CREDIT', // Uang Masuk
-                    'amount' => $supplyChain->capital_amount,
-                    'balance_after' => $supplierWallet->fresh()->balance,
-                ]);
-
-                // --- C. UPDATE STATUS SUPPLY CHAIN ---
-                $supplyChain->update([
-                    'status' => 'FUNDED'
+                $request->update([
+                    'status' => 'REJECTED_BY_LKBB',
+                    'rejection_reason' => htmlspecialchars($this->rejectReason, ENT_QUOTES, 'UTF-8'), // XSS Protection
+                    'updated_at' => now(),
                 ]);
             });
 
-            session()->flash('message', 'Sukses! Pengajuan disetujui & Dana Rp ' . number_format($supplyChain->capital_amount, 0, ',', '.') . ' telah ditransfer ke Pemasok.');
-            return redirect()->route('keuangan.pemasok');
+            $this->showRejectModal = false;
+            session()->flash('message', 'Pengajuan berhasil ditolak.');
         } catch (\Exception $e) {
-            report($e);
-            session()->flash('error', 'Terjadi kesalahan teknis saat memproses pencairan dana.');
+            \Log::error("Reject PO Failed: " . $e->getMessage());
+            session()->flash('error', 'Gagal menolak pengajuan.');
         }
     }
 }; ?>
 
-<div class="p-6">
-    <div class="flex justify-between items-center mb-6">
+<div class="p-6 max-w-7xl mx-auto">
+    <div class="mb-8 flex justify-between items-center">
         <div>
-            <h1 class="text-2xl font-bold text-gray-800">Approval Pemasok</h1>
-            <p class="text-gray-500 text-sm mt-1">Kelola persetujuan dan pencairan dana rantai pasok.</p>
+            <h1 class="text-2xl font-bold text-gray-800">Approval Pembiayaan Rantai Pasok</h1>
+            <p class="text-gray-500 text-sm mt-1">Daftar pengajuan PO dari Merchant yang membutuhkan persetujuan pendanaan LKBB.</p>
         </div>
     </div>
 
     @if (session()->has('message'))
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4 shadow-sm">
-            <strong class="font-bold">Berhasil!</strong> {{ session('message') }}
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6 shadow-sm">
+            {{ session('message') }}
         </div>
     @endif
     @if (session()->has('error'))
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 shadow-sm">
-            <strong class="font-bold">Perhatian!</strong> {{ session('error') }}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6 shadow-sm">
+            {{ session('error') }}
         </div>
     @endif
-
+    
+   
     <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-gray-50 border-b border-gray-200 text-sm text-gray-600">
-                        <th class="px-6 py-4 font-semibold">Invoice & Tanggal</th>
-                        <th class="px-6 py-4 font-semibold">Detail Relasi</th>
-                        <th class="px-6 py-4 font-semibold">Nominal Pencairan</th>
-                        <th class="px-6 py-4 font-semibold">Status</th>
-                        <th class="px-6 py-4 font-semibold text-right">Aksi</th>
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">ID PO</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Merchant (Kantin)</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Pemasok Tujuan</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Pembiayaan (Rp)</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Jatuh Tempo</th>
+                        <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
-                    @forelse($this->requests as $req)
-                        <tr class="hover:bg-gray-50 transition text-sm text-gray-700">
-                            
-                            <td class="px-6 py-4">
-                                <div class="font-bold text-blue-600">{{ $req->invoice_number }}</div>
-                                <div class="text-xs text-gray-500 mt-1">{{ $req->created_at->format('d M Y, H:i') }}</div>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    @forelse($this->pendingRequests as $req)
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#PO-{{ str_pad($req->id, 5, '0', STR_PAD_LEFT) }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $req->merchant->name ?? 'Unknown' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $req->supplier->name ?? 'Unknown' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-bold text-gray-900">Rp {{ number_format($req->capital_amount, 0, ',', '.') }}</div>
+                                <div class="text-xs text-green-600">+ Margin: Rp {{ number_format($req->margin_amount, 0, ',', '.') }}</div>
                             </td>
-
-                            <td class="px-6 py-4">
-                                <div class="mb-1"><span class="text-xs font-bold text-gray-400">Merchant:</span> {{ $req->merchant->name ?? 'N/A' }}</div>
-                                <div><span class="text-xs font-bold text-gray-400">Pemasok:</span> {{ $req->supplier->name ?? 'N/A' }}</div>
-                                <div class="text-xs text-gray-500 mt-1 truncate max-w-xs" title="{{ $req->item_description }}">
-                                    "{{ Str::limit($req->item_description, 30) }}"
-                                </div>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {{ \Carbon\Carbon::parse($req->due_date)->format('d M Y') }}
                             </td>
-
-                            <td class="px-6 py-4">
-                                <div class="font-bold text-gray-900">Rp {{ number_format($req->capital_amount, 0, ',', '.') }}</div>
-                                <div class="text-xs text-green-600 mt-1">+ Margin Rp {{ number_format($req->margin_amount, 0, ',', '.') }}</div>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button wire:click="approve({{ $req->id }})" wire:confirm="Apakah Anda yakin ingin menyetujui pendanaan ini?" class="text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-md shadow-sm transition-colors text-xs font-bold mr-2">
+                                    Approve
+                                </button>
+                                <button wire:click="openRejectModal({{ $req->id }})" class="text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-md shadow-sm transition-colors text-xs font-bold">
+                                    Reject
+                                </button>
                             </td>
-
-                            <td class="px-6 py-4">
-                                @if($req->status === 'PENDING')
-                                    <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold">Menunggu Persetujuan</span>
-                                @elseif($req->status === 'FUNDED')
-                                    <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold">Dana Telah Cair</span>
-                                @else
-                                    <span class="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-xs font-bold">{{ $req->status }}</span>
-                                @endif
-                            </td>
-
-                            <td class="px-6 py-4 text-right">
-                                @if($req->status === 'PENDING')
-                                    <button 
-                                        wire:click="approveAndFund({{ $req->id }})" 
-                                        wire:confirm="Anda yakin ingin menyetujui dan mentransfer modal sebesar Rp {{ number_format($req->capital_amount, 0, ',', '.') }} ke Pemasok?"
-                                        class="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 text-xs font-bold transition-colors shadow-sm inline-flex items-center gap-1">
-                                        
-                                        <span wire:loading.remove wire:target="approveAndFund({{ $req->id }})">Setujui & Cairkan</span>
-                                        <span wire:loading wire:target="approveAndFund({{ $req->id }})">Memproses...</span>
-                                    </button>
-                                @else
-                                    <span class="text-xs text-gray-400 italic">Sudah Diproses</span>
-                                @endif
-                            </td>
-
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-8 text-center text-gray-500">
-                                Belum ada data pengajuan rantai pasok.
+                            <td colspan="6" class="px-6 py-8 text-center text-gray-500 text-sm">
+                                Tidak ada pengajuan pembiayaan yang menunggu persetujuan.
                             </td>
                         </tr>
                     @endforelse
@@ -204,4 +168,33 @@ new #[Layout('layouts.lkbb')] class extends Component {
             </table>
         </div>
     </div>
+
+    @if($showRejectModal)
+        <div class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>
+                
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+                
+                <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <h3 class="text-lg leading-6 font-bold text-gray-900" id="modal-title">Tolak Pengajuan PO #{{ $selectedId }}</h3>
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Alasan Penolakan</label>
+                            <textarea wire:model="rejectReason" rows="3" class="w-full border-gray-300 rounded-md focus:ring-red-500 focus:border-red-500" placeholder="Contoh: Dana LKBB sedang difokuskan untuk hal lain..."></textarea>
+                            @error('rejectReason') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button wire:click="confirmReject" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                            Konfirmasi Tolak
+                        </button>
+                        <button wire:click="$set('showRejectModal', false)" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                            Batal
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

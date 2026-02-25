@@ -42,4 +42,8 @@ class SupplyChain extends Model
             }
         });
     }
+    public function profilPemasok()
+    {
+        return $this->belongsTo(PemasokProfile::class, 'supplier_id', 'user_id');
+    }
 }
