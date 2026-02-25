@@ -2,40 +2,21 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Transaction extends Model
 {
-    use HasFactory;
+    protected $guarded = [];
 
-    protected $fillable = [
-        'user_id',
-        'order_id',
-        'total_amount',
-        'status',
-        'type',
-        'description', // <-- BARU: Catatan transaksi
-        'meta_data',   // <-- BARU: Data detail json
-    ];
-
-    // Otomatis convert JSON di database jadi Array di PHP
-    protected $casts = [
-        'meta_data' => 'array', 
-        'total_amount' => 'decimal:2',
-    ];
-
+    // Relasi ke pemilik transaksi
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
-    /**
-     * Relasi ke detail mutasi.
-     * Satu transaksi punya banyak entry (minimal 2: Debit & Kredit).
-     */
-    public function ledgerEntries()
+    // Relasi ke lawan transaksi (jika ada, misalnya Kantin ke Pemasok)
+    public function relatedUser()
     {
-        return $this->hasMany(LedgerEntry::class);
+        return $this->belongsTo(User::class, 'related_user_id');
     }
 }

@@ -13,6 +13,7 @@ use App\Models\MahasiswaProfile;
 use App\Models\MerchantProfile;
 use App\Models\PemasokProfile;
 use App\Models\InvestorProfile;
+use App\Models\DonaturProfile; // Tambahan import Donatur
 
 new 
 #[Layout('components.layouts.landing')] 
@@ -24,8 +25,8 @@ class extends Component {
     #[Validate('required|string|email|max:255|unique:users')]
     public string $email = '';
 
-    // Tambahan Validasi untuk Role
-    #[Validate('required|in:mahasiswa,merchant,pemasok,investor')]
+    // Tambahan Validasi untuk Role (donatur dimasukkan)
+    #[Validate('required|in:mahasiswa,merchant,pemasok,investor,donatur')]
     public string $role = 'mahasiswa'; // Default pilihan
 
     #[Validate('required|string|min:8|confirmed')] 
@@ -55,6 +56,8 @@ class extends Component {
             PemasokProfile::create(['user_id' => $user->id, 'nama_perusahaan' => 'PT/Toko ' . $this->name, 'nama_pic' => $this->name, 'kategori_barang' => 'Lainnya']);
         } elseif ($this->role === 'investor') {
             InvestorProfile::create(['user_id' => $user->id, 'nama_lengkap' => $this->name]);
+        } elseif ($this->role === 'donatur') {
+            DonaturProfile::create(['user_id' => $user->id, 'nama_lengkap' => $this->name]);
         }
 
         event(new Registered($user));
@@ -119,6 +122,7 @@ class extends Component {
                                 <option value="merchant">Pemilik Kantin / Warung</option>
                                 <option value="pemasok">Mitra Pemasok / Supplier</option>
                                 <option value="investor">Investor (Pendana PO)</option>
+                                <option value="donatur">Donatur (Pemberi Bantuan)</option>
                             </select>
                             @error('role') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>

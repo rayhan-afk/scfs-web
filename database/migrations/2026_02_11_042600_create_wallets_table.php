@@ -6,29 +6,26 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('wallets', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             
-            $table->string('account_number')->unique(); // No Rekening Dompet
-            $table->string('pin')->nullable(); // Untuk keamanan saat bayar
+            $table->string('account_number')->unique(); 
+            $table->string('pin')->nullable(); 
             
-            // HANYA SALDO BANTUAN (Sesuai request kamu sebelumnya)
-            $table->decimal('grant_balance', 15, 2)->default(0); 
+            // Ubah grant_balance jadi balance sesuai kodingan dashboard LKBB
+            $table->decimal('balance', 15, 2)->default(0); 
+            
+            // Masukkan tipe dompet langsung di sini
+            $table->string('type')->default('REGULAR'); // cth: LKBB_MASTER, DONATION_POOL
             
             $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('wallets');
