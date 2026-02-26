@@ -2,222 +2,160 @@
 
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Computed;
 use App\Models\PengajuanBantuan;
-use App\Models\MahasiswaProfile;
+use App\Models\Wallet;
+use App\Models\Transaction;
 use Illuminate\Support\Facades\DB;
 
-new #[Layout('layouts.lkbb')] class extends Component {
+new 
+#[Layout('layouts.lkbb')] 
+class extends Component {
     
-    // Properti Modal Detail
-    public $showDetailModal = false;
-    public $selectedPengajuan = null;
-
-    // Properti Modal Reject
-    public $showRejectModal = false;
-    public $selectedId = null;
-
-    // Mengambil data dengan status 'diajukan' sesuai Migration
-    #[Computed]
-    public function pendingRequests()
+    public function getPengajuansProperty()
     {
-        // Asumsi relasi MahasiswaProfile punya relasi 'user' untuk mengambil nama
-        return PengajuanBantuan::with(['mahasiswaProfile.user']) 
-            ->where('status', 'diajukan') 
-            ->orderBy('created_at', 'desc')
+        return PengajuanBantuan::with(['mahasiswaProfile.user'])
+            ->where('status', 'diajukan')
+            ->latest()
             ->get();
     }
 
-    public function lihatDetail($id)
+    public function setujui($id)
     {
-        $this->selectedPengajuan = PengajuanBantuan::with(['mahasiswaProfile.user'])->find($id);
-        $this->showDetailModal = true;
+        $pengajuan = PengajuanBantuan::with('mahasiswaProfile.user')->find($id);
+        if (!$pengajuan) return;
+
+        DB::transaction(function () use ($pengajuan) {
+            // 1. Ubah status pengajuan & profil jadi disetujui
+            $pengajuan->update(['status' => 'disetujui']);
+            $pengajuan->mahasiswaProfile->update(['status_bantuan' => 'disetujui']);
+            
+            // 2. Buat Dompet Mahasiswa jika belum ada, lalu tambah saldonya
+            $studentWallet = Wallet::firstOrCreate(
+                ['user_id' => $pengajuan->mahasiswaProfile->user_id],
+                [
+                    'account_number' => 'MHS-' . str_pad($pengajuan->mahasiswaProfile->user_id, 4, '0', STR_PAD_LEFT),
+                    'balance' => 0,
+                    'type' => 'REGULAR'
+                ]
+            );
+            $studentWallet->increment('balance', $pengajuan->nominal);
+
+            // 3. Potong saldo dari Dompet Donasi LKBB
+            $donationWallet = Wallet::where('type', 'DONATION_POOL')->first();
+            if ($donationWallet) {
+                $donationWallet->decrement('balance', $pengajuan->nominal);
+            }
+
+            // 4. Catat histori di tabel Transactions (Sesuai Skema Dashboard LKBB)
+            Transaction::create([
+                'order_id' => $pengajuan->nomor_pengajuan,
+                'user_id' => $pengajuan->mahasiswaProfile->user_id,
+                'type' => 'donation_received',
+                'status' => 'lunas',
+                'total_amount' => $pengajuan->nominal,
+                'description' => 'Pencairan Dana Bantuan dari LKBB',
+            ]);
+
+            // 5. Update cache saldo di tabel profil mahasiswa
+            $pengajuan->mahasiswaProfile->increment('saldo', $pengajuan->nominal);
+        });
     }
 
-    public function tutupDetail()
+    public function tolak($id)
     {
-        $this->showDetailModal = false;
-        $this->selectedPengajuan = null;
-    }
-
-    // Fungsi Approve
-    public function approve($id)
-    {
-        try {
-            DB::transaction(function () use ($id) {
-                $pengajuan = PengajuanBantuan::where('id', $id)
-                    ->where('status', 'diajukan')
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
-                // Ubah status menjadi 'disetujui' sesuai ENUM di Migration
-                $pengajuan->update([
-                    'status' => 'disetujui',
-                    'updated_at' => now(),
-                ]);
-            });
-
-            session()->flash('message', "Pengajuan Bantuan {$id} berhasil disetujui!");
-            $this->tutupDetail();
-        } catch (\Exception $e) {
-            session()->flash('error', 'Terjadi kesalahan saat memproses persetujuan.');
-        }
-    }
-
-    // Fungsi Buka Modal Reject
-    public function openRejectModal($id)
-    {
-        $this->selectedId = $id;
-        $this->showRejectModal = true;
-        $this->showDetailModal = false; 
-    }
-
-    // Fungsi Konfirmasi Reject
-    public function confirmReject()
-    {
-        try {
-            DB::transaction(function () {
-                $pengajuan = PengajuanBantuan::where('id', $this->selectedId)
-                    ->where('status', 'diajukan')
-                    ->lockForUpdate()
-                    ->firstOrFail();
-
-                // Ubah status menjadi 'ditolak' sesuai ENUM di Migration
-                $pengajuan->update([
-                    'status' => 'ditolak',
-                    'updated_at' => now(),
-                ]);
-            });
-
-            $this->showRejectModal = false;
-            session()->flash('message', 'Pengajuan bantuan berhasil ditolak.');
-        } catch (\Exception $e) {
-            session()->flash('error', 'Gagal menolak pengajuan.');
+        $pengajuan = PengajuanBantuan::find($id);
+        if ($pengajuan) {
+            $pengajuan->update(['status' => 'ditolak']);
+            $pengajuan->mahasiswaProfile->update(['status_bantuan' => 'ditolak']);
         }
     }
 }; ?>
 
-<div class="p-6 max-w-7xl mx-auto">
-    <div class="mb-8">
-        <h1 class="text-2xl font-bold text-gray-800">Verifikasi Bantuan Mahasiswa</h1>
-        <p class="text-gray-500 text-sm mt-1">Daftar mahasiswa yang diajukan untuk menerima bantuan dana pendidikan.</p>
+<div class="p-6">
+    <div class="flex items-center gap-2 text-sm text-gray-500 mb-4">
+        <a href="{{ route('lkbb.dashboard') }}" class="hover:text-blue-600 transition">Dashboard</a>
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+        <span class="font-medium text-gray-900">Verifikasi Bantuan Mahasiswa</span>
     </div>
 
-    @if (session()->has('message'))
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6 shadow-sm">
-            {{ session('message') }}
+    <div class="flex justify-between items-end mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">Antrean Verifikasi Bantuan</h2>
+            <p class="text-gray-500 text-sm mt-1">Setujui pencairan dana sebesar Rp 500.000/mahasiswa dari dompet donatur LKBB.</p>
         </div>
-    @endif
-    @if (session()->has('error'))
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6 shadow-sm">
-            {{ session('error') }}
-        </div>
-    @endif
+    </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">No. Pengajuan</th>
-                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Mahasiswa</th>
-                    <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nominal</th>
-                    <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Aksi</th>
-                </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-200">
-                @forelse($this->pendingRequests as $req)
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-6 py-4 text-sm font-medium text-gray-900">
-                            {{ $req->nomor_pengajuan }}
-                        </td>
-                        <td class="px-6 py-4">
-                            <div class="text-sm font-bold text-gray-900">{{ $req->mahasiswaProfile->user->name ?? 'Nama Kosong' }}</div>
-                            <div class="text-xs text-gray-500">NIM: {{ $req->mahasiswaProfile->nim ?? '-' }}</div>
-                        </td>
-                        <td class="px-6 py-4 text-sm font-bold text-blue-600">
-                            Rp {{ number_format($req->nominal ?? 0, 0, ',', '.') }}
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <button wire:click="lihatDetail({{ $req->id }})" class="text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md text-xs font-bold border border-blue-200 transition-colors">
-                                Lihat & Verifikasi
-                            </button>
-                        </td>
-                    </tr>
-                @empty
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+            <h3 class="font-bold text-gray-900 text-sm">Menunggu Persetujuan</h3>
+            <span class="text-xs font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-100">{{ $this->pengajuans->count() }} Pengajuan</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead class="bg-white text-gray-500 text-[10px] uppercase font-bold tracking-wider border-b border-gray-200">
                     <tr>
-                        <td colspan="4" class="px-6 py-8 text-center text-gray-500 text-sm">Tidak ada pengajuan bantuan mahasiswa yang berstatus 'diajukan'.</td>
+                        <th class="px-6 py-4">No. Pengajuan</th>
+                        <th class="px-6 py-4">Mahasiswa Penerima</th>
+                        <th class="px-6 py-4 text-center">Data Akademik</th>
+                        <th class="px-6 py-4 text-right">Nominal Bantuan</th>
+                        <th class="px-6 py-4 text-right">Aksi Eksekusi</th>
                     </tr>
-                @endforelse
-            </tbody>
-        </table>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse($this->pengajuans as $pengajuan)
+                    <tr class="hover:bg-gray-50/80 transition group">
+                        
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-gray-900 text-xs font-mono">{{ $pengajuan->nomor_pengajuan }}</div>
+                            <div class="text-[10px] text-gray-400 mt-0.5">{{ $pengajuan->created_at->format('d M Y, H:i') }}</div>
+                        </td>
+
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-3">
+                                <div class="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold bg-purple-100 text-purple-700">
+                                    {{ strtoupper(substr($pengajuan->mahasiswaProfile->user->name, 0, 2)) }}
+                                </div>
+                                <div>
+                                    <div class="font-bold text-gray-900 text-sm">{{ $pengajuan->mahasiswaProfile->user->name }}</div>
+                                    <div class="text-[10px] text-gray-500 font-mono">{{ $pengajuan->mahasiswaProfile->nim ?? '-' }}</div>
+                                </div>
+                            </div>
+                        </td>
+
+                        <td class="px-6 py-4 text-center">
+                            <div class="text-[10px] font-bold text-gray-600 uppercase">{{ $pengajuan->mahasiswaProfile->jurusan ?? '-' }}</div>
+                            <div class="text-[10px] text-gray-500 mt-1">IPK: <span class="font-bold text-gray-800">{{ $pengajuan->mahasiswaProfile->ipk ?? '-' }}</span></div>
+                        </td>
+
+                        <td class="px-6 py-4 text-right">
+                            <div class="text-sm font-bold text-blue-600">Rp {{ number_format($pengajuan->nominal, 0, ',', '.') }}</div>
+                            <div class="text-[10px] text-gray-400 mt-0.5">Saldo Wallet</div>
+                        </td>
+
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex items-center justify-end gap-2">
+                                <button wire:click="tolak({{ $pengajuan->id }})" wire:confirm="Yakin ingin menolak pengajuan ini?" class="px-3 py-1.5 text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition uppercase">
+                                    Tolak
+                                </button>
+                                <button wire:click="setujui({{ $pengajuan->id }})" class="flex items-center px-4 py-1.5 text-[10px] font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-lg shadow-sm transition uppercase">
+                                    <svg class="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                    Cairkan Dana
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="5" class="px-6 py-16 text-center text-gray-500">
+                            <div class="text-4xl mb-3">📬</div>
+                            <p class="font-medium text-sm">Hore! Antrean kosong.</p>
+                            <p class="text-xs text-gray-400 mt-1">Belum ada pengajuan bantuan baru dari Admin.</p>
+                        </td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
-
-    @if($showDetailModal && $selectedPengajuan)
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 transition-opacity">
-            <div class="bg-white rounded-xl p-6 w-full max-w-2xl shadow-2xl transform transition-all">
-                <div class="flex justify-between items-center border-b pb-4 mb-4">
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-900">Detail Bantuan Mahasiswa</h3>
-                        <p class="text-xs text-gray-500 mt-1">{{ $selectedPengajuan->nomor_pengajuan }}</p>
-                    </div>
-                    <button wire:click="tutupDetail" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4 mb-6">
-                    <div class="bg-gray-50 p-3 rounded-lg">
-                        <span class="block text-xs text-gray-500 font-semibold mb-1">Nama Lengkap</span>
-                        <span class="font-bold text-gray-800">{{ $selectedPengajuan->mahasiswaProfile->user->name ?? '-' }}</span>
-                    </div>
-                    <div class="bg-gray-50 p-3 rounded-lg">
-                        <span class="block text-xs text-gray-500 font-semibold mb-1">NIM</span>
-                        <span class="font-bold text-gray-800">{{ $selectedPengajuan->mahasiswaProfile->nim ?? '-' }}</span>
-                    </div>
-                    <div class="bg-gray-50 p-3 rounded-lg">
-                        <span class="block text-xs text-gray-500 font-semibold mb-1">Program Studi / Jurusan</span>
-                        <span class="font-bold text-gray-800">{{ $selectedPengajuan->mahasiswaProfile->jurusan ?? '-' }}</span>
-                    </div>
-                    <div class="bg-gray-50 p-3 rounded-lg">
-                        <span class="block text-xs text-gray-500 font-semibold mb-1">IPK Terakhir</span>
-                        <span class="font-bold text-gray-800">{{ $selectedPengajuan->mahasiswaProfile->ipk ?? 'Belum diinput' }}</span>
-                    </div>
-                    <div class="col-span-2 bg-blue-50 p-4 rounded-lg border border-blue-100 flex justify-between items-center">
-                        <span class="block text-sm text-blue-600 font-bold">Nominal yang Diajukan</span>
-                        <span class="font-bold text-blue-700 text-xl">Rp {{ number_format($selectedPengajuan->nominal ?? 0, 0, ',', '.') }}</span>
-                    </div>
-                </div>
-
-                <div class="flex justify-end space-x-3 border-t pt-4">
-                    <button wire:click="openRejectModal({{ $selectedPengajuan->id }})" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-bold transition-colors">
-                        Tolak
-                    </button>
-                    <button wire:click="approve({{ $selectedPengajuan->id }})" wire:confirm="Yakin ingin menyetujui pencairan dana sebesar Rp {{ number_format($selectedPengajuan->nominal ?? 0, 0, ',', '.') }} untuk mahasiswa ini?" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-bold transition-colors shadow-sm">
-                        Setujui Bantuan
-                    </button>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    @if($showRejectModal)
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 transition-opacity">
-            <div class="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl transform transition-all text-center">
-                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-                    <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                </div>
-                <h3 class="text-lg font-bold text-gray-900 mb-2">Tolak Pengajuan?</h3>
-                <p class="text-sm text-gray-500 mb-6">Apakah Anda yakin ingin menolak pengajuan bantuan ini? Status akan diubah menjadi 'ditolak' secara permanen.</p>
-                
-                <div class="flex justify-center space-x-3">
-                    <button wire:click="$set('showRejectModal', false)" class="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-bold transition-colors">
-                        Batal
-                    </button>
-                    <button wire:click="confirmReject" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold transition-colors shadow-sm">
-                        Ya, Tolak Pengajuan
-                    </button>
-                </div>
-            </div>
-        </div>
-    @endif
 </div>
