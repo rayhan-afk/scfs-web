@@ -18,24 +18,31 @@
     </head>
     <body class="font-sans antialiased bg-gray-50">
         
-        @if(Auth::user()->role === 'admin')
+        {{-- Cek jika user adalah Admin atau Merchant (Keduanya pakai desain sidebar) --}}
+        @if(in_array(Auth::user()->role, ['admin', 'merchant']))
             
             {{-- ========================================== --}}
-            {{-- LAYOUT KHUSUS ADMIN (DENGAN LOGIKA BUKA TUTUP) --}}
+            {{-- LAYOUT KHUSUS DASHBOARD BERSIDEBAR         --}}
             {{-- ========================================== --}}
             
             {{-- Kita pasang x-data di sini agar Sidebar & Header bisa saling komunikasi --}}
             <div x-data="{ sidebarOpen: true }" class="flex h-screen overflow-hidden">
                 
-                {{-- 1. SIDEBAR (Akan baca status sidebarOpen) --}}
-                <livewire:layout.admin-sidebar />
+                {{-- 1. SIDEBAR DINAMIS (Baca status sidebarOpen) --}}
+                @if(Auth::user()->role === 'admin')
+                    <livewire:layout.admin-sidebar />
+                @elseif(Auth::user()->role === 'merchant')
+                    <livewire:layout.merchant-sidebar />
+                @endif
 
                 {{-- 2. KONTEN UTAMA (KANAN) --}}
                 <div class="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 transition-all duration-300">
                     
                     {{-- Header Mobile (Hanya muncul di HP) --}}
                     <header class="bg-white shadow-sm flex items-center justify-between px-6 py-4 md:hidden sticky top-0 z-20">
-                        <span class="font-bold text-lg text-gray-800">Admin Panel</span>
+                        <span class="font-bold text-lg text-gray-800">
+                            {{ Auth::user()->role === 'admin' ? 'Admin Panel' : 'Mitra Kantin' }}
+                        </span>
                         
                         {{-- Tombol Buka Tutup Sidebar di HP --}}
                         <button @click="sidebarOpen = !sidebarOpen" class="text-gray-500 hover:text-blue-600 focus:outline-none">
@@ -55,7 +62,7 @@
         @else
             
             {{-- ========================================== --}}
-            {{-- LAYOUT STANDAR (MAHASISWA/MERCHANT)        --}}
+            {{-- LAYOUT STANDAR (MAHASISWA/UMUM LAINNYA)    --}}
             {{-- ========================================== --}}
             <div class="min-h-screen bg-gray-100">
                 <livewire:layout.navigation />
