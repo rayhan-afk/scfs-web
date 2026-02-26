@@ -89,4 +89,8 @@ class User extends Authenticatable
     {
         return $this->hasOne(DonaturProfile::class);
     }   
+    public function latestLogin()
+    {
+        return $this->hasOne(LoginLog::class)->latestOfMany('login_at');
+    }
 }

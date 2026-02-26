@@ -45,6 +45,8 @@ Route::middleware(['auth'])->group(function () {
     // ----------------------------------------------------------
     Volt::route('/admin/dashboard', 'dashboard.admin')->name('admin.dashboard');
 
+    Volt::route('/admin/users', 'admin.user-management')->name('admin.users.index');
+
     // Mahasiswa
     Volt::route('/admin/verifikasi-mahasiswa', 'admin.mahasiswa-verification')->name('admin.verification');
     Volt::route('/admin/data-mahasiswa', 'admin.mahasiswa-data')->name('admin.mahasiswa.index');
