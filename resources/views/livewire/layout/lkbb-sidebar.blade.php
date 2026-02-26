@@ -106,6 +106,7 @@ new class extends Component
             </svg>
             Verifikasi Pemasok
         </a>
+        
 
         {{-- ─── MASTER DATA (collapsible) ─── --}}
         <span class="{{ $label }}">Master Dompet</span>

@@ -14,7 +14,9 @@ class extends Component {
     public function getStudentsProperty()
     {
         // Ambil user mahasiswa beserta relasi profilnya
-        $query = User::where('role', 'mahasiswa')->with('mahasiswaProfile');
+        $query = User::where('role', 'mahasiswa')
+    ->whereHas('mahasiswaProfile')
+    ->with('mahasiswaProfile');
 
         // Filter dari tabel relasi
         if ($this->activeTab !== 'Semua') {

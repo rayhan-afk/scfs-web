@@ -10,21 +10,20 @@ new
 #[Layout('layouts.app')] 
 class extends Component {
     
-    // Fitur Pencarian & Filter
     public $search = '';
     public $filterStatus = 'Semua'; 
 
-    // Variabel Form Tambah Merchant
     public $isAddModalOpen = false;
     public $nama_kantin, $nama_pemilik, $no_hp, $lokasi_blok, $info_pencairan, $persentase_bagi_hasil = 10;
     public $email, $password; 
 
     public function getMerchantsProperty()
     {
+        // ✅ PERBAIKAN: hapus ->has('merchantProfile') agar semua merchant tampil
         $query = User::where('role', 'merchant')
-                     ->has('merchantProfile') 
                      ->with('merchantProfile');
 
+        // Filter status hanya jika bukan "Semua"
         if ($this->filterStatus !== 'Semua') {
             $status = strtolower($this->filterStatus);
             $query->whereHas('merchantProfile', function($q) use ($status) {
@@ -32,13 +31,14 @@ class extends Component {
             });
         }
 
+        // Filter pencarian
         if ($this->search) {
             $query->where(function($q) {
                 $q->whereHas('merchantProfile', function($q2) {
                     $q2->where('nama_kantin', 'like', '%' . $this->search . '%')
                        ->orWhere('nama_pemilik', 'like', '%' . $this->search . '%')
                        ->orWhere('lokasi_blok', 'like', '%' . $this->search . '%');
-                });
+                })->orWhere('name', 'like', '%' . $this->search . '%'); // fallback ke nama user
             });
         }
 
@@ -48,8 +48,8 @@ class extends Component {
     public function getStatsProperty()
     {
         return [
-            'total_kantin' => MerchantProfile::count(),
-            'total_token' => MerchantProfile::sum('saldo_token'),
+            'total_kantin'  => User::where('role', 'merchant')->count(), // ✅ hitung dari user bukan profile
+            'total_token'   => MerchantProfile::sum('saldo_token'),
             'total_tagihan' => MerchantProfile::sum('tagihan_setoran_tunai'),
         ];
     }
@@ -63,6 +63,7 @@ class extends Component {
     public function closeAddModal()
     {
         $this->isAddModalOpen = false;
+        $this->resetForm();
     }
 
     public function resetForm()
@@ -74,42 +75,57 @@ class extends Component {
     public function saveMerchant()
     {
         $this->validate([
-            'nama_kantin' => 'required|string|max:255',
+            'nama_kantin'  => 'required|string|max:255',
             'nama_pemilik' => 'required|string|max:255',
-            'no_hp' => 'nullable|string|max:20',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:6',
+            'no_hp'        => 'nullable|string|max:20',
+            'email'        => 'required|email|unique:users,email',
+            'password'     => 'required|min:6',
         ]);
 
         $user = User::create([
-            'name' => $this->nama_pemilik,
-            'email' => $this->email,
+            'name'     => $this->nama_pemilik,
+            'email'    => $this->email,
             'password' => Hash::make($this->password),
-            'role' => 'merchant',
+            'role'     => 'merchant',
         ]);
 
         MerchantProfile::create([
-            'user_id' => $user->id,
-            'nama_kantin' => $this->nama_kantin,
-            'nama_pemilik' => $this->nama_pemilik,
-            'no_hp' => $this->no_hp,
-            'lokasi_blok' => $this->lokasi_blok,
-            'info_pencairan' => $this->info_pencairan, // Simpan info rekening/E-wallet
+            'user_id'               => $user->id,
+            'nama_kantin'           => $this->nama_kantin,
+            'nama_pemilik'          => $this->nama_pemilik,
+            'no_hp'                 => $this->no_hp,
+            'lokasi_blok'           => $this->lokasi_blok,
+            'info_pencairan'        => $this->info_pencairan,
             'persentase_bagi_hasil' => $this->persentase_bagi_hasil,
-            'status_toko' => 'tutup', 
+            'status_toko'           => 'tutup',
+            'saldo_token'           => 0,
+            'tagihan_setoran_tunai' => 0,
         ]);
 
         $this->closeAddModal();
+
+        // ✅ Tampilkan notifikasi sukses
+        session()->flash('success', 'Kantin berhasil didaftarkan!');
     }
 }; ?>
 
 <div class="py-12 px-6 md:px-8 w-full space-y-6 relative">
     
+    {{-- Header --}}
     <div>
         <h2 class="text-2xl font-bold text-gray-900">Manajemen Merchant (Kantin)</h2>
-        <p class="text-gray-500 text-sm mt-1">Kelola data kantin, pantau saldo token, dan tagihan bagi hasil secara *real-time*.</p>
+        <p class="text-gray-500 text-sm mt-1">Kelola data kantin, pantau saldo token, dan tagihan bagi hasil secara real-time.</p>
     </div>
 
+    {{-- Flash sukses --}}
+    @if(session('success'))
+    <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
+        <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        {{ session('success') }}
+    </div>
+    @endif
+
+    {{-- Stats --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
             <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -142,34 +158,36 @@ class extends Component {
         </div>
     </div>
 
+    {{-- Search & Filter Bar --}}
     <div class="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
         <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto flex-1">
             <div class="relative w-full md:w-80">
                 <span class="absolute inset-y-0 left-0 flex items-center pl-3">
                     <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 </span>
-                <input wire:model.live="search" type="text" placeholder="Cari nama kantin atau pemilik..." 
-                    class="w-full py-2.5 pl-10 pr-4 text-sm text-gray-700 bg-gray-50 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-blue-500 transition">
+                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari nama kantin atau pemilik..." 
+                    class="w-full py-2.5 pl-10 pr-4 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-blue-500 transition">
             </div>
 
-            <div class="relative w-full md:w-40">
-                <select wire:model.live="filterStatus" class="appearance-none w-full py-2.5 pl-4 pr-10 text-sm font-medium text-gray-700 bg-gray-50 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition">
+            <div class="relative w-full md:w-44">
+                <select wire:model.live="filterStatus" class="appearance-none w-full py-2.5 pl-4 pr-10 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer transition">
                     <option value="Semua">Semua Status</option>
-                    <option value="Buka">Sedang Buka</option>
-                    <option value="Tutup">Tutup</option>
+                    <option value="buka">Sedang Buka</option>
+                    <option value="tutup">Tutup</option>
                 </select>
                 <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                 </div>
             </div>
         </div>
 
         <button wire:click="openAddModal" class="w-full md:w-auto px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium text-sm shadow-sm transition flex items-center justify-center gap-2">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
             Tambah Kantin
         </button>
     </div>
 
+    {{-- Tabel --}}
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse">
@@ -178,15 +196,15 @@ class extends Component {
                         <th class="px-6 py-4">Kantin & Pemilik</th>
                         <th class="px-6 py-4">Lokasi Blok</th>
                         <th class="px-6 py-4 text-center">Bagi Hasil</th>
-                        <th class="px-6 py-4 text-right">Saldo Token (Milik Kantin)</th>
-                        <th class="px-6 py-4 text-right">Tagihan Tunai (Ke LKBB)</th>
+                        <th class="px-6 py-4 text-right">Saldo Token</th>
+                        <th class="px-6 py-4 text-right">Tagihan Tunai</th>
                         <th class="px-6 py-4 text-center">Status</th>
                         <th class="px-6 py-4 text-right">Aksi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse($this->merchants as $merchant)
-                    <tr class="hover:bg-gray-50/80 transition group">
+                    <tr class="hover:bg-gray-50/80 transition">
                         
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
@@ -194,8 +212,15 @@ class extends Component {
                                     🏪
                                 </div>
                                 <div>
-                                    <div class="font-bold text-gray-900 text-sm">{{ $merchant->merchantProfile?->nama_kantin ?? '-' }}</div>
-                                    <div class="text-xs text-gray-500 mt-0.5">Pemilik: <span class="font-medium text-gray-700">{{ $merchant->merchantProfile?->nama_pemilik ?? '-' }}</span></div>
+                                    <div class="font-bold text-gray-900 text-sm">
+                                        {{ $merchant->merchantProfile?->nama_kantin ?? $merchant->name }}
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-0.5">
+                                        Pemilik: <span class="font-medium text-gray-700">{{ $merchant->merchantProfile?->nama_pemilik ?? $merchant->name }}</span>
+                                    </div>
+                                    @if(!$merchant->merchantProfile)
+                                        <span class="text-[10px] text-orange-500 font-semibold">⚠ Profil belum lengkap</span>
+                                    @endif
                                 </div>
                             </div>
                         </td>
@@ -223,7 +248,7 @@ class extends Component {
                         </td>
 
                         <td class="px-6 py-4 text-center">
-                            @if(($merchant->merchantProfile?->status_toko ?? 'tutup') == 'buka')
+                            @if(($merchant->merchantProfile?->status_toko ?? 'tutup') === 'buka')
                                 <span class="bg-emerald-100 text-emerald-700 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider border border-emerald-200 inline-flex items-center gap-1">
                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Buka
                                 </span>
@@ -235,7 +260,8 @@ class extends Component {
                         </td>
 
                         <td class="px-6 py-4 text-right">
-                            <a href="{{ route('admin.merchant.detail', $merchant->id) }}" class="inline-flex items-center px-4 py-2 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
+                            <a href="{{ route('admin.merchant.detail', $merchant->id) }}" 
+                               class="inline-flex items-center px-4 py-2 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors">
                                 Detail & Keuangan
                                 <svg class="w-3.5 h-3.5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                             </a>
@@ -243,8 +269,8 @@ class extends Component {
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-12 text-center">
-                            <div class="text-4xl mb-3">🏪</div>
+                        <td colspan="7" class="px-6 py-16 text-center">
+                            <div class="text-5xl mb-3">🏪</div>
                             <p class="text-gray-500 text-sm font-medium">Belum ada data kantin yang terdaftar.</p>
                             <p class="text-gray-400 text-xs mt-1">Klik tombol "Tambah Kantin" untuk memulai.</p>
                         </td>
@@ -255,20 +281,23 @@ class extends Component {
         </div>
     </div>
 
+    {{-- Modal Tambah Kantin --}}
     @if($isAddModalOpen)
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm transition-opacity">
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
         <div class="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
             
+            {{-- Header Modal --}}
             <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                 <h3 class="font-bold text-gray-900 flex items-center gap-2 text-sm">
                     <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                     Daftarkan Kantin Baru
                 </h3>
-                <button wire:click="closeAddModal" class="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg hover:bg-gray-200">
+                <button wire:click="closeAddModal" class="text-gray-400 hover:text-gray-600 transition p-1.5 rounded-lg hover:bg-gray-200">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
             
+            {{-- Body Modal --}}
             <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
                 <div class="bg-blue-50 border border-blue-100 text-blue-700 text-xs p-3 rounded-xl flex items-start gap-2">
                     <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -278,47 +307,72 @@ class extends Component {
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama Kantin / Warung</label>
-                        <input wire:model="nama_kantin" type="text" placeholder="Cth: Ayam Geprek Bu Ani" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                        <input wire:model="nama_kantin" type="text" placeholder="Cth: Ayam Geprek Bu Ani" 
+                               class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                        @error('nama_kantin') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama Pemilik</label>
-                        <input wire:model="nama_pemilik" type="text" placeholder="Cth: Ibu Ani" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                        <input wire:model="nama_pemilik" type="text" placeholder="Cth: Ibu Ani" 
+                               class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                        @error('nama_pemilik') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">No HP (WhatsApp)</label>
-                        <input wire:model="no_hp" type="text" placeholder="Cth: 0812..." class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                        <input wire:model="no_hp" type="text" placeholder="Cth: 0812..." 
+                               class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Lokasi / Blok</label>
-                        <input wire:model="lokasi_blok" type="text" placeholder="Cth: Kantin Timur" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                        <input wire:model="lokasi_blok" type="text" placeholder="Cth: Kantin Timur" 
+                               class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
                     </div>
                 </div>
 
                 <div>
                     <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Info Bank / E-Wallet (Tujuan Pencairan)</label>
-                    <input wire:model="info_pencairan" type="text" placeholder="Cth: GoPay 0812... a.n Ibu Ani" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                    <input wire:model="info_pencairan" type="text" placeholder="Cth: GoPay 0812... a.n Ibu Ani" 
+                           class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
                 </div>
 
-                <hr class="border-gray-100 my-2">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Persentase Bagi Hasil (%)</label>
+                    <input wire:model="persentase_bagi_hasil" type="number" min="0" max="100" 
+                           class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                </div>
+
+                <hr class="border-gray-100">
 
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Email (Untuk Login)</label>
-                        <input wire:model="email" type="email" placeholder="kantin.ani@scfs.com" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                        <input wire:model="email" type="email" placeholder="kantin.ani@scfs.com" 
+                               class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                        @error('email') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Password Sementara</label>
-                        <input wire:model="password" type="password" placeholder="Minimal 6 karakter" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                        <input wire:model="password" type="password" placeholder="Minimal 6 karakter" 
+                               class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                        @error('password') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
                     </div>
                 </div>
             </div>
             
+            {{-- Footer Modal --}}
             <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
-                <button wire:click="closeAddModal" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors focus:ring-4 focus:ring-gray-100">Batal</button>
-                <button wire:click="saveMerchant" class="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm focus:ring-4 focus:ring-blue-100">Daftarkan Kantin</button>
+                <button wire:click="closeAddModal" 
+                        class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition">
+                    Batal
+                </button>
+                <button wire:click="saveMerchant" wire:loading.attr="disabled"
+                        class="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition shadow-sm disabled:opacity-70">
+                    <span wire:loading.remove wire:target="saveMerchant">Daftarkan Kantin</span>
+                    <span wire:loading wire:target="saveMerchant">Menyimpan...</span>
+                </button>
             </div>
         </div>
     </div>
