@@ -13,7 +13,8 @@ new class extends Component
 }; ?>
 
 @php
-    $isMasterDataActive = request()->routeIs('admin.mahasiswa.*', 'admin.merchant.*', 'admin.pemasok.*', 'admin.investor.*', 'admin.donatur.*');
+    // Tambahkan admin.users.* ke dalam deteksi menu aktif
+    $isMasterDataActive = request()->routeIs('admin.users.*', 'admin.mahasiswa.*', 'admin.merchant.*', 'admin.pemasok.*', 'admin.investor.*', 'admin.donatur.*');
     $isOperasionalActive = request()->routeIs('admin.monitoring.*', 'admin.distribusi.*', 'admin.po.*');
     $isKeuanganActive = request()->routeIs('admin.setoran.*', 'admin.bagihasil.*');
 @endphp
@@ -93,6 +94,12 @@ new class extends Component
             </button>
 
             <div x-show="masterDataOpen && sidebarOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mt-1 space-y-1 px-2">
+                
+                <a href="{{ route('admin.users.index') }}" wire:navigate class="flex items-center pl-10 pr-4 py-2 text-sm font-medium rounded-lg transition-colors {{ request()->routeIs('admin.users.*') ? 'text-blue-700 bg-blue-50/50 font-bold' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50' }}">
+                    <svg class="w-4 h-4 mr-3 {{ request()->routeIs('admin.users.*') ? 'text-blue-600' : '' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Akun Pengguna
+                </a>
+
                 <a href="{{ route('admin.mahasiswa.index') }}" class="flex items-center pl-10 pr-4 py-2 text-sm font-medium rounded-lg transition-colors {{ request()->routeIs('admin.mahasiswa.*') ? 'text-blue-700 bg-blue-50/50 font-bold' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50' }}">
                     <svg class="w-4 h-4 mr-3 {{ request()->routeIs('admin.mahasiswa.*') ? 'text-blue-600' : '' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                     Data Mahasiswa

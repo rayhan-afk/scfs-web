@@ -4,7 +4,7 @@ use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 use App\Models\User;
 use App\Models\MahasiswaProfile;
-use App\Models\PengajuanBantuan; // Pastikan model ini dipanggil
+use App\Models\PengajuanBantuan; 
 use Illuminate\Support\Facades\Hash;
 
 new 
@@ -19,11 +19,16 @@ class extends Component {
     public $nama_lengkap, $nim, $jurusan, $no_hp, $alamat, $semester, $ipk;
     public $email, $password; 
 
+    // --- VARIABEL BARU: FORM PENGAJUAN NOMINAL ---
+    public $isAjukanModalOpen = false;
+    public $ajukanUserId = null;
+    public $ajukanNama = '';
+    public $ajukanNominal = 500000; // Default saran nominal
+
     public function getStudentsProperty()
     {
         $query = User::where('role', 'mahasiswa')
             ->whereHas('mahasiswaProfile', function($q) {
-                // Di halaman Buku Induk, hanya tampilkan yang sudah diverifikasi (disetujui)
                 $q->where('status_verifikasi', 'disetujui');
             })->with('mahasiswaProfile');
 
@@ -52,26 +57,47 @@ class extends Component {
     }
 
     // =====================================
-    // FUNGSI PENGAJUAN BANTUAN
+    // FUNGSI PENGAJUAN BANTUAN (REVISI)
     // =====================================
-    public function ajukanKeLKBB($userId)
+    public function openAjukanModal($userId, $nama)
     {
-        $user = User::with('mahasiswaProfile')->find($userId);
+        $this->ajukanUserId = $userId;
+        $this->ajukanNama = $nama;
+        $this->ajukanNominal = 500000; // Reset ke default tiap buka modal
+        $this->isAjukanModalOpen = true;
+    }
+
+    public function closeAjukanModal()
+    {
+        $this->isAjukanModalOpen = false;
+        $this->reset(['ajukanUserId', 'ajukanNama', 'ajukanNominal']);
+    }
+
+    public function submitAjukan()
+    {
+        $this->validate([
+            'ajukanNominal' => 'required|numeric|min:10000' // Minimal pengajuan 10rb
+        ]);
+
+        $user = User::with('mahasiswaProfile')->find($this->ajukanUserId);
         
         if ($user && $user->mahasiswaProfile) {
             $profil = $user->mahasiswaProfile;
             
-            // 1. Buat record di tabel pengajuan_bantuans
+            // 1. Buat record baru di tabel pengajuan_bantuans dengan nominal yang diinput admin
             PengajuanBantuan::create([
                 'mahasiswa_profile_id' => $profil->id,
-                'nominal' => 500000, // Default nominal
+                'nominal' => $this->ajukanNominal,
                 'status' => 'diajukan',
-                'nomor_pengajuan' => 'SC-' . date('Y') . '-' . str_pad(rand(1, 999), 3, '0', STR_PAD_LEFT)
+                'nomor_pengajuan' => 'SC-' . date('Y') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT)
             ]);
             
-            // 2. Update status_bantuan di tabel mahasiswa_profiles
+            // 2. Timpa status bantuan saat ini menjadi 'diajukan' (masuk antrean LKBB lagi)
             $profil->update(['status_bantuan' => 'diajukan']);
         }
+
+        $this->closeAjukanModal();
+        session()->flash('message', 'Pengajuan dana sebesar Rp ' . number_format($this->ajukanNominal, 0, ',', '.') . ' berhasil dikirim ke antrean LKBB.');
     }
 
     // =====================================
@@ -118,12 +144,13 @@ class extends Component {
             'alamat' => $this->alamat,
             'semester' => $this->semester,
             'ipk' => $this->ipk ? (float) $this->ipk : null,
-            'status_verifikasi' => 'disetujui', // Tambah dari admin otomatis disetujui akademik
-            'status_bantuan' => 'belum_diajukan', // Menunggu diajukan ke LKBB
+            'status_verifikasi' => 'disetujui',
+            'status_bantuan' => 'belum_diajukan',
             'saldo' => 0,
         ]);
 
         $this->closeAddModal();
+        session()->flash('message', 'Data mahasiswa berhasil ditambahkan.');
     }
 }; ?>
 
@@ -132,7 +159,7 @@ class extends Component {
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
             <h2 class="text-2xl font-bold text-gray-900">Buku Induk Mahasiswa</h2>
-            <p class="text-gray-500 text-sm mt-1">Kelola data mahasiswa aktif, pantau saldo bantuan, dan ajukan penerima donasi ke LKBB.</p>
+            <p class="text-gray-500 text-sm mt-1">Kelola data mahasiswa aktif, pantau saldo, dan ajukan distribusi donasi berkali-kali ke LKBB.</p>
         </div>
         
         <button wire:click="openAddModal" class="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium text-sm shadow-sm transition flex items-center justify-center gap-2">
@@ -141,12 +168,19 @@ class extends Component {
         </button>
     </div>
 
+    @if (session()->has('message'))
+        <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg shadow-sm flex items-center gap-3">
+            <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+            <p class="text-sm font-medium text-green-800">{{ session('message') }}</p>
+        </div>
+    @endif
+
     <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
         <div class="relative w-full md:w-96">
             <span class="absolute inset-y-0 left-0 flex items-center pl-3">
                 <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </span>
-            <input wire:model.live="search" type="text" placeholder="Cari nama, NIM, atau Jurusan..." 
+            <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari nama, NIM, atau Jurusan..." 
                 class="w-full py-2.5 pl-10 pr-4 text-sm text-gray-700 bg-gray-50 border-gray-200 rounded-lg focus:border-blue-500 focus:ring-blue-500 transition">
         </div>
 
@@ -174,8 +208,8 @@ class extends Component {
                     <tr>
                         <th class="px-6 py-4">Nama / NIM</th>
                         <th class="px-6 py-4">Jurusan</th>
-                        <th class="px-6 py-4 text-right">Sisa Saldo</th>
-                        <th class="px-6 py-4 text-center">Status Bantuan</th>
+                        <th class="px-6 py-4 text-right">Saldo Terkini</th>
+                        <th class="px-6 py-4 text-center">Status Transaksi</th>
                         <th class="px-6 py-4 text-right">Aksi</th>
                     </tr>
                 </thead>
@@ -212,10 +246,10 @@ class extends Component {
                             @endphp
                             
                             @if($statusBantuan == 'disetujui')
-                                <span class="bg-green-100 text-green-700 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border border-green-200">ACC LKBB</span>
+                                <span class="bg-green-100 text-green-700 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border border-green-200" title="Dana sudah pernah cair">Ready</span>
                             @elseif($statusBantuan == 'diajukan')
                                 <span class="bg-blue-100 text-blue-700 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border border-blue-200 inline-flex items-center gap-1">
-                                    <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Menunggu
+                                    <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> Menunggu LKBB
                                 </span>
                             @elseif($statusBantuan == 'ditolak')
                                 <span class="bg-red-100 text-red-700 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wider border border-red-200">Ditolak LKBB</span>
@@ -227,18 +261,16 @@ class extends Component {
                         <td class="px-6 py-4 text-right">
                             <div class="flex items-center justify-end gap-2">
                                 
-                                @if(empty($student->mahasiswaProfile->status_bantuan) || $student->mahasiswaProfile->status_bantuan == 'belum_diajukan' || $student->mahasiswaProfile->status_bantuan == 'ditolak')
-                                    <button wire:click="ajukanKeLKBB({{ $student->id }})" class="inline-flex items-center px-3 py-1.5 text-[10px] font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm focus:ring-2 focus:ring-blue-200 uppercase tracking-wider">
+                                @if($student->mahasiswaProfile->status_bantuan !== 'diajukan')
+                                    <button wire:click="openAjukanModal({{ $student->id }}, '{{ $student->name }}')" class="inline-flex items-center px-3 py-1.5 text-[10px] font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm focus:ring-2 focus:ring-blue-200 uppercase tracking-wider">
                                         <svg class="w-3.5 h-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                                        Ajukan
+                                        Ajukan Dana
                                     </button>
                                 @endif
 
                                 <a href="{{ route('admin.mahasiswa.detail', $student->id) }}" wire:navigate class="inline-flex items-center px-3 py-1.5 text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors uppercase tracking-wider">
                                     Detail
-                                    <svg class="w-3.5 h-3.5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                                 </a>
-                                
                             </div>
                         </td>
                     </tr>
@@ -252,6 +284,45 @@ class extends Component {
             </table>
         </div>
     </div>
+
+    @if($isAjukanModalOpen)
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+            
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-blue-50/50">
+                <h3 class="font-bold text-gray-900 flex items-center gap-2 text-sm">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Ajukan Dana Bantuan
+                </h3>
+                <button wire:click="closeAjukanModal" class="text-gray-400 hover:text-gray-600 transition-colors p-1.5 rounded-lg hover:bg-gray-200">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <div class="text-center mb-4">
+                    <p class="text-xs text-gray-500 uppercase tracking-wider font-bold">Penerima Dana</p>
+                    <p class="text-lg font-extrabold text-gray-900 mt-1">{{ $ajukanNama }}</p>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Input Nominal Bantuan (Rp)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 font-bold text-gray-500">Rp</span>
+                        <input wire:model="ajukanNominal" type="number" step="10000" class="w-full text-base font-bold text-gray-900 rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-3 pl-12 pr-4 shadow-sm" placeholder="Contoh: 500000">
+                    </div>
+                    @error('ajukanNominal') <span class="text-xs text-red-500 mt-1 block font-medium">{{ $message }}</span> @enderror
+                    <p class="text-[10px] text-gray-400 mt-1.5 italic">*Nominal ini akan dikirim ke antrean persetujuan LKBB.</p>
+                </div>
+            </div>
+            
+            <div class="px-6 py-4 border-t border-gray-100 flex gap-3 bg-gray-50/50">
+                <button wire:click="closeAjukanModal" class="w-full px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors focus:ring-4 focus:ring-gray-100">Batal</button>
+                <button wire:click="submitAjukan" class="w-full px-4 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors shadow-sm focus:ring-4 focus:ring-blue-100">Kirim Pengajuan</button>
+            </div>
+        </div>
+    </div>
+    @endif
 
     @if($isAddModalOpen)
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm transition-opacity">
@@ -268,7 +339,6 @@ class extends Component {
             </div>
             
             <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-                
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama Lengkap</label>
@@ -318,7 +388,6 @@ class extends Component {
                         <input wire:model="password" type="password" placeholder="Minimal 6 karakter" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
                     </div>
                 </div>
-                <div class="text-[10px] text-gray-400 italic text-right mt-1">*Mahasiswa yang ditambahkan manual akan otomatis berstatus Disetujui (Terverifikasi Akademik).</div>
             </div>
             
             <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">

@@ -14,7 +14,7 @@ class extends Component {
     // Variabel Modal Edit
     public $isEditModalOpen = false;
     public $edit_nama_kantin, $edit_nama_pemilik, $edit_lokasi_blok, $edit_persentase_bagi_hasil, $edit_status_toko;
-    public $edit_email, $edit_no_hp, $edit_info_pencairan; // Tambah edit_info_pencairan
+    public $edit_email, $edit_no_hp, $edit_info_pencairan;
 
     public function mount($id)
     {
@@ -45,7 +45,7 @@ class extends Component {
             
             $this->edit_email = $this->user->email;
             $this->edit_no_hp = $this->user->merchantProfile->no_hp ?? '';
-            $this->edit_info_pencairan = $this->user->merchantProfile->info_pencairan ?? ''; // Load info pencairan
+            $this->edit_info_pencairan = $this->user->merchantProfile->info_pencairan ?? ''; 
             
             $this->isEditModalOpen = true;
         }
@@ -76,7 +76,7 @@ class extends Component {
                 'nama_kantin' => $this->edit_nama_kantin,
                 'nama_pemilik' => $this->edit_nama_pemilik,
                 'no_hp' => $this->edit_no_hp,
-                'info_pencairan' => $this->edit_info_pencairan, // Simpan info pencairan
+                'info_pencairan' => $this->edit_info_pencairan, 
                 'lokasi_blok' => $this->edit_lokasi_blok,
                 'persentase_bagi_hasil' => $this->edit_persentase_bagi_hasil,
                 'status_toko' => $this->edit_status_toko,
@@ -85,22 +85,6 @@ class extends Component {
 
         $this->user->refresh();
         $this->closeEditModal();
-    }
-
-    public function cairkanToken()
-    {
-        if ($this->user->merchantProfile && $this->user->merchantProfile->saldo_token > 0) {
-            $this->user->merchantProfile->update(['saldo_token' => 0]);
-            $this->user->refresh();
-        }
-    }
-
-    public function terimaSetoran()
-    {
-        if ($this->user->merchantProfile && $this->user->merchantProfile->tagihan_setoran_tunai > 0) {
-            $this->user->merchantProfile->update(['tagihan_setoran_tunai' => 0]);
-            $this->user->refresh();
-        }
     }
 }; ?>
 
@@ -202,60 +186,46 @@ class extends Component {
         <div class="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col h-full w-full">
             <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
             
-            <div class="relative z-10 flex-1">
-                <div class="flex justify-between items-start mb-4">
+            <div class="relative z-10 flex-1 flex flex-col justify-center">
+                <div class="flex justify-between items-start mb-6">
                     <div class="flex items-center gap-2">
                         <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
                             <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         </div>
-                        <span class="text-emerald-50 text-[10px] font-bold tracking-wider">HAK KANTIN</span>
+                        <span class="text-emerald-50 text-[10px] font-bold tracking-wider uppercase">HAK KANTIN</span>
                     </div>
                 </div>
                 
                 <div>
-                    <p class="text-emerald-100 text-xs font-bold tracking-wider mb-1">SALDO TOKEN DIGITAL</p>
+                    <p class="text-emerald-100 text-xs font-bold tracking-wider mb-1">SALDO PENJUALAN (TOKEN)</p>
                     <h3 class="text-3xl font-extrabold tracking-tight drop-shadow-md truncate">
                         <span class="text-xl align-top mr-1 opacity-80">Rp</span>{{ number_format($user->merchantProfile->saldo_token ?? 0, 0, ',', '.') }}
                     </h3>
-                    <p class="text-[10px] text-emerald-100 mt-1 opacity-90 leading-tight">Uang transaksi mahasiswa yang harus LKBB transfer ke rekening ibu kantin.</p>
+                    <p class="text-[11px] text-emerald-100 mt-2 opacity-90 leading-relaxed">Total pendapatan merchant dari transaksi menggunakan SCFS Pay (Token mahasiswa) yang belum dicairkan.</p>
                 </div>
-            </div>
-            
-            <div class="relative z-10 mt-5 pt-4 border-t border-emerald-400/30">
-                <button wire:click="cairkanToken" class="w-full py-2.5 bg-white text-emerald-700 font-bold text-sm rounded-xl shadow-sm hover:bg-emerald-50 transition-colors flex justify-center items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                    Cairkan Saldo ke Kantin
-                </button>
             </div>
         </div>
 
         <div class="bg-gradient-to-br from-rose-500 to-rose-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col h-full w-full">
             <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
             
-            <div class="relative z-10 flex-1">
-                <div class="flex justify-between items-start mb-4">
+            <div class="relative z-10 flex-1 flex flex-col justify-center">
+                <div class="flex justify-between items-start mb-6">
                     <div class="flex items-center gap-2">
                         <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
                             <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z" /></svg>
                         </div>
-                        <span class="text-rose-50 text-[10px] font-bold tracking-wider">HAK LKBB</span>
+                        <span class="text-rose-50 text-[10px] font-bold tracking-wider uppercase">HAK LKBB</span>
                     </div>
                 </div>
                 
                 <div>
-                    <p class="text-rose-100 text-xs font-bold tracking-wider mb-1">TAGIHAN SETORAN TUNAI</p>
+                    <p class="text-rose-100 text-xs font-bold tracking-wider mb-1">SALDO PROFIT (BAGI HASIL)</p>
                     <h3 class="text-3xl font-extrabold tracking-tight drop-shadow-md truncate">
                         <span class="text-xl align-top mr-1 opacity-80">Rp</span>{{ number_format($user->merchantProfile->tagihan_setoran_tunai ?? 0, 0, ',', '.') }}
                     </h3>
-                    <p class="text-[10px] text-rose-100 mt-1 opacity-90 leading-tight">Hutang bagi hasil ({{ $user->merchantProfile->persentase_bagi_hasil ?? 0 }}%) yang harus disetor ibu kantin ke LKBB.</p>
+                    <p class="text-[11px] text-rose-100 mt-2 opacity-90 leading-relaxed">Total hutang bagi hasil ({{ $user->merchantProfile->persentase_bagi_hasil ?? 0 }}%) dari transaksi tunai yang harus disetor kantin ke LKBB.</p>
                 </div>
-            </div>
-            
-            <div class="relative z-10 mt-5 pt-4 border-t border-rose-400/30">
-                <button wire:click="terimaSetoran" class="w-full py-2.5 bg-white text-rose-700 font-bold text-sm rounded-xl shadow-sm hover:bg-rose-50 transition-colors flex justify-center items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    Terima Setoran Kantin
-                </button>
             </div>
         </div>
         
