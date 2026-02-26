@@ -67,7 +67,7 @@ class extends Component {
         ]);
 
         $this->user->update([
-            'name' => $this->edit_nama_pic, // Update nama user login
+            'name' => $this->edit_nama_pic, 
             'email' => $this->edit_email,
         ]);
 
@@ -85,17 +85,6 @@ class extends Component {
 
         $this->user->refresh();
         $this->closeEditModal();
-    }
-
-    // =====================================
-    // FUNGSI BAYAR TAGIHAN (SETTLEMENT)
-    // =====================================
-    public function lunasiTagihan()
-    {
-        if ($this->user->pemasokProfile && $this->user->pemasokProfile->tagihan_berjalan > 0) {
-            $this->user->pemasokProfile->update(['tagihan_berjalan' => 0]);
-            $this->user->refresh();
-        }
     }
 }; ?>
 
@@ -192,33 +181,28 @@ class extends Component {
             </div>
         </div>
 
-        <div class="lg:col-span-1 bg-gradient-to-br from-orange-500 to-orange-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col h-full w-full">
+        <div class="lg:col-span-1 bg-gradient-to-br from-orange-500 to-orange-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col h-full w-full justify-center">
             <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
             
-            <div class="relative z-10 flex-1">
-                <div class="flex justify-between items-start mb-4">
+            <div class="relative z-10 flex-1 flex flex-col justify-center">
+                <div class="flex justify-between items-start mb-6">
                     <div class="flex items-center gap-2">
                         <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
                             <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         </div>
-                        <span class="text-orange-50 text-[10px] font-bold tracking-wider">HUTANG LKBB</span>
+                        <span class="text-orange-50 text-[10px] font-bold tracking-wider uppercase">HUTANG LKBB</span>
                     </div>
                 </div>
                 
-                <div class="mt-2">
-                    <p class="text-orange-100 text-xs font-bold tracking-wider mb-1">TAGIHAN BERJALAN</p>
+                <div>
+                    <p class="text-orange-100 text-xs font-bold tracking-wider mb-1">TOTAL TAGIHAN BERJALAN</p>
                     <h3 class="text-3xl lg:text-4xl font-extrabold tracking-tight drop-shadow-md truncate">
                         <span class="text-xl align-top mr-1 opacity-80">Rp</span>{{ number_format($user->pemasokProfile->tagihan_berjalan ?? 0, 0, ',', '.') }}
                     </h3>
-                    <p class="text-[10px] text-orange-100 mt-2 opacity-90 leading-relaxed">Nominal yang harus segera ditransfer LKBB ke rekening pemasok atas barang yang sudah dikirim ke kantin.</p>
+                    <p class="text-[11px] text-orange-100 mt-3 opacity-90 leading-relaxed">
+                        Total tagihan atas suplai barang (PO) ke kantin yang sedang menunggu pelunasan transfer dari pihak LKBB ke rekening pemasok.
+                    </p>
                 </div>
-            </div>
-            
-            <div class="relative z-10 mt-5 pt-4 border-t border-orange-400/30">
-                <button wire:click="lunasiTagihan" class="w-full py-2.5 bg-white text-orange-700 font-bold text-sm rounded-xl shadow-sm hover:bg-orange-50 transition-colors flex justify-center items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    Tandai Lunas Dibayar
-                </button>
             </div>
         </div>
         
@@ -229,7 +213,7 @@ class extends Component {
         <div class="flex border-b border-gray-100 px-6 gap-6 overflow-x-auto">
             <button wire:click="$set('activeTab', 'riwayat_po')" 
                 class="py-4 font-bold text-sm whitespace-nowrap transition-colors {{ $activeTab == 'riwayat_po' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700' }}">
-                Riwayat Pengiriman (PO)
+                Riwayat Pengiriman (PO) Kantin
             </button>
             <button wire:click="$set('activeTab', 'pembayaran')" 
                 class="py-4 font-bold text-sm whitespace-nowrap transition-colors {{ $activeTab == 'pembayaran' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700' }}">
@@ -260,7 +244,7 @@ class extends Component {
                         <td class="px-6 py-4 text-sm text-gray-600 truncate max-w-xs" title="{{ $po['item'] }}">{{ $po['item'] }}</td>
                         <td class="px-6 py-4 text-right text-sm font-bold text-gray-900">Rp {{ number_format($po['nominal'], 0, ',', '.') }}</td>
                         <td class="px-6 py-4 text-center">
-                            <span class="bg-emerald-100 text-emerald-700 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">Terkirim</span>
+                            <span class="bg-emerald-100 text-emerald-700 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">Selesai</span>
                         </td>
                     </tr>
                     @empty
@@ -273,7 +257,7 @@ class extends Component {
             @if($activeTab == 'pembayaran')
             <div class="px-6 py-12 text-center">
                 <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                <p class="text-gray-500 text-sm font-medium">Belum ada riwayat pelunasan tagihan ke rekening pemasok.</p>
+                <p class="text-gray-500 text-sm font-medium">Belum ada riwayat pelunasan tagihan ke rekening pemasok oleh LKBB.</p>
             </div>
             @endif
             

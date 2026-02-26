@@ -9,16 +9,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('merchant_profiles', function (Blueprint $table) {
-            // Menambahkan kolom status_verifikasi dengan default 'pending'
-            $table->string('status_verifikasi')->default('pending')->after('id'); 
+            $table->string('nik', 20)->nullable()->after('nama_pemilik');
         });
     }
 
     public function down(): void
     {
         Schema::table('merchant_profiles', function (Blueprint $table) {
-            // Menghapus kolom jika di-rollback
-            $table->dropColumn('status_verifikasi');
+            $table->dropColumn('nik');
         });
     }
 };

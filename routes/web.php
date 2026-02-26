@@ -30,8 +30,11 @@ Route::middleware(['auth'])->group(function () {
             return redirect()->route('admin.dashboard');
         } elseif ($user->role === 'lkbb') {
             return redirect()->route('lkbb.dashboard');
+        } elseif ($user->role === 'merchant') {
+            return redirect()->route('merchant.dashboard');
         } else {
-            return redirect()->route('profile');
+            // (Nanti role mahasiswa, pemasok, investor bisa ditambahkan di atas ini)
+            return redirect()->route('profile'); 
         }
     })->name('dashboard');
 
@@ -98,8 +101,13 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/keuangan/penagihan', 'lkbb.keuangan.penagihan')->name('keuangan.penagihan');
 
     // riwat dan detail
-Volt::route('/lkbb/riwayat-approval', 'lkbb.riwayat.riwayat-approval-mahasiswa')->name('lkbb.riwayat');
-Volt::route('/lkbb/riwayat/mahasiswa/{id}', 'lkbb.riwayat.detail-mahasiswa')->name('lkbb.mahasiswa.detail');
+    Volt::route('/lkbb/riwayat-approval', 'lkbb.riwayat.riwayat-approval-mahasiswa')->name('lkbb.riwayat');
+    Volt::route('/lkbb/riwayat/mahasiswa/{id}', 'lkbb.riwayat.detail-mahasiswa')->name('lkbb.mahasiswa.detail');
+
+    // ----------------------------------------------------------
+    // RUTE DASHBOARD MERCHANT
+    // ----------------------------------------------------------
+    Volt::route('/merchant/dashboard', 'dashboard.merchant')->name('merchant.dashboard');
     });
 
 require __DIR__.'/auth.php';

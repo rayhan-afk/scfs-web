@@ -3,6 +3,7 @@
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 use App\Models\User;
+use App\Models\Transaction; // Tambahkan model Transaction
 
 new 
 #[Layout('layouts.app')] 
@@ -21,22 +22,22 @@ class extends Component {
         $this->user = User::with('investorProfile')->findOrFail($id);
     }
 
-    // Dummy Data Riwayat Pendanaan (Uang investor dipakai untuk PO apa saja)
-    public function getDummyPendanaanProperty()
+    // Mengambil riwayat uang masuk dari Investor ke LKBB (Deposit)
+    public function getRiwayatDepositProperty()
     {
-        return [
-            ['id' => 'INV-PO-001', 'tanggal' => '24 Feb 2026', 'target' => 'PO PT Pangan - Kantin Bu Ani', 'nominal' => 5000000, 'estimasi_profit' => 250000, 'status' => 'Berjalan'],
-            ['id' => 'INV-PO-002', 'tanggal' => '15 Feb 2026', 'target' => 'PO Beras Mandiri - Kantin Timur', 'nominal' => 10000000, 'estimasi_profit' => 500000, 'status' => 'Selesai'],
-        ];
+        return Transaction::where('user_id', $this->user->id)
+            ->whereIn('type', ['deposit', 'investasi'])
+            ->latest()
+            ->get();
     }
 
-    // Dummy Data Riwayat Bagi Hasil (Uang profit yang ditransfer ke investor)
-    public function getDummyBagiHasilProperty()
+    // Mengambil riwayat uang keluar dari LKBB ke Investor (Bagi Hasil)
+    public function getRiwayatProfitProperty()
     {
-        return [
-            ['id' => 'TRX-BH-002', 'tanggal' => '20 Feb 2026', 'keterangan' => 'Profit Pendanaan PO Beras Mandiri', 'nominal' => 500000, 'status' => 'Sukses Ditransfer'],
-            ['id' => 'TRX-BH-001', 'tanggal' => '05 Feb 2026', 'keterangan' => 'Profit Pendanaan PO Sembako Bulan Jan', 'nominal' => 350000, 'status' => 'Sukses Ditransfer'],
-        ];
+        return Transaction::where('user_id', $this->user->id)
+            ->whereIn('type', ['bagi_hasil', 'profit_share', 'dividend'])
+            ->latest()
+            ->get();
     }
 
     // =====================================
@@ -90,28 +91,6 @@ class extends Component {
         $this->user->refresh();
         $this->closeEditModal();
     }
-
-    // Simulasi Tambah Modal (Dummy Interaktif)
-    public function simulasiTambahModal()
-    {
-        if ($this->user->investorProfile) {
-            $this->user->investorProfile->update([
-                'total_investasi_aktif' => $this->user->investorProfile->total_investasi_aktif + 1000000
-            ]);
-            $this->user->refresh();
-        }
-    }
-
-    // Simulasi Bayar Bagi Hasil (Dummy Interaktif)
-    public function simulasiBayarBagiHasil()
-    {
-        if ($this->user->investorProfile) {
-            $this->user->investorProfile->update([
-                'total_bagi_hasil' => $this->user->investorProfile->total_bagi_hasil + 50000
-            ]);
-            $this->user->refresh();
-        }
-    }
 }; ?>
 
 <div class="py-8 px-6 md:px-8 w-full space-y-6 relative">
@@ -124,7 +103,7 @@ class extends Component {
 
     <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div class="flex items-center gap-4 relative z-10">
-            <div class="w-16 h-16 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-2xl font-bold shadow-inner border border-teal-200">
+            <div class="w-16 h-16 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-2xl font-bold shadow-inner border border-teal-200 flex-shrink-0">
                 {{ strtoupper(substr($user->investorProfile->nama_lengkap ?? $user->name, 0, 2)) }}
             </div>
             <div>
@@ -186,70 +165,52 @@ class extends Component {
                 <div class="flex items-start gap-3 p-3 bg-teal-50 border border-teal-100 rounded-xl mt-4">
                     <svg class="w-5 h-5 text-teal-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                     <div>
-                        <p class="text-[10px] text-teal-600 font-bold uppercase tracking-wider mb-0.5">Rekening Pencairan Bagi Hasil</p>
+                        <p class="text-[10px] text-teal-600 font-bold uppercase tracking-wider mb-0.5">Rekening Tujuan Bagi Hasil</p>
                         <p class="text-teal-900 font-bold text-sm">{{ $user->investorProfile->info_bank ?: 'Belum diisi' }}</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="bg-gradient-to-br from-teal-500 to-teal-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col h-full w-full">
+        <div class="bg-gradient-to-br from-teal-500 to-teal-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col h-full w-full justify-center">
             <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
             
-            <div class="relative z-10 flex-1">
-                <div class="flex justify-between items-start mb-4">
-                    <div class="flex items-center gap-2">
-                        <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
-                            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        </div>
-                        <span class="text-teal-50 text-[10px] font-bold tracking-wider">PORTOFOLIO</span>
+            <div class="relative z-10">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
+                    <span class="text-teal-50 text-[10px] font-bold tracking-wider">PORTOFOLIO</span>
                 </div>
                 
                 <div>
-                    <p class="text-teal-100 text-xs font-bold tracking-wider mb-1">TOTAL MODAL DIKELOLA</p>
+                    <p class="text-teal-100 text-xs font-bold tracking-wider mb-1">TOTAL DEPOSIT (MODAL AKTIF)</p>
                     <h3 class="text-3xl font-extrabold tracking-tight drop-shadow-md truncate">
                         <span class="text-xl align-top mr-1 opacity-80">Rp</span>{{ number_format($user->investorProfile->total_investasi_aktif ?? 0, 0, ',', '.') }}
                     </h3>
-                    <p class="text-[10px] text-teal-100 mt-2 opacity-90 leading-tight">Total dana segar yang sedang diputar untuk mendanai PO bahan baku kantin.</p>
+                    <p class="text-[11px] text-teal-100 mt-3 opacity-90 leading-relaxed">Total dana segar dari investor yang sedang dipercayakan ke LKBB untuk diputar.</p>
                 </div>
-            </div>
-            
-            <div class="relative z-10 mt-5 pt-4 border-t border-teal-400/30">
-                <button wire:click="simulasiTambahModal" class="w-full py-2.5 bg-white text-teal-700 font-bold text-sm rounded-xl shadow-sm hover:bg-teal-50 transition-colors flex justify-center items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                    Tambah Top-Up Dana (Simulasi)
-                </button>
             </div>
         </div>
 
-        <div class="bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col h-full w-full">
+        <div class="bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden flex flex-col h-full w-full justify-center">
             <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 pointer-events-none"></div>
             
-            <div class="relative z-10 flex-1">
-                <div class="flex justify-between items-start mb-4">
-                    <div class="flex items-center gap-2">
-                        <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
-                            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                        </div>
-                        <span class="text-emerald-50 text-[10px] font-bold tracking-wider">RETURN ON INVESTMENT</span>
+            <div class="relative z-10">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
                     </div>
+                    <span class="text-emerald-50 text-[10px] font-bold tracking-wider">RETURN ON INVESTMENT</span>
                 </div>
                 
                 <div>
-                    <p class="text-emerald-100 text-xs font-bold tracking-wider mb-1">TOTAL PROFIT DIBAGIKAN</p>
+                    <p class="text-emerald-100 text-xs font-bold tracking-wider mb-1">TOTAL PROFIT (BAGI HASIL)</p>
                     <h3 class="text-3xl font-extrabold tracking-tight drop-shadow-md truncate">
                         <span class="text-xl align-top mr-1 opacity-80">Rp</span>{{ number_format($user->investorProfile->total_bagi_hasil ?? 0, 0, ',', '.') }}
                     </h3>
-                    <p class="text-[10px] text-emerald-100 mt-2 opacity-90 leading-tight">Akumulasi keuntungan historis yang sudah berhasil ditransfer ke rekening investor.</p>
+                    <p class="text-[11px] text-emerald-100 mt-3 opacity-90 leading-relaxed">Akumulasi keuntungan historis yang sudah berhasil ditransfer LKBB ke rekening investor.</p>
                 </div>
-            </div>
-            
-            <div class="relative z-10 mt-5 pt-4 border-t border-emerald-400/30">
-                <button wire:click="simulasiBayarBagiHasil" class="w-full py-2.5 bg-white text-emerald-700 font-bold text-sm rounded-xl shadow-sm hover:bg-emerald-50 transition-colors flex justify-center items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    Bayarkan Profit (+50k Simulasi)
-                </button>
             </div>
         </div>
         
@@ -258,7 +219,7 @@ class extends Component {
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm mt-4">
         
         <div class="flex border-b border-gray-100 px-6 gap-6 overflow-x-auto">
-            <button wire:click="$set('activeTab', 'pendanaan')" class="py-4 font-bold text-sm whitespace-nowrap transition-colors {{ $activeTab == 'pendanaan' ? 'text-teal-600 border-b-2 border-teal-600' : 'text-gray-500 hover:text-gray-700' }}">Riwayat Pendanaan PO</button>
+            <button wire:click="$set('activeTab', 'pendanaan')" class="py-4 font-bold text-sm whitespace-nowrap transition-colors {{ $activeTab == 'pendanaan' ? 'text-teal-600 border-b-2 border-teal-600' : 'text-gray-500 hover:text-gray-700' }}">Riwayat Deposit & Penambahan Modal</button>
             <button wire:click="$set('activeTab', 'bagi_hasil')" class="py-4 font-bold text-sm whitespace-nowrap transition-colors {{ $activeTab == 'bagi_hasil' ? 'text-teal-600 border-b-2 border-teal-600' : 'text-gray-500 hover:text-gray-700' }}">Riwayat Pembayaran Profit</button>
         </div>
         
@@ -269,31 +230,29 @@ class extends Component {
                 <thead class="bg-gray-50/50 text-gray-400 text-[10px] uppercase font-bold tracking-wider border-b border-gray-100">
                     <tr>
                         <th class="px-6 py-4">ID Transaksi</th>
-                        <th class="px-6 py-4">Tanggal Penempatan</th>
-                        <th class="px-6 py-4">Target Pendanaan</th>
-                        <th class="px-6 py-4 text-right">Modal Ditempatkan</th>
-                        <th class="px-6 py-4 text-right">Estimasi Profit</th>
-                        <th class="px-6 py-4 text-center">Status Pendanaan</th>
+                        <th class="px-6 py-4">Waktu Deposit</th>
+                        <th class="px-6 py-4">Keterangan</th>
+                        <th class="px-6 py-4 text-right">Nominal Masuk</th>
+                        <th class="px-6 py-4 text-center">Status</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @forelse($this->dummyPendanaan as $trx)
+                    @forelse($this->riwayatDeposit as $trx)
                     <tr class="hover:bg-gray-50 transition">
-                        <td class="px-6 py-4 font-bold text-xs text-gray-500">{{ $trx['id'] }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-600">{{ $trx['tanggal'] }}</td>
-                        <td class="px-6 py-4 font-bold text-sm text-gray-900">{{ $trx['target'] }}</td>
-                        <td class="px-6 py-4 text-right text-sm font-bold text-teal-600">Rp {{ number_format($trx['nominal'], 0, ',', '.') }}</td>
-                        <td class="px-6 py-4 text-right text-sm font-bold text-green-600">+ Rp {{ number_format($trx['estimasi_profit'], 0, ',', '.') }}</td>
+                        <td class="px-6 py-4 font-bold text-xs text-gray-500">{{ $trx->order_id ?? 'TRX-'.$trx->id }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ $trx->created_at->format('d M Y, H:i') }}</td>
+                        <td class="px-6 py-4 font-bold text-sm text-gray-900">{{ $trx->description ?: 'Deposit Modal LKBB' }}</td>
+                        <td class="px-6 py-4 text-right text-sm font-bold text-teal-600">+ Rp {{ number_format($trx->total_amount, 0, ',', '.') }}</td>
                         <td class="px-6 py-4 text-center">
-                            @if($trx['status'] == 'Berjalan')
-                                <span class="bg-blue-50 text-blue-600 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">Aktif Diputar</span>
+                            @if(in_array($trx->status, ['sukses', 'lunas', 'berhasil']))
+                                <span class="bg-teal-50 text-teal-600 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider border border-teal-100">Sukses</span>
                             @else
-                                <span class="bg-gray-100 text-gray-500 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">Selesai</span>
+                                <span class="bg-yellow-50 text-yellow-600 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider border border-yellow-100">{{ $trx->status }}</span>
                             @endif
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="6" class="px-6 py-12 text-center text-gray-500">Belum ada riwayat pendanaan.</td></tr>
+                    <tr><td colspan="5" class="px-6 py-12 text-center text-gray-500">Belum ada riwayat deposit atau penambahan modal.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -304,25 +263,29 @@ class extends Component {
                 <thead class="bg-gray-50/50 text-gray-400 text-[10px] uppercase font-bold tracking-wider border-b border-gray-100">
                     <tr>
                         <th class="px-6 py-4">ID Transfer</th>
-                        <th class="px-6 py-4">Tanggal Transfer</th>
-                        <th class="px-6 py-4">Keterangan</th>
+                        <th class="px-6 py-4">Tanggal Pembayaran</th>
+                        <th class="px-6 py-4">Keterangan Transfer</th>
                         <th class="px-6 py-4 text-right">Nominal Profit</th>
                         <th class="px-6 py-4 text-center">Status</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @forelse($this->dummyBagiHasil as $trx)
+                    @forelse($this->riwayatProfit as $trx)
                     <tr class="hover:bg-gray-50 transition">
-                        <td class="px-6 py-4 font-bold text-xs text-gray-500">{{ $trx['id'] }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-600">{{ $trx['tanggal'] }}</td>
-                        <td class="px-6 py-4 font-medium text-sm text-gray-900">{{ $trx['keterangan'] }}</td>
-                        <td class="px-6 py-4 text-right text-sm font-bold text-green-600">Rp {{ number_format($trx['nominal'], 0, ',', '.') }}</td>
+                        <td class="px-6 py-4 font-bold text-xs text-gray-500">{{ $trx->order_id ?? 'TRX-'.$trx->id }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">{{ $trx->created_at->format('d M Y, H:i') }}</td>
+                        <td class="px-6 py-4 font-medium text-sm text-gray-900">{{ $trx->description ?: 'Bagi Hasil Bulanan' }}</td>
+                        <td class="px-6 py-4 text-right text-sm font-bold text-green-600">Rp {{ number_format($trx->total_amount, 0, ',', '.') }}</td>
                         <td class="px-6 py-4 text-center">
-                            <span class="bg-green-100 text-green-700 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">Sukses</span>
+                            @if(in_array($trx->status, ['sukses', 'lunas', 'berhasil']))
+                                <span class="bg-green-50 text-green-700 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider border border-green-200">Terbayar</span>
+                            @else
+                                <span class="bg-yellow-50 text-yellow-600 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider border border-yellow-100">{{ $trx->status }}</span>
+                            @endif
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="5" class="px-6 py-12 text-center text-gray-500">Belum ada riwayat transfer profit.</td></tr>
+                    <tr><td colspan="5" class="px-6 py-12 text-center text-gray-500">Belum ada riwayat transfer profit ke investor ini.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -348,7 +311,7 @@ class extends Component {
             <div class="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama Lengkap (Sesuai KTP/Akta)</label>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama Lengkap (Sesuai KTP)</label>
                         <input wire:model="edit_nama_lengkap" type="text" class="w-full text-sm rounded-xl border-gray-300 focus:border-teal-500 focus:ring-teal-500 bg-white py-2.5">
                     </div>
                     <div>
