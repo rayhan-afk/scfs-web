@@ -63,14 +63,34 @@ class User extends Authenticatable
     {
         return $this->hasMany(Transaction::class);
     }
+    // Tambahkan ini di dalam class User
+    public function merchantProfile()
+    {
+        return $this->hasOne(\App\Models\MerchantProfile::class);
+    }
+    public function wallets()
+    {
+        return $this->hasMany(Wallet::class, 'user_id');
+    }
     // Relasi ke profil mahasiswa
     public function mahasiswaProfile()
     {
         return $this->hasOne(MahasiswaProfile::class);
     }
-    // Relasi ke profil merchant/kantin
-    public function merchantProfile()
+    public function pemasokProfile()
     {
-        return $this->hasOne(MerchantProfile::class);
+        return $this->hasOne(PemasokProfile::class);
+    }
+    public function investorProfile()
+    {
+        return $this->hasOne(InvestorProfile::class);
+    }
+    public function donaturProfile()
+    {
+        return $this->hasOne(DonaturProfile::class);
+    }   
+    public function latestLogin()
+    {
+        return $this->hasOne(LoginLog::class)->latestOfMany('login_at');
     }
 }

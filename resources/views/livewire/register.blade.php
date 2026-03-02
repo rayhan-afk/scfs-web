@@ -8,6 +8,13 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Auth\Events\Registered;
 
+// Import semua model profil agar bisa dibuatkan profil kosong saat daftar
+use App\Models\MahasiswaProfile;
+use App\Models\MerchantProfile;
+use App\Models\PemasokProfile;
+use App\Models\InvestorProfile;
+use App\Models\DonaturProfile; // Tambahan import Donatur
+
 new 
 #[Layout('components.layouts.landing')] 
 class extends Component {
@@ -18,7 +25,11 @@ class extends Component {
     #[Validate('required|string|email|max:255|unique:users')]
     public string $email = '';
 
-    #[Validate('required|string|min:8|confirmed')] // 'confirmed' otomatis cari password_confirmation
+    // Tambahan Validasi untuk Role (donatur dimasukkan)
+    #[Validate('required|in:mahasiswa,merchant,pemasok,investor,donatur')]
+    public string $role = 'mahasiswa'; // Default pilihan
+
+    #[Validate('required|string|min:8|confirmed')] 
     public string $password = '';
 
     #[Validate('required|string|min:8')]
@@ -28,12 +39,26 @@ class extends Component {
     {
         $this->validate();
 
+        // 1. Buat Akun User
         $user = User::create([
             'name' => $this->name,
             'email' => $this->email,
             'password' => Hash::make($this->password),
-            'role' => 'mahasiswa', // Default role saat daftar mandiri
+            'role' => $this->role, // Mengambil role dari pilihan dropdown
         ]);
+
+        // 2. Buat Profil Kosong sesuai Role agar langsung muncul di halaman Admin
+        if ($this->role === 'mahasiswa') {
+            MahasiswaProfile::create(['user_id' => $user->id]);
+        } elseif ($this->role === 'merchant') {
+            MerchantProfile::create(['user_id' => $user->id, 'nama_kantin' => $this->name . ' (Baru)', 'nama_pemilik' => $this->name]);
+        } elseif ($this->role === 'pemasok') {
+            PemasokProfile::create(['user_id' => $user->id, 'nama_perusahaan' => 'PT/Toko ' . $this->name, 'nama_pic' => $this->name, 'kategori_barang' => 'Lainnya']);
+        } elseif ($this->role === 'investor') {
+            InvestorProfile::create(['user_id' => $user->id, 'nama_lengkap' => $this->name]);
+        } elseif ($this->role === 'donatur') {
+            DonaturProfile::create(['user_id' => $user->id, 'nama_lengkap' => $this->name]);
+        }
 
         event(new Registered($user));
 
@@ -52,7 +77,6 @@ class extends Component {
         
         <div class="flex items-center space-x-8 text-lg font-medium">
             <a href="{{ route('login') }}" class="text-gray-500 hover:text-blue-600 transition">Masuk</a>
-            
             <span class="text-black border-b-2 border-black pb-1 cursor-default">Daftar</span>
         </div>
     </header>
@@ -77,17 +101,30 @@ class extends Component {
                     <form wire:submit="register" class="space-y-5">
                         
                         <div class="space-y-2">
-                            <label for="name" class="block text-sm font-bold text-gray-800">Nama Lengkap</label>
-                            <input wire:model="name" type="text" id="name" placeholder="Masukkan Nama Lengkap" required autofocus
+                            <label for="name" class="block text-sm font-bold text-gray-800">Nama Lengkap / Instansi</label>
+                            <input wire:model="name" type="text" id="name" placeholder="Masukkan Nama Anda" required autofocus
                                 class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition outline-none text-gray-700 placeholder-gray-400 text-sm">
                             @error('name') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
 
                         <div class="space-y-2">
-                            <label for="email" class="block text-sm font-bold text-gray-800">Email</label>
+                            <label for="email" class="block text-sm font-bold text-gray-800">Email Aktif</label>
                             <input wire:model="email" type="email" id="email" placeholder="Masukkan Email" required
                                 class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition outline-none text-gray-700 placeholder-gray-400 text-sm">
                             @error('email') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                        </div>
+
+                        <div class="space-y-2">
+                            <label for="role" class="block text-sm font-bold text-gray-800">Daftar Sebagai (Peran)</label>
+                            <select wire:model="role" id="role" required
+                                class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition outline-none text-gray-700 bg-white text-sm cursor-pointer">
+                                <option value="mahasiswa">Mahasiswa (Penerima Bantuan)</option>
+                                <option value="merchant">Pemilik Kantin / Warung</option>
+                                <option value="pemasok">Mitra Pemasok / Supplier</option>
+                                <option value="investor">Investor (Pendana PO)</option>
+                                <option value="donatur">Donatur (Pemberi Bantuan)</option>
+                            </select>
+                            @error('role') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
                         </div>
 
                         <div class="space-y-2">
@@ -118,7 +155,7 @@ class extends Component {
                         </div>
 
                         <button type="submit" class="w-full py-3 bg-[#1e73be] hover:bg-blue-700 text-white font-bold rounded-lg transition shadow-md hover:shadow-lg mt-8 text-sm tracking-widest uppercase">
-                            <span wire:loading.remove>DAFTAR</span>
+                            <span wire:loading.remove>DAFTAR SEKARANG</span>
                             <span wire:loading>Memproses...</span>
                         </button>
                         

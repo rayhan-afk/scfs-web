@@ -11,9 +11,10 @@ class Wallet extends Model
 
     protected $fillable = [
         'user_id',
+        'type',             // <-- BARU: Penanda ini dompet siapa (Mhs/Kantin/LKBB)
         'account_number',
         'pin',
-        'grant_balance',
+        'balance',          // <-- SUDAH DIGANTI DARI grant_balance
         'is_active',
     ];
 
@@ -21,6 +22,17 @@ class Wallet extends Model
     {
         return $this->belongsTo(User::class);
     }
-}
 
-// rayhan
+    /**
+     * Relasi ke Buku Besar.
+     * Mengambil semua riwayat mutasi (masuk/keluar) dompet ini.
+     */
+    public function ledgerEntries()
+    {
+        return $this->hasMany(LedgerEntry::class)->latest();
+    }
+    
+    // Helper Methods (Biar kodingan nanti lebih enak dibaca)
+    public function isLkbb() { return $this->type === 'LKBB_MASTER'; }
+    public function isMerchant() { return $this->type === 'MERCHANT'; }
+}
