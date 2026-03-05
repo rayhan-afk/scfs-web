@@ -128,15 +128,17 @@ class extends Component {
             <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Executive Dashboard</h2>
             <p class="text-gray-500 mt-1">Ringkasan performa dan aliran dana ekosistem SCFS ITB.</p>
         </div>
-        <button class="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-lg shadow-gray-200 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+        <button class="bg-[#137FEC] text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-[#0f6fd1] transition shadow-lg shadow-gray-200 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
             Unduh Laporan PDF
         </button>
     </div>
 
     {{-- GRID METRIK (6 KARTU) --}}
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-5">
+        <div class="bg-white p-6 rounded-2xl ring-1 ring-gray-200 shadow-sm flex items-center gap-5">
             <div class="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
                 <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
             </div>
@@ -146,7 +148,7 @@ class extends Component {
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-5">
+        <div class="bg-white p-6 rounded-2xl ring-1 ring-gray-200 shadow-sm flex items-center gap-5">
             <div class="h-14 w-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
                 <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
@@ -161,7 +163,7 @@ class extends Component {
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-5">
+        <div class="bg-white p-6 rounded-2xl ring-1 ring-gray-200 shadow-sm flex items-center gap-5">
             <div class="h-14 w-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center flex-shrink-0">
                 <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
             </div>
@@ -171,7 +173,7 @@ class extends Component {
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-5">
+        <div class="bg-white p-6 rounded-2xl ring-1 ring-gray-200 shadow-sm flex items-center gap-5">
             <div class="h-14 w-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
                 <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
             </div>
@@ -181,15 +183,26 @@ class extends Component {
             </div>
         </div>
 
-        <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 rounded-2xl shadow-lg flex items-center gap-5 relative overflow-hidden">
+        <div class="bg-gradient-to-br from-[#137FEC] to-[#0f6fd1] p-6 rounded-2xl shadow-lg flex items-center gap-5 relative overflow-hidden">
+    
             <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -mr-6 -mt-6"></div>
+            
             <div class="h-14 w-14 rounded-2xl bg-white/20 text-white flex items-center justify-center flex-shrink-0 backdrop-blur-sm z-10">
-                <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
             </div>
+
             <div class="z-10">
-                <p class="text-[11px] font-bold text-indigo-200 uppercase tracking-wider mb-1">Pendapatan Net LKBB (Fee)</p>
-                <h3 class="text-xl font-extrabold text-white truncate">Rp {{ number_format($this->stats['pendapatan_lkbb'], 0, ',', '.') }}</h3>
+                <p class="text-xs font-bold text-blue-100 uppercase tracking-wider mb-1">
+                    Pendapatan Net LKBB (Fee)
+                </p>
+                <h3 class="text-2xl font-extrabold text-white truncate">
+                    Rp {{ number_format($this->stats['pendapatan_lkbb'], 0, ',', '.') }}
+                </h3>
             </div>
+
         </div>
 
         <div class="bg-gray-900 p-6 rounded-2xl shadow-lg flex items-center gap-5 relative overflow-hidden">
@@ -210,16 +223,38 @@ class extends Component {
         
         {{-- GRAFIK: SEKARANG SAMA PERSIS DENGAN MERCHANT (Tinggi & Style Fixed) --}}
         <div class="lg:col-span-2 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+    
             <div class="px-6 py-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50/50">
                 <div>
-                    <h3 class="font-bold text-gray-900 text-sm">Grafik Perputaran Dana</h3>
-                    <p class="text-xs text-gray-500 mt-0.5">Total volume transaksi sukses dalam ekosistem</p>
+                    <h3 class="font-bold text-gray-900 text-lg">
+                        Grafik Perputaran Dana
+                    </h3>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Total volume transaksi sukses dalam ekosistem
+                    </p>
                 </div>
                 
                 <div class="inline-flex bg-gray-100 p-1 rounded-lg">
-                    <button wire:click="setFilter('today')" class="px-3 py-1.5 text-xs font-bold rounded-md transition {{ $chartFilter === 'today' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">Hari Ini</button>
-                    <button wire:click="setFilter('month')" class="px-3 py-1.5 text-xs font-bold rounded-md transition {{ $chartFilter === 'month' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">Bulan Ini</button>
-                    <button wire:click="setFilter('year')" class="px-3 py-1.5 text-xs font-bold rounded-md transition {{ $chartFilter === 'year' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">Tahun Ini</button>
+                    <button 
+                        wire:click="setFilter('today')" 
+                        class="px-3 py-1.5 text-xs font-bold rounded-md transition 
+                        {{ $chartFilter === 'today' ? 'bg-white text-[#137FEC] shadow-sm' : 'text-gray-500 hover:text-[#137FEC]' }}">
+                        Hari Ini
+                    </button>
+
+                    <button 
+                        wire:click="setFilter('month')" 
+                        class="px-3 py-1.5 text-xs font-bold rounded-md transition 
+                        {{ $chartFilter === 'month' ? 'bg-white text-[#137FEC] shadow-sm' : 'text-gray-500 hover:text-[#137FEC]' }}">
+                        Bulan Ini
+                    </button>
+
+                    <button 
+                        wire:click="setFilter('year')" 
+                        class="px-3 py-1.5 text-xs font-bold rounded-md transition 
+                        {{ $chartFilter === 'year' ? 'bg-white text-[#137FEC] shadow-sm' : 'text-gray-500 hover:text-[#137FEC]' }}">
+                        Tahun Ini
+                    </button>
                 </div>
             </div>
             
@@ -229,23 +264,91 @@ class extends Component {
                         chart: null,
                         initChart() {
                             let options = {
-                                chart: { type: 'area', height: 320, fontFamily: 'inherit', toolbar: { show: false }, zoom: { enabled: false } },
-                                series: [{ name: 'Total Volume (Rp)', data: [] }],
-                                xaxis: { categories: [], tooltip: { enabled: false }, axisBorder: { show: false } },
-                                yaxis: { labels: { formatter: function(val) { return 'Rp ' + new Intl.NumberFormat('id-ID').format(val); } } },
-                                stroke: { curve: 'smooth', width: 3 },
-                                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
-                                colors: ['#4F46E5'], // Indigo theme khas Admin
-                                dataLabels: { enabled: false },
-                                grid: { strokeDashArray: 4, padding: { top: 0, right: 0, bottom: 0, left: 10 } },
-                                tooltip: { y: { formatter: function(val) { return 'Rp ' + new Intl.NumberFormat('id-ID').format(val); } } }
+                                chart: { 
+                                    type: 'area', 
+                                    height: 320, 
+                                    fontFamily: 'inherit', 
+                                    toolbar: { show: false }, 
+                                    zoom: { enabled: false } 
+                                },
+
+                                series: [{ 
+                                    name: 'Total Volume (Rp)', 
+                                    data: [] 
+                                }],
+
+                                colors: ['#137FEC'], // ✅ Brand color
+
+                                stroke: { 
+                                    curve: 'smooth', 
+                                    width: 3 
+                                },
+
+                                markers: {
+                                    size: 0
+                                },
+
+                                fill: { 
+                                    type: 'gradient',
+                                    gradient: {
+                                        shade: 'light',
+                                        type: 'vertical',
+                                        shadeIntensity: 0.5,
+                                        gradientToColors: ['#137FEC'],
+                                        opacityFrom: 0.45,
+                                        opacityTo: 0.05,
+                                        stops: [0, 100]
+                                    }
+                                },
+
+                                xaxis: { 
+                                    categories: [], 
+                                    tooltip: { enabled: false }, 
+                                    axisBorder: { show: false },
+                                    axisTicks: { show: false },
+                                    labels: { style: { colors: '#6B7280' } }
+                                },
+
+                                yaxis: { 
+                                    labels: { 
+                                        style: { colors: '#6B7280' },
+                                        formatter: function(val) { 
+                                            return 'Rp ' + new Intl.NumberFormat('id-ID').format(val); 
+                                        } 
+                                    } 
+                                },
+
+                                grid: { 
+                                    strokeDashArray: 4, 
+                                    borderColor: '#E5E7EB',
+                                    padding: { top: 0, right: 0, bottom: 0, left: 10 } 
+                                },
+
+                                tooltip: { 
+                                    theme: 'light',
+                                    y: { 
+                                        formatter: function(val) { 
+                                            return 'Rp ' + new Intl.NumberFormat('id-ID').format(val); 
+                                        } 
+                                    } 
+                                },
+
+                                dataLabels: { 
+                                    enabled: false 
+                                }
                             };
+
                             this.chart = new ApexCharts(this.$refs.adminChart, options);
                             this.chart.render();
 
                             let initialData = @js($this->getChartData());
-                            this.chart.updateOptions({ xaxis: { categories: initialData.labels } });
-                            this.chart.updateSeries([{ data: initialData.series }]);
+                            this.chart.updateOptions({ 
+                                xaxis: { categories: initialData.labels } 
+                            });
+
+                            this.chart.updateSeries([{ 
+                                data: initialData.series 
+                            }]);
                         }
                     }"
                     x-init="initChart()"
@@ -269,14 +372,18 @@ class extends Component {
                 @forelse($this->recentActivities as $activity)
                 <div class="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition group">
                     <div class="flex items-center gap-3 min-w-0">
-                        <div class="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-sm font-bold text-indigo-600 border border-indigo-100 flex-shrink-0">
-                            {{ $activity['avatar'] }}
+                    <div class="h-10 w-10 rounded-full bg-[#137FEC]/10 flex items-center justify-center text-sm font-bold text-[#137FEC] border border-[#137FEC]/20 flex-shrink-0">
+                        {{ $activity['avatar'] }}
+                    </div>
+                    <div class="min-w-0">
+                        <div class="font-bold text-gray-900 text-sm truncate group-hover:text-[#137FEC] transition">
+                            {{ $activity['name'] }}
                         </div>
-                        <div class="min-w-0">
-                            <div class="font-bold text-gray-900 text-sm truncate group-hover:text-indigo-600 transition">{{ $activity['name'] }}</div>
-                            <div class="text-[10px] text-gray-500 truncate">{{ $activity['type'] }} &bull; {{ $activity['time'] }}</div>
+                        <div class="text-[10px] text-gray-500 truncate">
+                            {{ $activity['type'] }} &bull; {{ $activity['time'] }}
                         </div>
                     </div>
+                </div>
                     <div class="text-right flex-shrink-0 ml-2">
                         <div class="text-sm font-extrabold text-gray-900">
                             Rp {{ number_format($activity['amount'], 0, ',', '.') }}
