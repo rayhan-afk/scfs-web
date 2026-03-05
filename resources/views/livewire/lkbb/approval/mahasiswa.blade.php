@@ -74,59 +74,55 @@ new #[Layout('layouts.lkbb')] class extends Component {
         $this->showDetailModal = false; 
     }
 
-    // FUNGSI APPROVE (LOGIKA DATABASE LAMA DIMASUKKAN KE SINI)
+    // FUNGSI APPROVE (SUDAH DI-REFACTOR DENGAN CLEAN ARCHITECTURE)
     public function confirmApprove()
     {
         try {
             DB::transaction(function () {
+                // 1. Pessimistic Locking untuk mencegah Double Approve
                 $pengajuan = PengajuanBantuan::with('mahasiswaProfile.user')
                     ->where('id', $this->selectedId)
                     ->where('status', 'diajukan')
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                // 1. Ubah status pengajuan & profil jadi disetujui
+                // 2. Kunci dan Cek Dompet Donasi LKBB (Mencegah saldo minus)
+                // Asumsi Anda menggunakan tabel Wallet untuk menampung total dana dari Donatur
+                $donationWallet = Wallet::where('type', 'DONATION_POOL')->lockForUpdate()->first();
+                
+                if (!$donationWallet || $donationWallet->balance < $pengajuan->nominal) {
+                    throw new \Exception('Saldo Dompet Donasi LKBB tidak mencukupi untuk pencairan ini.');
+                }
+
+                // 3. Potong Saldo LKBB & Tambah Saldo Mahasiswa (Single Source of Truth)
+                $donationWallet->decrement('balance', $pengajuan->nominal);
+                $pengajuan->mahasiswaProfile->increment('saldo', $pengajuan->nominal);
+
+                // 4. Ubah status pengajuan & profil jadi disetujui
                 $pengajuan->update([
                     'status' => 'disetujui',
                     'updated_at' => now(),
                 ]);
                 $pengajuan->mahasiswaProfile->update(['status_bantuan' => 'disetujui']);
-                
-                // 2. Buat Dompet Mahasiswa jika belum ada, lalu tambah saldonya
-                $studentWallet = Wallet::firstOrCreate(
-                    ['user_id' => $pengajuan->mahasiswaProfile->user_id],
-                    [
-                        'account_number' => 'MHS-' . str_pad($pengajuan->mahasiswaProfile->user_id, 4, '0', STR_PAD_LEFT),
-                        'balance' => 0,
-                        'type' => 'REGULAR'
-                    ]
-                );
-                $studentWallet->increment('balance', $pengajuan->nominal);
 
-                // 3. Potong saldo dari Dompet Donasi LKBB
-                $donationWallet = Wallet::where('type', 'DONATION_POOL')->first();
-                if ($donationWallet) {
-                    $donationWallet->decrement('balance', $pengajuan->nominal);
-                }
-
-                // 4. Catat histori di tabel Transactions
+                // 5. Catat histori di tabel Transactions (Sesuai skema terbaru)
                 Transaction::create([
-                    'order_id' => $pengajuan->nomor_pengajuan,
-                    'user_id' => $pengajuan->mahasiswaProfile->user_id,
-                    'type' => 'donation_received',
-                    'status' => 'lunas',
+                    'order_id'     => $pengajuan->nomor_pengajuan,
+                    'user_id'      => $pengajuan->mahasiswaProfile->user_id, // Yang menerima
+                    'merchant_id'  => null, // Null karena ini bukan bayar ke kantin
+                    'type'         => 'penerimaan_bantuan',
+                    'status'       => 'sukses',
                     'total_amount' => $pengajuan->nominal,
-                    'description' => 'Pencairan Dana Bantuan dari LKBB',
+                    'fee_lkbb'     => 0, // Tidak ada potongan untuk bantuan
+                    'description'  => 'Pencairan Dana Subsidi/Bantuan dari LKBB',
                 ]);
-
-                // 5. Update cache saldo di tabel profil mahasiswa
-                $pengajuan->mahasiswaProfile->increment('saldo', $pengajuan->nominal);
             });
 
-            session()->flash('message', "Dana Bantuan berhasil dicairkan ke mahasiswa!");
+            session()->flash('message', "Dana Bantuan berhasil dicairkan ke dompet mahasiswa!");
             $this->showApproveModal = false;
+
         } catch (\Exception $e) {
-            session()->flash('error', 'Terjadi kesalahan saat memproses persetujuan.');
+            session()->flash('error', $e->getMessage()); // Menampilkan pesan error spesifik (misal: saldo kurang)
             $this->showApproveModal = false;
         }
     }
