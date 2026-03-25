@@ -18,14 +18,13 @@
     </head>
     <body class="font-sans antialiased bg-gray-50">
         
-        {{-- Cek jika user adalah Admin atau Merchant (Keduanya pakai desain sidebar) --}}
-        @if(in_array(Auth::user()->role, ['admin', 'merchant']))
+        {{-- [PERBAIKAN] Tambahkan 'pemasok' ke dalam array pengecekan --}}
+        @if(in_array(Auth::user()->role, ['admin', 'merchant', 'pemasok']))
             
             {{-- ========================================== --}}
             {{-- LAYOUT KHUSUS DASHBOARD BERSIDEBAR         --}}
             {{-- ========================================== --}}
             
-            {{-- Kita pasang x-data di sini agar Sidebar & Header bisa saling komunikasi --}}
             <div x-data="{ sidebarOpen: true }" class="flex h-screen overflow-hidden">
                 
                 {{-- 1. SIDEBAR DINAMIS (Baca status sidebarOpen) --}}
@@ -33,7 +32,11 @@
                     <livewire:layout.admin-sidebar />
                 @elseif(Auth::user()->role === 'merchant')
                     <livewire:layout.merchant-sidebar />
+                @elseif(Auth::user()->role === 'pemasok')
+                    {{-- [PERBAIKAN] Panggil komponen sidebar pemasok yang baru kita buat --}}
+                    <livewire:layout.pemasok-sidebar />
                 @endif
+                
 
                 {{-- 2. KONTEN UTAMA (KANAN) --}}
                 <div class="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 transition-all duration-300">
@@ -41,18 +44,24 @@
                     {{-- Header Mobile (Hanya muncul di HP) --}}
                     <header class="bg-white shadow-sm flex items-center justify-between px-6 py-4 md:hidden sticky top-0 z-20">
                         <span class="font-bold text-lg text-gray-800">
-                            {{ Auth::user()->role === 'admin' ? 'Admin Panel' : 'Mitra Kantin' }}
+                            @if(Auth::user()->role === 'admin')
+                                Admin Panel
+                            @elseif(Auth::user()->role === 'merchant')
+                                Mitra Kantin
+                            @elseif(Auth::user()->role === 'pemasok')
+                                Dapur Pusat
+                            @endif
                         </span>
                         
                         {{-- Tombol Buka Tutup Sidebar di HP --}}
-                        <button @click="sidebarOpen = !sidebarOpen" class="text-gray-500 hover:text-blue-600 focus:outline-none">
+                        <button @click="sidebarOpen = !sidebarOpen" class="text-gray-500 hover:text-orange-600 focus:outline-none">
                             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" />
                             </svg>
                         </button>
                     </header>
 
-                    {{-- Isi Halaman (Slot) --}}
+                    {{-- Isi Halaman (Slot Dashboard Pemasok akan masuk ke sini) --}}
                     <main class="w-full h-full">
                         {{ $slot }}
                     </main>
