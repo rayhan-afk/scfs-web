@@ -140,4 +140,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/pemasok/pengiriman', PengirimanLogistik::class)->name('pemasok.pengiriman');
 });
 
+    Volt::route('/merchant/scan', 'merchant.scan-qr')->name('merchant.scan');
+    Volt::route('/merchant/withdraw', 'merchant.withdraw')->name('merchant.withdraw');
+    Volt::route('/merchant/katalog', 'merchant.katalog')->name('merchant.katalog');
+    Volt::route('/merchant/profile', 'merchant.profile')->name('merchant.profile');
+    Volt::route('/merchant/order', 'merchant.order-bahan')->name('merchant.order');
+    Volt::route('/merchant/riwayat', 'merchant.riwayat')->name('merchant.riwayat');
+    Volt::route('/merchant/penerimaan', 'merchant.penerimaan')->name('merchant.penerimaan');
+    Volt::route('/merchant/setoran', 'merchant.setoran')->name('merchant.setoran');
+
+
 require __DIR__.'/auth.php';

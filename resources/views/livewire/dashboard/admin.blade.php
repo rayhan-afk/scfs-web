@@ -2,197 +2,405 @@
 
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Computed;
 use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use App\Models\MerchantProfile;
 use App\Models\Transaction;
 use App\Models\MahasiswaProfile;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 new 
 #[Layout('layouts.app')]
 class extends Component {
     
+    public string $chartFilter = 'month';
+
     public function mount()
     {
-        // Proteksi: Hanya Admin yang boleh masuk
         if (Auth::user()->role !== 'admin') {
-            return $this->redirectRoute('dashboard', navigate: true);
+            abort(403, 'Akses Ditolak. Halaman ini khusus Administrator.');
         }
     }
 
-    public function with()
+    #[Computed]
+    public function stats()
     {
-        // 1. STATISTIK KARTU ATAS
-        // Total mahasiswa yang statusnya disetujui
+        $totalMahasiswa = User::where('role', 'mahasiswa')->count();
         $mahasiswaTerverifikasi = MahasiswaProfile::where('status_verifikasi', 'disetujui')->count();
+        $kantinAktif = MerchantProfile::where('status_verifikasi', 'disetujui')->count();
 
-        // Jumlah transaksi hari ini
         $transaksiHariIni = Transaction::whereDate('created_at', Carbon::today())->count();
+        
+        $keuangan = Transaction::whereIn('status', ['lunas', 'sukses']);
+        $totalPerputaran = (clone $keuangan)->sum('total_amount');
+        $pendapatanLKBB = (clone $keuangan)->sum('fee_lkbb');
 
-        // Total perputaran dana (transaksi berstatus lunas)
-        $totalDana = Transaction::where('status', 'lunas')->sum('total_amount');
+        return [
+            'total_mahasiswa'         => $totalMahasiswa,
+            'mahasiswa_terverifikasi' => $mahasiswaTerverifikasi,
+            'kantin_aktif'            => $kantinAktif,
+            'transaksi_hari_ini'      => $transaksiHariIni,
+            'total_perputaran'        => $totalPerputaran,
+            'pendapatan_lkbb'         => $pendapatanLKBB,
+        ];
+    }
 
-        // 2. AKTIVITAS TERBARU (5 Transaksi Terakhir)
-        $recentActivities = Transaction::with('user')
+    #[Computed]
+    public function recentActivities()
+    {
+        return Transaction::with('user')
             ->latest()
-            ->take(5)
+            ->take(6)
             ->get()
             ->map(function ($trx) {
                 return [
-                    'name' => $trx->user->name ?? 'Sistem / Guest',
-                    'id' => $trx->order_id ?? ('TRX-' . $trx->id),
-                    'type' => ucwords(str_replace('_', ' ', $trx->type)), // Misal: donation -> Donation
-                    'status' => $trx->status == 'lunas' ? 'Selesai' : ($trx->status == 'pending' ? 'Tertunda' : 'Gagal'),
+                    'name'   => $trx->user->name ?? 'Sistem / Guest',
+                    'id'     => $trx->order_id ?? ('TRX-' . $trx->id),
+                    'type'   => $trx->description ?? ucwords(str_replace('_', ' ', $trx->type)),
+                    'status' => in_array($trx->status, ['lunas', 'sukses']) ? 'Selesai' : ($trx->status == 'pending' ? 'Tertunda' : 'Gagal'),
                     'amount' => $trx->total_amount,
-                    'time' => $trx->created_at->diffForHumans(),
+                    'time'   => $trx->created_at->diffForHumans(),
                     'avatar' => strtoupper(substr($trx->user->name ?? 'S', 0, 2))
                 ];
             });
+    }
 
-        // 3. DATA GRAFIK (Tren Volume Transaksi 6 Bulan Terakhir)
-        $chartData = Transaction::select(
-                DB::raw('SUM(total_amount) as total'),
-                DB::raw('MONTH(created_at) as month')
-            )
-            ->where('status', 'lunas')
-            ->where('created_at', '>=', Carbon::now()->subMonths(6))
-            ->groupBy('month')
-            ->pluck('total', 'month')
-            ->toArray();
+    /**
+     * ENGINE GRAFIK DISERAGAMKAN DENGAN MERCHANT (Single Series)
+     */
+    public function getChartData()
+    {
+        $query = Transaction::whereIn('status', ['lunas', 'sukses']);
+        
+        $labels = [];
+        $series = []; 
 
-        $chartLabels = [];
-        $chartValues = [];
-        for ($i = 5; $i >= 0; $i--) {
-            $date = Carbon::now()->subMonths($i);
-            $chartLabels[] = $date->isoFormat('MMM YYYY');
-            $chartValues[] = $chartData[$date->month] ?? 0;
+        if ($this->chartFilter === 'today') {
+            $txs = (clone $query)->whereDate('created_at', Carbon::today())->get();
+            $grouped = $txs->groupBy(fn($item) => Carbon::parse($item->created_at)->format('H'));
+
+            for ($i = 6; $i <= 21; $i++) {
+                $hour = str_pad($i, 2, '0', STR_PAD_LEFT);
+                $labels[] = $hour . ':00';
+                $series[] = $grouped->has($hour) ? (int) $grouped->get($hour)->sum('total_amount') : 0;
+            }
+        } elseif ($this->chartFilter === 'month') {
+            $now = Carbon::now();
+            $txs = (clone $query)->whereMonth('created_at', $now->month)->whereYear('created_at', $now->year)->get();
+            $grouped = $txs->groupBy(fn($item) => Carbon::parse($item->created_at)->format('j'));
+
+            for ($i = 1; $i <= $now->daysInMonth; $i++) {
+                $labels[] = $i . ' ' . $now->format('M');
+                $series[] = $grouped->has((string)$i) ? (int) $grouped->get((string)$i)->sum('total_amount') : 0;
+            }
+        } elseif ($this->chartFilter === 'year') {
+            $now = Carbon::now();
+            $txs = (clone $query)->whereYear('created_at', $now->year)->get();
+            $grouped = $txs->groupBy(fn($item) => Carbon::parse($item->created_at)->format('n'));
+
+            $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+            for ($i = 1; $i <= 12; $i++) {
+                $labels[] = $months[$i - 1];
+                $series[] = $grouped->has((string)$i) ? (int) $grouped->get((string)$i)->sum('total_amount') : 0;
+            }
         }
 
-        return [
-            'mahasiswaTerverifikasi' => $mahasiswaTerverifikasi,
-            'transaksiHariIni' => $transaksiHariIni,
-            'totalDana' => $totalDana,
-            'recentActivities' => $recentActivities,
-            'chartLabels' => $chartLabels,
-            'chartValues' => $chartValues,
-        ];
+        return ['labels' => $labels, 'series' => $series];
     }
+
+    public function setFilter($filter)
+    {
+        $this->chartFilter = $filter;
+        $data = $this->getChartData();
+        $this->dispatch('update-admin-chart', labels: $data['labels'], series: $data['series']);
+    }
+
 }; ?>
 
-<div class="space-y-8 font-sans text-gray-800 p-6 md:p-8 w-full relative">
+<div class="space-y-8 font-sans text-gray-800 p-6 md:p-8 w-full relative bg-gray-50/30 min-h-screen">
     
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+    {{-- HEADER --}}
     <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-            <h2 class="text-3xl font-bold text-gray-900 tracking-tight">Dashboard Utama Admin</h2>
-            <p class="text-gray-500 mt-1">Ringkasan performa ekosistem SCFS hari ini, {{ date('d M Y') }}</p>
+            <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">Executive Dashboard</h2>
+            <p class="text-gray-500 mt-1">Ringkasan performa dan aliran dana ekosistem SCFS ITB.</p>
         </div>
-        <button class="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-800 transition shadow-lg shadow-gray-200 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-            Unduh Laporan
+        <button class="bg-[#137FEC] text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-[#0f6fd1] transition shadow-lg shadow-gray-200 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Unduh Laporan PDF
         </button>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 group relative overflow-hidden">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-blue-50 opacity-50 rounded-full -mr-6 -mt-6 transition-transform group-hover:scale-150"></div>
-            <div class="flex justify-between items-start mb-4 relative z-10">
-                <div class="p-3 bg-blue-50 text-blue-600 rounded-xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                </div>
-                <span class="flex items-center text-[10px] font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full border border-green-100 uppercase tracking-wider">
-                    Aktif
-                </span>
+    {{-- GRID METRIK (6 KARTU) --}}
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div class="bg-white p-6 rounded-2xl ring-1 ring-gray-200 shadow-sm flex items-center gap-5">
+            <div class="h-14 w-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
             </div>
-            <div class="relative z-10">
-                <h3 class="text-3xl font-extrabold text-gray-900">{{ number_format($mahasiswaTerverifikasi, 0, ',', '.') }}</h3>
-                <p class="text-gray-500 text-sm font-medium mt-1">Mahasiswa Terverifikasi</p>
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Total Pendaftar</p>
+                <h3 class="text-2xl font-extrabold text-gray-900">{{ number_format($this->stats['total_mahasiswa'], 0, ',', '.') }} <span class="text-sm font-medium text-gray-400">Akun</span></h3>
             </div>
         </div>
 
-        <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 group relative overflow-hidden">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-orange-50 opacity-50 rounded-full -mr-6 -mt-6 transition-transform group-hover:scale-150"></div>
-            <div class="flex justify-between items-start mb-4 relative z-10">
-                <div class="p-3 bg-orange-50 text-orange-600 rounded-xl group-hover:bg-orange-500 group-hover:text-white transition-colors">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
-                </div>
-                <span class="flex items-center text-[10px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-100 uppercase tracking-wider">
-                    Hari Ini
-                </span>
+        <div class="bg-white p-6 rounded-2xl ring-1 ring-gray-200 shadow-sm flex items-center gap-5">
+            <div class="h-14 w-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
-            <div class="relative z-10">
-                <h3 class="text-3xl font-extrabold text-gray-900">{{ number_format($transaksiHariIni, 0, ',', '.') }}</h3>
-                <p class="text-gray-500 text-sm font-medium mt-1">Transaksi Berjalan</p>
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Mahasiswa Terverifikasi</p>
+                <div class="flex items-end gap-2">
+                    <h3 class="text-2xl font-extrabold text-gray-900">{{ number_format($this->stats['mahasiswa_terverifikasi'], 0, ',', '.') }}</h3>
+                    @if($this->stats['total_mahasiswa'] > 0)
+                        <span class="text-xs font-bold text-emerald-500 mb-1.5">({{ round(($this->stats['mahasiswa_terverifikasi'] / $this->stats['total_mahasiswa']) * 100) }}%)</span>
+                    @endif
+                </div>
             </div>
         </div>
 
-        <div class="bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 rounded-2xl shadow-lg relative overflow-hidden group">
-            <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
-            <div class="flex justify-between items-start mb-4 relative z-10">
-                <div class="p-3 bg-white/20 text-white rounded-xl backdrop-blur-sm">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </div>
-                <span class="flex items-center text-[10px] font-bold text-indigo-100 bg-white/20 px-2.5 py-1 rounded-full uppercase tracking-wider">
-                    All Time
-                </span>
+        <div class="bg-white p-6 rounded-2xl ring-1 ring-gray-200 shadow-sm flex items-center gap-5">
+            <div class="h-14 w-14 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
             </div>
-            <div class="relative z-10">
-                <h3 class="text-2xl lg:text-3xl font-extrabold text-white truncate">Rp {{ number_format($totalDana, 0, ',', '.') }}</h3>
-                <p class="text-indigo-100 text-sm font-medium mt-1">Total Perputaran Dana</p>
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Kantin/Merchant Aktif</p>
+                <h3 class="text-2xl font-extrabold text-gray-900">{{ number_format($this->stats['kantin_aktif'], 0, ',', '.') }} <span class="text-sm font-medium text-gray-400">Toko</span></h3>
             </div>
         </div>
+
+        <div class="bg-white p-6 rounded-2xl ring-1 ring-gray-200 shadow-sm flex items-center gap-5">
+            <div class="h-14 w-14 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+            </div>
+            <div>
+                <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Volume Uang Beredar</p>
+                <h3 class="text-xl font-extrabold text-gray-900 truncate">Rp {{ number_format($this->stats['total_perputaran'], 0, ',', '.') }}</h3>
+            </div>
+        </div>
+
+        <div class="bg-gradient-to-br from-[#137FEC] to-[#0f6fd1] p-6 rounded-2xl shadow-lg flex items-center gap-5 relative overflow-hidden">
+    
+            <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -mr-6 -mt-6"></div>
+            
+            <div class="h-14 w-14 rounded-2xl bg-white/20 text-white flex items-center justify-center flex-shrink-0 backdrop-blur-sm z-10">
+                <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+
+            <div class="z-10">
+                <p class="text-xs font-bold text-blue-100 uppercase tracking-wider mb-1">
+                    Pendapatan Net LKBB (Fee)
+                </p>
+                <h3 class="text-2xl font-extrabold text-white truncate">
+                    Rp {{ number_format($this->stats['pendapatan_lkbb'], 0, ',', '.') }}
+                </h3>
+            </div>
+
+        </div>
+
+        <div class="bg-gray-900 p-6 rounded-2xl shadow-lg flex items-center gap-5 relative overflow-hidden">
+            <div class="h-14 w-14 rounded-2xl bg-gray-800 text-gray-300 flex items-center justify-center flex-shrink-0 z-10">
+                <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            </div>
+            <div class="z-10">
+                <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Live Hari Ini
+                </p>
+                <h3 class="text-2xl font-extrabold text-white">{{ number_format($this->stats['transaksi_hari_ini'], 0, ',', '.') }} <span class="text-sm font-medium text-gray-500">Aktivitas</span></h3>
+            </div>
+        </div>
+
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm lg:col-span-2" wire:ignore>
-            <div class="flex justify-between items-center mb-6">
+        {{-- GRAFIK: SEKARANG SAMA PERSIS DENGAN MERCHANT (Tinggi & Style Fixed) --}}
+        <div class="lg:col-span-2 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+    
+            <div class="px-6 py-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50/50">
                 <div>
-                    <h3 class="text-lg font-bold text-gray-900">Tren Transaksi Bulanan</h3>
-                    <p class="text-gray-500 text-sm mt-0.5">Volume dana transaksi sukses dalam 6 bulan terakhir</p>
+                    <h3 class="font-bold text-gray-900 text-lg">
+                        Grafik Perputaran Dana
+                    </h3>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Total volume transaksi sukses dalam ekosistem
+                    </p>
+                </div>
+                
+                <div class="inline-flex bg-gray-100 p-1 rounded-lg">
+                    <button 
+                        wire:click="setFilter('today')" 
+                        class="px-3 py-1.5 text-xs font-bold rounded-md transition 
+                        {{ $chartFilter === 'today' ? 'bg-white text-[#137FEC] shadow-sm' : 'text-gray-500 hover:text-[#137FEC]' }}">
+                        Hari Ini
+                    </button>
+
+                    <button 
+                        wire:click="setFilter('month')" 
+                        class="px-3 py-1.5 text-xs font-bold rounded-md transition 
+                        {{ $chartFilter === 'month' ? 'bg-white text-[#137FEC] shadow-sm' : 'text-gray-500 hover:text-[#137FEC]' }}">
+                        Bulan Ini
+                    </button>
+
+                    <button 
+                        wire:click="setFilter('year')" 
+                        class="px-3 py-1.5 text-xs font-bold rounded-md transition 
+                        {{ $chartFilter === 'year' ? 'bg-white text-[#137FEC] shadow-sm' : 'text-gray-500 hover:text-[#137FEC]' }}">
+                        Tahun Ini
+                    </button>
                 </div>
             </div>
             
-            <div class="relative h-72 w-full">
-                <canvas id="adminTrendChart"></canvas>
+            <div class="p-6 flex-1">
+                <div 
+                    x-data="{
+                        chart: null,
+                        initChart() {
+                            let options = {
+                                chart: { 
+                                    type: 'area', 
+                                    height: 320, 
+                                    fontFamily: 'inherit', 
+                                    toolbar: { show: false }, 
+                                    zoom: { enabled: false } 
+                                },
+
+                                series: [{ 
+                                    name: 'Total Volume (Rp)', 
+                                    data: [] 
+                                }],
+
+                                colors: ['#137FEC'], // ✅ Brand color
+
+                                stroke: { 
+                                    curve: 'smooth', 
+                                    width: 3 
+                                },
+
+                                markers: {
+                                    size: 0
+                                },
+
+                                fill: { 
+                                    type: 'gradient',
+                                    gradient: {
+                                        shade: 'light',
+                                        type: 'vertical',
+                                        shadeIntensity: 0.5,
+                                        gradientToColors: ['#137FEC'],
+                                        opacityFrom: 0.45,
+                                        opacityTo: 0.05,
+                                        stops: [0, 100]
+                                    }
+                                },
+
+                                xaxis: { 
+                                    categories: [], 
+                                    tooltip: { enabled: false }, 
+                                    axisBorder: { show: false },
+                                    axisTicks: { show: false },
+                                    labels: { style: { colors: '#6B7280' } }
+                                },
+
+                                yaxis: { 
+                                    labels: { 
+                                        style: { colors: '#6B7280' },
+                                        formatter: function(val) { 
+                                            return 'Rp ' + new Intl.NumberFormat('id-ID').format(val); 
+                                        } 
+                                    } 
+                                },
+
+                                grid: { 
+                                    strokeDashArray: 4, 
+                                    borderColor: '#E5E7EB',
+                                    padding: { top: 0, right: 0, bottom: 0, left: 10 } 
+                                },
+
+                                tooltip: { 
+                                    theme: 'light',
+                                    y: { 
+                                        formatter: function(val) { 
+                                            return 'Rp ' + new Intl.NumberFormat('id-ID').format(val); 
+                                        } 
+                                    } 
+                                },
+
+                                dataLabels: { 
+                                    enabled: false 
+                                }
+                            };
+
+                            this.chart = new ApexCharts(this.$refs.adminChart, options);
+                            this.chart.render();
+
+                            let initialData = @js($this->getChartData());
+                            this.chart.updateOptions({ 
+                                xaxis: { categories: initialData.labels } 
+                            });
+
+                            this.chart.updateSeries([{ 
+                                data: initialData.series 
+                            }]);
+                        }
+                    }"
+                    x-init="initChart()"
+                    @update-admin-chart.window="
+                        chart.updateOptions({ xaxis: { categories: $event.detail.labels } });
+                        chart.updateSeries([{ data: $event.detail.series }]);
+                    "
+                >
+                    <div x-ref="adminChart" wire:ignore></div>
+                </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full lg:col-span-1">
-            <div class="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30 rounded-t-2xl">
-                <h3 class="text-base font-bold text-gray-900">Aktivitas Terbaru</h3>
-                <a href="{{ route('admin.monitoring.index') }}" class="text-indigo-600 text-xs font-bold hover:text-indigo-800 transition">Lihat &rarr;</a>
+        {{-- AKTIVITAS TERBARU --}}
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full lg:col-span-1 overflow-hidden">
+            <div class="p-6 border-b border-gray-50 flex justify-between items-center bg-gray-50/30">
+                <h3 class="text-base font-bold text-gray-900">Log Aktivitas Terbaru</h3>
             </div>
             
-            <div class="flex-1 overflow-y-auto p-4 space-y-4">
-                @forelse($recentActivities as $activity)
-                <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition group">
-                    <div class="flex items-center gap-3">
-                        <div class="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-sm font-bold text-indigo-600 border border-indigo-100 flex-shrink-0">
-                            {{ $activity['avatar'] }}
+            <div class="flex-1 overflow-y-auto p-2">
+                @forelse($this->recentActivities as $activity)
+                <div class="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition group">
+                    <div class="flex items-center gap-3 min-w-0">
+                    <div class="h-10 w-10 rounded-full bg-[#137FEC]/10 flex items-center justify-center text-sm font-bold text-[#137FEC] border border-[#137FEC]/20 flex-shrink-0">
+                        {{ $activity['avatar'] }}
+                    </div>
+                    <div class="min-w-0">
+                        <div class="font-bold text-gray-900 text-sm truncate group-hover:text-[#137FEC] transition">
+                            {{ $activity['name'] }}
                         </div>
-                        <div class="min-w-0">
-                            <div class="font-bold text-gray-900 text-sm truncate w-24 md:w-32 group-hover:text-indigo-600 transition">{{ $activity['name'] }}</div>
-                            <div class="text-[10px] text-gray-400 truncate">{{ $activity['type'] }} &bull; {{ $activity['time'] }}</div>
+                        <div class="text-[10px] text-gray-500 truncate">
+                            {{ $activity['type'] }} &bull; {{ $activity['time'] }}
                         </div>
                     </div>
-                    <div class="text-right flex-shrink-0">
-                        <div class="text-sm font-bold text-gray-900">
+                </div>
+                    <div class="text-right flex-shrink-0 ml-2">
+                        <div class="text-sm font-extrabold text-gray-900">
                             Rp {{ number_format($activity['amount'], 0, ',', '.') }}
                         </div>
                         @if($activity['status'] == 'Selesai')
-                            <span class="text-[9px] font-bold text-green-600 uppercase tracking-wider">Selesai</span>
+                            <span class="text-[9px] font-bold text-emerald-600 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded mt-1 inline-block">Selesai</span>
                         @elseif($activity['status'] == 'Tertunda')
-                            <span class="text-[9px] font-bold text-orange-500 uppercase tracking-wider">Pending</span>
+                            <span class="text-[9px] font-bold text-orange-500 uppercase tracking-wider bg-orange-50 px-2 py-0.5 rounded mt-1 inline-block">Pending</span>
                         @else
-                            <span class="text-[9px] font-bold text-red-500 uppercase tracking-wider">Gagal</span>
+                            <span class="text-[9px] font-bold text-red-500 uppercase tracking-wider bg-red-50 px-2 py-0.5 rounded mt-1 inline-block">Gagal</span>
                         @endif
                     </div>
                 </div>
                 @empty
-                <div class="text-center py-10 text-gray-400">
-                    <svg class="w-10 h-10 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                    <p class="text-sm font-medium">Belum ada aktivitas.</p>
+                <div class="text-center py-12 text-gray-400">
+                    <div class="text-4xl mb-3 opacity-50">📭</div>
+                    <p class="text-sm font-medium">Belum ada jejak transaksi.</p>
                 </div>
                 @endforelse
             </div>
@@ -200,74 +408,3 @@ class extends Component {
 
     </div>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    document.addEventListener('livewire:navigated', () => {
-        const ctxLine = document.getElementById('adminTrendChart');
-        if (ctxLine) {
-            // Hancurkan chart lama jika ada (mencegah bug tumpuk saat pindah halaman SPA)
-            let chartStatus = Chart.getChart("adminTrendChart");
-            if (chartStatus != undefined) { chartStatus.destroy(); }
-
-            const gradient = ctxLine.getContext('2d').createLinearGradient(0, 0, 0, 300);
-            gradient.addColorStop(0, 'rgba(79, 70, 229, 0.2)'); // Indigo-600 transparan
-            gradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
-
-            new Chart(ctxLine, {
-                type: 'line',
-                data: {
-                    labels: @json($chartLabels),
-                    datasets: [{
-                        label: 'Volume Transaksi (Rp)',
-                        data: @json($chartValues),
-                        borderColor: '#4F46E5', // Indigo-600
-                        backgroundColor: gradient,
-                        borderWidth: 3,
-                        tension: 0.4, // Melengkung mulus
-                        fill: true,
-                        pointRadius: 4,
-                        pointBackgroundColor: '#fff',
-                        pointBorderColor: '#4F46E5',
-                        pointBorderWidth: 2,
-                        pointHoverRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let value = context.raw || 0;
-                                    return ' Rp ' + value.toLocaleString('id-ID');
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: { 
-                            beginAtZero: true,
-                            grid: { borderDash: [4, 4], color: '#F3F4F6', drawBorder: false },
-                            ticks: { 
-                                color: '#9CA3AF', 
-                                font: { size: 10 },
-                                callback: function(value) {
-                                    if (value >= 1000000) return (value / 1000000) + 'M';
-                                    if (value >= 1000) return (value / 1000) + 'k';
-                                    return value;
-                                }
-                            } 
-                        },
-                        x: { 
-                            grid: { display: false },
-                            ticks: { color: '#9CA3AF', font: { size: 11 } }
-                        }
-                    }
-                }
-            });
-        }
-    });
-</script>

@@ -98,4 +98,7 @@ class User extends Authenticatable
     {
         return $this->hasOne(LoginLog::class)->latestOfMany('login_at');
     }
+    public function merchantProducts() {
+    return $this->hasMany(MerchantProduct::class, 'merchant_id');
+}
 }
