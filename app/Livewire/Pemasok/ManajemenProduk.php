@@ -109,6 +109,7 @@ class ManajemenProduk extends Component
             'stok_sekarang' => $this->stok_sekarang,
             'batas_minimum_stok' => $this->batas_minimum_stok,
             'deskripsi' => $this->deskripsi,
+            'satuan' => $this->satuan,
         ];
 
         if ($this->foto_produk) {

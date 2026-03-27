@@ -4,12 +4,15 @@ namespace App\Livewire\Pemasok;
 
 use Livewire\Component;
 use Livewire\WithPagination;
+use App\Models\SupplyOrder;
+use Illuminate\Support\Facades\Auth;
 
 class PesananMasuk extends Component
 {
     use WithPagination;
 
-    public $activeTab = 'baru'; // Pilihan: baru, diproses, dikirim, selesai
+    // Default tab menggunakan status awal dari database
+    public $activeTab = 'menunggu_lkbb'; 
     public $search = '';
 
     public function setTab($tab)
@@ -19,51 +22,54 @@ class PesananMasuk extends Component
     }
 
     public function updateStatusPesanan($id, $statusBaru)
-    {
-        // Nanti di sini logika update ke database (tabel transactions / supply_chains)
-        session()->flash('message', "Status pesanan #$id berhasil diubah menjadi: $statusBaru");
+{
+    // Load pesanan beserta detail dan produk pemasoknya
+    $order = SupplyOrder::with('details.produkPemasok')->find($id);
+    
+    if ($order) {
+        // LOGIKA PENGURANGAN STOK
+        // Stok dikurangi hanya saat status berubah dari 'menunggu_lkbb' ke 'diproses_pemasok'
+        if ($statusBaru === 'diproses_pemasok' && $order->status === 'menunggu_lkbb') {
+            foreach ($order->details as $detail) {
+                // Pastikan produk terkait ditemukan
+                if ($detail->produkPemasok) {
+                    // Gunakan nama kolom 'stok_sekarang' sesuai isi model Anda
+                    $detail->produkPemasok->decrement('stok_sekarang', $detail->qty);
+                }
+            }
+        }
+
+        // Update status di database
+        $order->update(['status' => $statusBaru]);
+        
+        // Pesan notifikasi
+        $pesanStatus = $statusBaru == 'diproses_pemasok' ? 'Diproses' : ($statusBaru == 'dikirim' ? 'Dikirim' : 'Selesai');
+        session()->flash('message', "Status pesanan #{$order->nomor_order} berhasil diubah menjadi: {$pesanStatus}. Stok produk telah dikurangi otomatis.");
     }
+}
 
     public function render()
     {
-        // Data Dummy Orderan dari Merchant (Nanti diganti dengan Query Database sungguhan)
-        $pesanan = [
-            [
-                'id' => 'ORD-1092',
-                'tanggal' => '2023-10-27 08:30',
-                'merchant' => 'Toko Kelontong Berkah (Bpk. Budi)',
-                'total_harga' => 1500000,
-                'status' => 'baru',
-                'item' => '5x Beras Premium 5kg, 2x Minyak Goreng 2L',
-                'alamat' => 'Jl. Merdeka No. 45, Bandung'
-            ],
-            [
-                'id' => 'ORD-1090',
-                'tanggal' => '2023-10-26 14:15',
-                'merchant' => 'Warung Makmur (Ibu Siti)',
-                'total_harga' => 850000,
-                'status' => 'diproses',
-                'item' => '10x Gula Pasir 1kg, 5x Kopi Bubuk',
-                'alamat' => 'Jl. Sudirman No. 12, Bandung'
-            ],
-            [
-                'id' => 'ORD-1085',
-                'tanggal' => '2023-10-25 09:00',
-                'merchant' => 'Toko Sembako Maju (Bpk. Andi)',
-                'total_harga' => 3200000,
-                'status' => 'selesai',
-                'item' => '20x Beras Premium 5kg, 10x Telur 1kg',
-                'alamat' => 'Jl. Pahlawan No. 8, Bandung'
-            ],
-        ];
-
-        // Filter data berdasarkan Tab yang aktif
-        $filteredPesanan = collect($pesanan)->filter(function ($p) {
-            return $p['status'] === $this->activeTab;
-        });
+        $pesanan = SupplyOrder::with(['details.produkPemasok'])
+            ->whereHas('details', function ($query) {
+                $query->whereHas('produkPemasok', function ($q) {
+                    $q->where('user_id', Auth::id());
+                });
+            })
+            // Jika tab "Diproses", kita tampilkan yang statusnya diproses_pemasok DAN dikirim
+            ->when($this->activeTab === 'diproses_pemasok', function($query) {
+                $query->whereIn('status', ['diproses_pemasok', 'dikirim']);
+            }, function($query) {
+                $query->where('status', $this->activeTab);
+            })
+            ->when($this->search, function ($query) {
+                $query->where('nomor_order', 'like', '%' . $this->search . '%');
+            })
+            ->latest()
+            ->paginate(10);
 
         return view('livewire.pemasok.pesanan-masuk', [
-            'daftarPesanan' => $filteredPesanan
-        ])->layout('layouts.app'); // Sesuaikan layout jika Anda pakai nama lain
+            'daftarPesanan' => $pesanan
+        ])->layout('layouts.app'); 
     }
 }
