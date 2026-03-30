@@ -13,7 +13,7 @@
                 <option value="tahun_ini">Tahun Ini</option>
             </select>
             
-            <button wire:click="downloadLaporan" class="w-full sm:w-auto bg-blue-600 text-white font-bold px-6 py-3 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2 flex-shrink-0">
+            <button wire:click="downloadLaporan" class="w-full sm:w-auto bg-orange-600 text-white font-bold px-6 py-3 rounded-2xl hover:bg-orange-700 transition-all shadow-lg shadow-orange-200 flex items-center justify-center gap-2 flex-shrink-0">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                 Buat Laporan
             </button>
@@ -27,10 +27,10 @@
     @endif
 
     <div class="flex space-x-2 bg-gray-100 p-1.5 rounded-2xl w-full sm:w-max mb-6">
-        <button wire:click="setTab('penjualan')" class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all {{ $activeTab === 'penjualan' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200' }}">
+        <button wire:click="setTab('penjualan')" class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all {{ $activeTab === 'penjualan' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200' }}">
             Laporan Penjualan
         </button>
-        <button wire:click="setTab('stok')" class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all {{ $activeTab === 'stok' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200' }}">
+        <button wire:click="setTab('stok')" class="flex-1 sm:flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all {{ $activeTab === 'stok' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200' }}">
             Pergerakan Stok
         </button>
     </div>
@@ -38,8 +38,8 @@
     @if($activeTab === 'penjualan')
     <div class="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-gradient-to-br from-blue-600 to-blue-800 p-6 rounded-[24px] shadow-lg shadow-blue-200 text-white">
-                <p class="text-xs font-bold text-blue-200 uppercase tracking-widest mb-1">Total Pendapatan</p>
+            <div class="bg-gradient-to-br from-orange-600 to-orange-800 p-6 rounded-[24px] shadow-lg shadow-orange-200 text-white">
+                <p class="text-xs font-bold text-orange-200 uppercase tracking-widest mb-1">Total Pendapatan</p>
                 <h3 class="text-3xl font-black">Rp {{ number_format($totalPendapatan, 0, ',', '.') }}</h3>
             </div>
             <div class="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100 flex flex-col justify-center">
