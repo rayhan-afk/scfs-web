@@ -53,14 +53,31 @@ new class extends Component
             Menu Utama
         </div>
 
-        <a href="{{ route('dashboard') }}" 
+        <a href="{{ route('admin.dashboard') }}"
             class="flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 group whitespace-nowrap
-            {{ request()->routeIs('dashboard') ? 'bg-[#0A60B3] text-white shadow-md shadow-blue-200 border border-[#0A60B3]/10' : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900' }}"
-            :class="sidebarOpen ? '' : 'justify-center'" title="Dashboard">
-            <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('dashboard') ? 'text-white' : 'text-gray-400 group-hover:text-gray-500' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            {{ request()->routeIs('admin.dashboard') 
+                ? 'bg-[#137FEC] text-white shadow-md shadow-blue-200 border border-[#137FEC]/10' 
+                : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900' }}"
+            :class="sidebarOpen ? '' : 'justify-center'" 
+            title="Dashboard">
+
+            <svg class="w-5 h-5 flex-shrink-0 transition-colors
+                {{ request()->routeIs('admin.dashboard') 
+                    ? 'text-white' 
+                    : 'text-gray-400 group-hover:text-gray-500' }}"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z
+                    M14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z
+                    M4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z
+                    M14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
             </svg>
-            <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">Dashboard</span>
+
+            <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">
+                Dashboard
+            </span>
+
         </a>
 
         <div x-show="sidebarOpen" x-transition class="px-4 mb-2 mt-6 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest whitespace-nowrap">
@@ -69,15 +86,36 @@ new class extends Component
 
         <a href="{{ route('admin.verification') }}" 
             class="flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 group whitespace-nowrap
-            {{ request()->routeIs('admin.verification') ? 'bg-[#0A60B3] text-white shadow-md shadow-blue-200 border border-[#0A60B3]/10' : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900' }}"
-            :class="sidebarOpen ? '' : 'justify-center'" title="Verifikasi Mahasiswa">
-            <svg class="w-5 h-5 flex-shrink-0 {{ request()->routeIs('admin.verification') ? 'text-white' : 'text-gray-400 group-hover:text-gray-500' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            {{ request()->routeIs('admin.verification') 
+                ? 'bg-[#137FEC] text-white shadow-md shadow-blue-200 border border-[#137FEC]/10' 
+                : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900' }}"
+            :class="sidebarOpen ? '' : 'justify-center'" 
+            title="Verifikasi Mahasiswa">
+
+            <svg class="w-5 h-5 flex-shrink-0 transition-colors
+                {{ request()->routeIs('admin.verification') 
+                    ? 'text-white' 
+                    : 'text-gray-400 group-hover:text-gray-500' }}"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">Verifikasi Mahasiswa</span>
-            
-            <span x-show="sidebarOpen" class="ml-auto bg-rose-100 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border border-rose-200">3</span>
-            <span x-show="!sidebarOpen" class="absolute top-2 right-2 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
+
+            <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">
+                Verifikasi Mahasiswa
+            </span>
+
+            <!-- Badge tetap -->
+            <span x-show="sidebarOpen" 
+                class="ml-auto bg-rose-100 text-rose-700 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm border border-rose-200">
+                3
+            </span>
+
+            <span x-show="!sidebarOpen" 
+                class="absolute top-2 right-2 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white">
+            </span>
+
         </a>
 
         <div x-show="sidebarOpen" x-transition class="px-4 mb-1 mt-6 text-[9px] font-extrabold text-gray-400 uppercase tracking-widest whitespace-nowrap">
@@ -85,14 +123,42 @@ new class extends Component
         </div>
 
         <div x-data="{ masterDataOpen: {{ $isMasterDataActive ? 'true' : 'false' }} }" class="mt-1">
-            <button @click="if(!sidebarOpen) sidebarOpen = true; masterDataOpen = !masterDataOpen" 
-                    class="w-full flex items-center justify-between px-3 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 group {{ $isMasterDataActive ? 'bg-blue-50 text-[#0A60B3]' : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900' }}"
-                    :class="sidebarOpen ? '' : 'justify-center'" title="Manajemen Pengguna">
+            <button 
+                @click="if(!sidebarOpen) sidebarOpen = true; masterDataOpen = !masterDataOpen"
+                class="w-full flex items-center justify-between px-3 py-2.5 text-sm font-semibold rounded-xl transition-all duration-200 group
+                {{ $isMasterDataActive 
+                    ? 'bg-[#137FEC] text-white shadow-md shadow-blue-200 border border-[#137FEC]/10' 
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900' }}"
+                :class="sidebarOpen ? '' : 'justify-center'" 
+                title="Manajemen Pengguna">
+
                 <div class="flex items-center">
-                    <svg class="w-5 h-5 flex-shrink-0 {{ $isMasterDataActive ? 'text-[#0A60B3]' : 'text-gray-400 group-hover:text-gray-500' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-                    <span x-show="sidebarOpen" class="ml-3 font-semibold whitespace-nowrap">Manajemen Pengguna</span>
+                    <svg class="w-5 h-5 flex-shrink-0 transition-colors
+                        {{ $isMasterDataActive 
+                            ? 'text-white' 
+                            : 'text-gray-400 group-hover:text-gray-500' }}"
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+
+                    <span x-show="sidebarOpen" class="ml-3 font-semibold whitespace-nowrap">
+                        Manajemen Pengguna
+                    </span>
                 </div>
-                <svg x-show="sidebarOpen" :class="{'rotate-180': masterDataOpen}" class="w-4 h-4 text-gray-400 {{ $isMasterDataActive ? 'text-[#0A60B3]' : '' }} transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+
+                <svg 
+                    x-show="sidebarOpen" 
+                    :class="{'rotate-180': masterDataOpen}" 
+                    class="w-4 h-4 transition-transform duration-300
+                    {{ $isMasterDataActive ? 'text-white' : 'text-gray-400' }}"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 9l-7 7-7-7" />
+                </svg>
+
             </button>
 
             {{-- SUB-MENU MASTER DATA (WITH ICONS) --}}

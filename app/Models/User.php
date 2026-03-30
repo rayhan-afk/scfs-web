@@ -82,6 +82,11 @@ class User extends Authenticatable
     {
         return $this->hasOne(PemasokProfile::class);
     }
+    // Tambahkan relasi ini
+    public function supplierProfile()
+    {
+        return $this->hasOne(SupplierProfile::class, 'user_id');
+    }
     public function investorProfile()
     {
         return $this->hasOne(InvestorProfile::class);

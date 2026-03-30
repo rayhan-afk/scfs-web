@@ -33,6 +33,14 @@ class DatabaseSeeder extends Seeder
             'role' => 'lkbb',
         ]);
 
+        // 4. Akun Pemasok
+        User::create([
+            'name' => 'Pemasok',
+            'email' => 'pemasok@gmail.com',
+            'password' => Hash::make('password'),
+            'role' => 'pemasok',
+        ]);
+
         // 3. Data Mahasiswa + Profilnya
         $jurusan = ['Teknik Informatika', 'Desain Produk', 'Sipil', 'Elektro'];
         $status_verif = ['menunggu', 'disetujui', 'ditolak'];
