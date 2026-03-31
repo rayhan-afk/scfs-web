@@ -15,6 +15,8 @@
         <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     </head>
     <body class="font-sans antialiased bg-gray-50">
         
@@ -91,5 +93,33 @@
 
         @endif
         
+        <script>
+            window.addEventListener('swal:success', event => {
+                Swal.fire({
+                    title: event.detail.title,
+                    text: event.detail.text,
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            });
+        </script>
+
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+        <script>
+            window.addEventListener('swal:success', event => {
+                Swal.fire({
+                    // Livewire v3 mengirim data sebagai properti objek di dalam detail
+                    title: event.detail.title,
+                    text: event.detail.text,
+                    icon: event.detail.icon, // Akan otomatis jadi 'error' atau 'success'
+                    timer: 3000,
+                    showConfirmButton: false,
+                    timerProgressBar: true,
+                    confirmButtonColor: '#3085d6'
+                });
+            });
+        </script>
     </body>
 </html>
