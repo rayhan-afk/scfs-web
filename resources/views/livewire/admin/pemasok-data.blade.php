@@ -163,7 +163,7 @@ class extends Component {
             </div>
         </div>
 
-        <button wire:click="openAddModal" class="w-full md:w-auto px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium text-sm shadow-sm transition flex items-center justify-center gap-2">
+        <button wire:click="openAddModal" class="bg-[#137FEC] text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-[#0f6fd1] transition shadow-lg shadow-gray-200 flex items-center gap-2">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
             Tambah Pemasok
         </button>
@@ -308,8 +308,8 @@ class extends Component {
             </div>
             
             <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
-                <button wire:click="closeAddModal" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors focus:ring-4 focus:ring-gray-100">Batal</button>
-                <button wire:click="savePemasok" class="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm focus:ring-4 focus:ring-indigo-100">Simpan Pemasok</button>
+                <button wire:click="closeAddModal" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition-colors focus:ring-4 focus:ring-gray-100">Batal</button>
+                <button wire:click="savePemasok" class="bg-[#137FEC] text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-[#0f6fd1] transition shadow-lg shadow-gray-200 flex items-center gap-2">Simpan Pemasok</button>
             </div>
         </div>
     </div>

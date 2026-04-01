@@ -115,11 +115,11 @@ class extends Component {
         </div>
         
         <div class="flex gap-2 w-full md:w-auto">
-            <a href="{{ route('admin.pemasok.index') }}" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium text-sm transition text-center w-full md:w-auto flex items-center justify-center gap-2">
+            <a href="{{ route('admin.pemasok.index') }}" class="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 font-medium text-sm transition text-center w-full md:w-auto flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
                 Kembali
             </a>
-            <button wire:click="openEditModal" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium text-sm shadow-sm transition flex items-center justify-center w-full md:w-auto gap-2">
+            <button wire:click="openEditModal" class="bg-[#137FEC] text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-[#0f6fd1] transition shadow-lg shadow-gray-200 flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                 Edit Data
             </button>
@@ -129,7 +129,7 @@ class extends Component {
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         
         <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col h-full w-full relative overflow-hidden">
-            <div class="flex items-center gap-2 mb-6 text-indigo-700 font-bold text-sm">
+            <div class="flex items-center gap-2 mb-6 text-blue-500 font-bold text-sm">
                 <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 Informasi & Kontak Pemasok
             </div>
@@ -212,11 +212,11 @@ class extends Component {
         
         <div class="flex border-b border-gray-100 px-6 gap-6 overflow-x-auto">
             <button wire:click="$set('activeTab', 'riwayat_po')" 
-                class="py-4 font-bold text-sm whitespace-nowrap transition-colors {{ $activeTab == 'riwayat_po' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700' }}">
+                class="py-4 font-bold text-sm whitespace-nowrap transition-colors {{ $activeTab == 'riwayat_po' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700' }}">
                 Riwayat Pengiriman (PO) Kantin
             </button>
             <button wire:click="$set('activeTab', 'pembayaran')" 
-                class="py-4 font-bold text-sm whitespace-nowrap transition-colors {{ $activeTab == 'pembayaran' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700' }}">
+                class="py-4 font-bold text-sm whitespace-nowrap transition-colors {{ $activeTab == 'pembayaran' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700' }}">
                 Histori Pembayaran LKBB
             </button>
         </div>
@@ -326,7 +326,7 @@ class extends Component {
                 </div>
                 
                 <div class="p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
-                    <label class="block text-[10px] font-bold text-indigo-500 uppercase tracking-wider mb-1.5">Info Rekening Bank (Tujuan Pembayaran)</label>
+                    <label class="block text-[10px] font-bold text-blue-500 uppercase tracking-wider mb-1.5">Info Rekening Bank (Tujuan Pembayaran)</label>
                     <input wire:model="edit_info_bank" type="text" placeholder="Cth: BCA 1234567890 a.n PT Pangan" class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-2.5">
                 </div>
             </div>

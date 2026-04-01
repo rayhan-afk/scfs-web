@@ -298,7 +298,7 @@ class extends Component {
             </div>
             
             <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
-                <button wire:click="closeAddModal" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors focus:ring-4 focus:ring-gray-100">Batal</button>
+                <button wire:click="closeAddModal" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition-colors focus:ring-4 focus:ring-gray-100">Batal</button>
                 <button wire:click="saveInvestor" class="px-5 py-2 text-sm font-medium text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-colors shadow-sm focus:ring-4 focus:ring-teal-100">Simpan Investor</button>
             </div>
         </div>

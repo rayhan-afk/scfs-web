@@ -51,7 +51,7 @@
     </div>
 
     {{-- Main Table --}}
-    <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden mb-6">
         <div class="overflow-x-auto">
             <table class="w-full text-left">
                 <thead>
@@ -68,37 +68,37 @@
                     @forelse($riwayat as $item)
                     <tr class="hover:bg-gray-50/80 transition-all group">
                         <td class="px-6 py-5">
-                            <span class="text-sm font-bold text-gray-900">{{ $item['id'] }}</span>
+                            <span class="text-sm font-bold text-gray-900">{{ $item->kode_batch }}</span>
                         </td>
                         <td class="px-6 py-5">
-                            <div class="text-sm font-bold text-gray-800">{{ $item['item'] }}</div>
-                            <div class="text-xs text-gray-500 mt-0.5">Jumlah: {{ $item['jumlah'] }} {{ $item['satuan'] }}</div>
+                            <div class="text-sm font-bold text-gray-800">{{ $item->nama_produk }}</div>
+                            <div class="text-xs text-gray-500 mt-0.5">Jumlah: {{ $item->jumlah }} {{ $item->satuan }}</div>
                         </td>
                         <td class="px-6 py-5">
-                            <div class="text-sm text-gray-700">{{ $item['tanggal'] }}</div>
-                            <div class="text-xs text-gray-400 mt-0.5">{{ $item['waktu'] }} WIB</div>
+                            <div class="text-sm text-gray-700">{{ $item->waktu_produksi->format('d M Y') }}</div>
+                            <div class="text-xs text-gray-400 mt-0.5">{{ $item->waktu_produksi->format('H:i') }} WIB</div>
                         </td>
                         <td class="px-6 py-5">
                             <div class="flex items-center gap-2">
                                 <div class="w-7 h-7 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center text-[10px] font-bold">
-                                    {{ substr($item['pic'], 0, 1) }}
+                                    {{ substr($item->penanggung_jawab, 0, 1) }}
                                 </div>
-                                <span class="text-sm text-gray-600 font-medium">{{ $item['pic'] }}</span>
+                                <span class="text-sm text-gray-600 font-medium">{{ $item->penanggung_jawab }}</span>
                             </div>
                         </td>
                         <td class="px-6 py-5 text-center">
-                            @if($item['status_color'] == 'green')
+                            @if($item->status == 'selesai')
                                 <span class="px-3 py-1 bg-green-50 text-green-600 text-[11px] font-bold rounded-full border border-green-100 shadow-sm">
-                                    {{ $item['status'] }}
+                                    Selesai
                                 </span>
                             @else
                                 <span class="px-3 py-1 bg-red-50 text-red-600 text-[11px] font-bold rounded-full border border-red-100 shadow-sm">
-                                    {{ $item['status'] }}
+                                    Gagal/Kendala
                                 </span>
                             @endif
                         </td>
                         <td class="px-6 py-5 text-right">
-                            <button wire:click="openModal('{{ $item['id'] }}')" class="px-4 py-2 bg-white border border-gray-200 text-orange-600 text-xs font-bold rounded-xl hover:bg-orange-50 hover:border-orange-200 transition-colors shadow-sm">
+                            <button wire:click="openModal({{ $item->id }})" class="px-4 py-2 bg-white border border-gray-200 text-orange-600 text-xs font-bold rounded-xl hover:bg-orange-50 hover:border-orange-200 transition-colors shadow-sm">
                                 Detail
                             </button>
                         </td>
@@ -114,14 +114,18 @@
             </table>
         </div>
     </div>
+    
+    {{-- Pagination Links --}}
+    <div>
+        {{ $riwayat->links() }}
+    </div>
 
-    {{-- Modal Detail Produksi Menggunakan Alpine.js untuk transisi (Terhubung dengan Livewire $entangle) --}}
+    {{-- Modal Detail Produksi (Isinya tetap sama karena sudah di-mapping di Livewire) --}}
     <div x-data="{ open: @entangle('isModalOpen') }" 
          x-show="open" 
          class="fixed inset-0 z-50 flex items-center justify-center px-4 sm:px-0" 
          style="display: none;">
         
-        {{-- Background Overlay --}}
         <div x-show="open" 
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0"
@@ -133,7 +137,6 @@
              @click="open = false">
         </div>
 
-        {{-- Modal Panel --}}
         <div x-show="open" 
              x-transition:enter="transition ease-out duration-300"
              x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
@@ -144,7 +147,6 @@
              class="bg-white rounded-3xl shadow-2xl overflow-hidden w-full max-w-2xl z-50 relative border border-gray-100">
             
             @if($selectedItem)
-            {{-- Header Modal --}}
             <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                 <div>
                     <h3 class="text-lg font-bold text-gray-900">Detail Produksi</h3>
@@ -155,7 +157,6 @@
                 </button>
             </div>
 
-            {{-- Body Modal --}}
             <div class="p-6">
                 <div class="grid grid-cols-2 gap-4 mb-6 p-4 bg-orange-50/50 rounded-2xl border border-orange-100/50">
                     <div>
@@ -192,7 +193,6 @@
                 </div>
             </div>
 
-            {{-- Footer Modal --}}
             <div class="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
                 <button @click="open = false" class="px-5 py-2.5 bg-white border border-gray-200 text-gray-600 text-sm font-bold rounded-xl hover:bg-gray-50 transition-colors">Tutup</button>
                 <button class="px-5 py-2.5 bg-orange-600 text-white text-sm font-bold rounded-xl hover:bg-orange-700 shadow-md shadow-orange-200 transition-all">Cetak Laporan</button>
@@ -200,5 +200,4 @@
             @endif
         </div>
     </div>
-
 </div>

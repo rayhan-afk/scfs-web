@@ -4,6 +4,8 @@ namespace App\Livewire\Pemasok;
 
 use Livewire\Component;
 use Livewire\WithPagination;
+use App\Models\SupplyOrder; // Pastikan model ini sesuai dengan model pesanan Anda
+use Illuminate\Support\Facades\Auth;
 
 class PengirimanLogistik extends Component
 {
@@ -15,8 +17,8 @@ class PengirimanLogistik extends Component
     // Modal State
     public $showModalAtur = false;
     public $showModalLacak = false;
-    public $showModalUpdate = false; // Modal baru untuk update tracking
-    public $showModalCetak = false;  // Modal baru untuk cetak resi
+    public $showModalUpdate = false;
+    public $showModalCetak = false; 
     public $selectedPesanan = null;
 
     // Form Atur Pengiriman
@@ -26,125 +28,99 @@ class PengirimanLogistik extends Component
     // Form Update Tracking
     public $newTrackingStatus = '';
 
-    // Gunakan array public agar data bisa dimanipulasi/disimpan sementara selama halaman tidak di-refresh
-    public array $dataPengiriman = [];
-
-    public function mount()
-    {
-        // Pindahkan data ke mount() agar state-nya bertahan saat dimodifikasi
-        $this->dataPengiriman = [
-            [
-                'id' => 'ORD-1092',
-                'pembeli' => 'Toko Kelontong Berkah',
-                'alamat' => 'Jl. Merdeka No. 45, Bandung',
-                'item' => '5x Beras Premium, 2x Minyak Goreng',
-                'status' => 'perlu_dikirim',
-                'tanggal_pesan' => '05 Mar 2026, 08:30 WIB'
-            ],
-            [
-                'id' => 'ORD-1090',
-                'pembeli' => 'Warung Makmur',
-                'alamat' => 'Jl. Sudirman No. 12, Bandung',
-                'item' => '10x Gula Pasir 1kg',
-                'status' => 'sedang_dikirim',
-                'kurir' => 'Kurir Internal SCFS (Bpk. Yanto)',
-                'no_resi' => 'SCFS-BDG-00192',
-                'estimasi' => '05 Mar 2026',
-                'pelacakan' => [
-                    ['waktu' => '05 Mar 2026 09:00', 'status' => 'Pesanan dibawa oleh kurir menuju lokasi pembeli.', 'aktif' => true],
-                    ['waktu' => '05 Mar 2026 07:30', 'status' => 'Pesanan telah diserahkan ke pihak logistik.', 'aktif' => false],
-                ]
-            ],
-            [
-                'id' => 'ORD-1085',
-                'pembeli' => 'Toko Sembako Maju',
-                'alamat' => 'Jl. Pahlawan No. 8, Bandung',
-                'item' => '20x Beras Premium 5kg',
-                'status' => 'riwayat',
-                'kurir' => 'Lalamove (B-1234-XYZ)',
-                'no_resi' => 'LLM-998877',
-                'waktu_sampai' => '04 Mar 2026 14:20 WIB',
-                'pelacakan' => [
-                    ['waktu' => '04 Mar 2026 14:20', 'status' => 'Paket telah diterima oleh Bpk. Andi (Pemilik).', 'aktif' => true],
-                    ['waktu' => '04 Mar 2026 13:00', 'status' => 'Pesanan dibawa oleh kurir menuju lokasi pembeli.', 'aktif' => false],
-                ]
-            ],
-        ];
-    }
-
     public function setTab($tab)
     {
         $this->activeTab = $tab;
         $this->resetPage();
     }
 
-    // Modal Atur Pengiriman
     public function bukaModalAtur($id)
     {
-        $this->selectedPesanan = collect($this->dataPengiriman)->firstWhere('id', $id);
-        $this->no_resi = 'SCFS-' . rand(10000, 99999);
+        $this->selectedPesanan = $this->getPesananDetail($id);
+        $this->no_resi = 'SCFS-' . strtoupper(uniqid()); // Generate resi sementara
         $this->kurir = '';
         $this->showModalAtur = true;
     }
 
-    // Modal Lacak Status
     public function bukaModalLacak($id)
     {
-        $this->selectedPesanan = collect($this->dataPengiriman)->firstWhere('id', $id);
+        $this->selectedPesanan = $this->getPesananDetail($id);
         $this->showModalLacak = true;
     }
 
-    // Modal Cetak Label
     public function cetakLabel($id)
     {
-        $this->selectedPesanan = collect($this->dataPengiriman)->firstWhere('id', $id);
-        // Jika belum ada resi (karena masih Perlu Dikirim), buat dummy
-        if(!isset($this->selectedPesanan['no_resi'])) {
+        $this->selectedPesanan = $this->getPesananDetail($id);
+        
+        if(!isset($this->selectedPesanan['no_resi']) || empty($this->selectedPesanan['no_resi'])) {
             $this->selectedPesanan['no_resi'] = 'DRAFT-' . rand(1000,9999);
             $this->selectedPesanan['kurir'] = 'Belum Diatur';
         }
         $this->showModalCetak = true;
     }
 
-    // Modal Update Tracking
     public function bukaModalUpdate($id)
     {
-        $this->selectedPesanan = collect($this->dataPengiriman)->firstWhere('id', $id);
+        $this->selectedPesanan = $this->getPesananDetail($id);
         $this->newTrackingStatus = '';
         $this->showModalUpdate = true;
     }
 
+    // Aksi Simpan Pengiriman
     public function simpanPengiriman()
     {
-        $this->validate(['kurir' => 'required', 'no_resi' => 'required']);
+        $this->validate([
+            'kurir' => 'required', 
+            'no_resi' => 'required'
+        ]);
+
+        $order = SupplyOrder::find($this->selectedPesanan['id_asli']);
+        
+        if ($order) {
+            $order->update([
+                'status' => 'dikirim', // Disesuaikan dengan ENUM Anda
+                'kurir' => $this->kurir,
+                'no_resi' => $this->no_resi,
+                'tracking_history' => json_encode([
+                    [
+                        'waktu' => now()->format('d M Y H:i'),
+                        'status' => 'Pesanan telah diserahkan ke pihak logistik ('.$this->kurir.').',
+                        'aktif' => true
+                    ]
+                ])
+            ]);
+        }
+
         $this->showModalAtur = false;
-        session()->flash('message', 'Pengiriman berhasil diatur! Status berubah menjadi Sedang Dikirim.');
+        session()->flash('message', 'Pengiriman berhasil diatur! Pesanan dipindah ke Sedang Dikirim.');
     }
 
-    // Menyimpan Status Tracking Baru
+    // Aksi Update Status Tracking
     public function simpanTracking()
     {
         $this->validate([
             'newTrackingStatus' => 'required|min:5'
-        ], [
-            'newTrackingStatus.required' => 'Status pelacakan tidak boleh kosong.',
-            'newTrackingStatus.min' => 'Status pelacakan minimal 5 karakter.'
         ]);
 
-        // Cari index data pesanan
-        $index = collect($this->dataPengiriman)->search(fn($item) => $item['id'] === $this->selectedPesanan['id']);
+        $order = SupplyOrder::find($this->selectedPesanan['id_asli']);
         
-        if ($index !== false) {
-            // Matikan status 'aktif' pada pelacakan lama
-            foreach ($this->dataPengiriman[$index]['pelacakan'] as &$track) {
+        if ($order) {
+            $historyLama = $order->tracking_history ? json_decode($order->tracking_history, true) : [];
+            
+            // Matikan status aktif sebelumnya
+            foreach ($historyLama as &$track) {
                 $track['aktif'] = false;
             }
 
-            // Tambahkan status baru di urutan paling atas (awal array)
-            array_unshift($this->dataPengiriman[$index]['pelacakan'], [
-                'waktu' => now()->format('d M Y H:i') . ' WIB',
+            // Tambahkan status baru di urutan teratas
+            array_unshift($historyLama, [
+                'waktu' => now()->format('d M Y H:i'),
                 'status' => $this->newTrackingStatus,
                 'aktif' => true
+            ]);
+
+            $order->update([
+                'tracking_history' => json_encode($historyLama)
             ]);
 
             $this->showModalUpdate = false;
@@ -153,18 +129,75 @@ class PengirimanLogistik extends Component
         }
     }
 
+    // Helper untuk mengambil 1 pesanan (Format Array UI)
+    private function getPesananDetail($idStr)
+    {
+        $allData = $this->getDataDariDatabase();
+        return collect($allData)->firstWhere('id', $idStr);
+    }
+
+    // Mengambil data real dari DB dan diubah jadi array yang cocok untuk UI Blade
+    private function getDataDariDatabase()
+    {
+        // Sesuaikan relasi (misal details dan merchant) dengan nama relasi di Model Anda
+        $orders = SupplyOrder::with(['details.produkPemasok', 'merchant']) 
+            ->whereHas('details.produkPemasok', function($q) {
+                $q->where('user_id', Auth::id());
+            })
+            // Gunakan status dari ENUM Anda
+            ->whereIn('status', ['diproses_pemasok', 'dikirim', 'selesai', 'ditolak'])
+            ->orderBy('updated_at', 'desc')
+            ->get();
+
+        return $orders->map(function($order) {
+            $items = [];
+            foreach($order->details as $detail) {
+                if($detail->produkPemasok && $detail->produkPemasok->user_id == Auth::id()) {
+                    $items[] = $detail->qty . 'x ' . $detail->nama_bahan_snapshot;
+                }
+            }
+
+            // Menentukan tab berdasarkan status database Anda
+            $statusTab = 'perlu_dikirim';
+            if ($order->status == 'dikirim') $statusTab = 'sedang_dikirim';
+            if (in_array($order->status, ['selesai', 'ditolak'])) $statusTab = 'riwayat';
+
+            return [
+                'id_asli' => $order->id,
+                'id' => $order->nomor_order ?? 'ORD-'.$order->id,
+                'pembeli' => $order->merchant->nama_toko ?? 'Merchant ID: '.$order->merchant_id,
+                'alamat' => $order->merchant->alamat ?? 'Alamat tidak tersedia',
+                'item' => implode(', ', $items),
+                'status' => $statusTab,
+                'kurir' => $order->kurir ?? '-',
+                'no_resi' => $order->no_resi ?? '-',
+                'waktu_sampai' => $order->updated_at->format('d M Y H:i WIB'),
+                'pelacakan' => $order->tracking_history ? json_decode($order->tracking_history, true) : [],
+            ];
+        })->toArray();
+    }
+
     public function render()
     {
-        $data = collect($this->dataPengiriman)->filter(function ($item) {
+        $semuaData = collect($this->getDataDariDatabase());
+
+        // Hitung jumlah badge "Perlu Dikirim"
+        $countPerluDikirim = $semuaData->where('status', 'perlu_dikirim')->count();
+
+        // Filter berdasarkan Tab dan Pencarian
+        $dataTampil = $semuaData->filter(function ($item) {
             $matchTab = $item['status'] === $this->activeTab;
             $matchSearch = empty($this->search) || 
                            str_contains(strtolower($item['id']), strtolower($this->search)) || 
-                           str_contains(strtolower($item['pembeli']), strtolower($this->search));
+                           str_contains(strtolower($item['pembeli']), strtolower($this->search)) ||
+                           str_contains(strtolower($item['no_resi']), strtolower($this->search));
+            
             return $matchTab && $matchSearch;
         });
 
         return view('livewire.pemasok.pengiriman-logistik', [
-            'pengiriman' => $data
+            'pengiriman' => $dataTampil,
+            'countPerluDikirim' => $countPerluDikirim
         ])->layout('layouts.app');
     }
 }

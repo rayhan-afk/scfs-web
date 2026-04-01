@@ -27,7 +27,7 @@
     </div>
 
     @if (session()->has('message'))
-        <div class="mb-4 bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2">
+        <div class="mb-4 bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2 animate-in fade-in">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
             {{ session('message') }}
         </div>
@@ -35,8 +35,11 @@
 
     {{-- Tabs Ala Shopee --}}
     <div class="flex overflow-x-auto space-x-2 bg-white p-1.5 rounded-2xl w-full sm:w-max mb-6 border border-gray-100 shadow-sm hide-scrollbar">
-        <button wire:click="setTab('perlu_dikirim')" class="flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all {{ $activeTab === 'perlu_dikirim' ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:bg-gray-50' }}">
-            Perlu Dikirim <span class="ml-1 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">1</span>
+        <button wire:click="setTab('perlu_dikirim')" class="flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all relative {{ $activeTab === 'perlu_dikirim' ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:bg-gray-50' }}">
+            Perlu Dikirim 
+            @if($countPerluDikirim > 0)
+                <span class="ml-1 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{{ $countPerluDikirim }}</span>
+            @endif
         </button>
         <button wire:click="setTab('sedang_dikirim')" class="flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all {{ $activeTab === 'sedang_dikirim' ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:bg-gray-50' }}">
             Sedang Dikirim
@@ -46,10 +49,11 @@
         </button>
     </div>
 
+    {{-- Sisa kode List Pengiriman & Modal sama persis dengan yang Anda kirimkan --}}
     {{-- List Pengiriman --}}
     <div class="space-y-4">
         @forelse($pengiriman as $item)
-        <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex flex-col md:flex-row gap-6">
+        <div class="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex flex-col md:flex-row gap-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
             
             {{-- Info Sebelah Kiri --}}
             <div class="flex-1 space-y-4">
@@ -83,7 +87,6 @@
                     <button wire:click="bukaModalAtur('{{ $item['id'] }}')" class="w-full bg-orange-600 text-white font-bold py-2.5 rounded-xl hover:bg-orange-700 shadow-md shadow-orange-200 transition-all text-sm">
                         Atur Pengiriman
                     </button>
-                    {{-- DIUPDATE: Tambah wire:click cetakLabel --}}
                     <button wire:click="cetakLabel('{{ $item['id'] }}')" class="w-full bg-white border border-gray-200 text-gray-600 font-bold py-2.5 rounded-xl hover:bg-gray-50 transition-all text-sm flex justify-center items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                         Cetak Label Pengiriman
@@ -93,10 +96,9 @@
                         <p class="text-xs text-gray-400 font-bold uppercase">Kurir</p>
                         <p class="text-sm font-bold text-gray-800">{{ $item['kurir'] }}</p>
                     </div>
-                    <button wire:click="bukaModalLacak('{{ $item['id'] }}')" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 shadow-md shadow-blue-200 transition-all text-sm">
+                    <button wire:click="bukaModalLacak('{{ $item['id'] }}')" class="w-full bg-orange-600 text-white font-bold py-2.5 rounded-xl hover:bg-orange-700 shadow-md shadow-orange-200 transition-all text-sm">
                         Lacak Status
                     </button>
-                    {{-- DIUPDATE: Tambah wire:click bukaModalUpdate --}}
                     <button wire:click="bukaModalUpdate('{{ $item['id'] }}')" class="w-full bg-white border border-gray-200 text-gray-600 font-bold py-2.5 rounded-xl hover:bg-gray-50 transition-all text-sm flex justify-center items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                         Update Tracking
