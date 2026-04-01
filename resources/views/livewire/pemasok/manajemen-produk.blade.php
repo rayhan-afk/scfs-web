@@ -16,7 +16,7 @@
             </button>
         </div>
         
-        <button wire:click="bukaModalTambah" class="w-full sm:w-auto bg-blue-600 text-white font-bold px-6 py-3 rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2 flex-shrink-0">
+        <button wire:click="bukaModalTambah" class="w-full sm:w-auto bg-orange-600 text-white font-bold px-6 py-3 rounded-2xl hover:bg-orange-700 transition-all shadow-lg shadow-orange-200 flex items-center justify-center gap-2 flex-shrink-0">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
             Tambah Produk
         </button>
@@ -151,7 +151,7 @@
                 <div class="space-y-4">
                     <div class="grid grid-cols-2 gap-4">
                         <div class="col-span-1">
-                            <label class="block text-xs font-bold text-blue-600 uppercase tracking-widest mb-1.5">SKU Produk</label>
+                            <label class="block text-xs font-bold text-orange-600 uppercase tracking-widest mb-1.5">SKU Produk</label>
                             <input type="text" wire:model="sku" class="w-full rounded-xl border-gray-200 bg-gray-50 font-mono text-sm uppercase text-gray-500" readonly>
                         </div>
                         <div class="col-span-1">
@@ -202,7 +202,7 @@
 
                     <div class="flex gap-3 pt-2">
                         <button type="button" wire:click="$set('showModalProduk', false)" class="flex-1 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-all text-sm">Batal</button>
-                        <button type="submit" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all text-sm">
+                        <button type="submit" class="flex-1 py-3 bg-orange-600 text-white font-bold rounded-xl shadow-lg shadow-orange-200 hover:bg-orange-700 transition-all text-sm">
                             {{ $isEdit ? 'Simpan Perubahan' : 'Terbitkan Produk' }}
                         </button>
                     </div>
@@ -224,7 +224,7 @@
                     <input type="text" disabled value="{{ $stok_sekarang }} Unit" class="w-full bg-gray-50 border-gray-200 rounded-xl text-gray-500 font-bold">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-blue-600 uppercase tracking-widest mb-1.5">Stok Fisik Sebenarnya</label>
+                    <label class="block text-xs font-bold text-orange-600 uppercase tracking-widest mb-1.5">Stok Fisik Sebenarnya</label>
                     <input type="number" wire:model="stok_fisik" class="w-full rounded-xl border-gray-200 focus:ring-blue-500 py-3 font-black text-xl text-gray-800" placeholder="0">
                     @error('stok_fisik') <span class="text-red-500 text-xs font-semibold">{{ $message }}</span> @enderror
                 </div>
@@ -235,7 +235,7 @@
                 
                 <div class="flex gap-3 pt-4">
                     <button type="button" wire:click="$set('showModalOpname', false)" class="flex-1 px-4 py-3 bg-gray-100 text-gray-600 font-bold rounded-xl hover:bg-gray-200 transition-all text-sm">Batal</button>
-                    <button type="submit" class="flex-1 px-4 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all text-sm">Update Stok</button>
+                    <button type="submit" class="flex-1 px-4 py-3 bg-orange-600 text-white font-bold rounded-xl shadow-lg shadow-orange-200 hover:bg-orange-700 transition-all text-sm">Update Stok</button>
                 </div>
             </form>
         </div>

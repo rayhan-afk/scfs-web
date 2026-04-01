@@ -44,6 +44,8 @@ class extends Component {
         $user = User::find($id);
         if ($user && $user->mahasiswaProfile) {
             $user->mahasiswaProfile->update(['status_verifikasi' => 'disetujui']);
+            // Tambahkan ini
+            $this->dispatch('swal:success', title: 'Berhasil!', text: 'Mahasiswa telah disetujui.');
         }
     }
 
@@ -52,6 +54,13 @@ class extends Component {
         $user = User::find($id);
         if ($user && $user->mahasiswaProfile) {
             $user->mahasiswaProfile->update(['status_verifikasi' => 'ditolak']);
+            
+            // Dispatch event ke browser
+            $this->dispatch('swal:success', 
+                title: 'Berhasil Ditolak!',
+                text: 'Verifikasi mahasiswa ' . $user->name . ' telah ditolak.',
+                icon: 'error' // Ikon silang merah untuk tanda ditolak
+            );
         }
     }
 }; ?>
@@ -134,10 +143,13 @@ class extends Component {
                         </td>
 
                         <td class="px-6 py-4">
-                            @if($student->mahasiswaProfile->status_verifikasi== 'disetujui')
+                            @if($student->mahasiswaProfile->status_verifikasi == 'disetujui')
                                 <span class="bg-green-100 text-green-700 text-xs px-3 py-1 rounded-full font-bold border border-green-200">Disetujui</span>
-                            @elseif($student->status_verifikasi == 'ditolak')
+                            
+                            {{-- PERBAIKAN DI SINI: Tambahkan 'mahasiswaProfile->' sebelum 'status_verifikasi' --}}
+                            @elseif($student->mahasiswaProfile->status_verifikasi == 'ditolak')
                                 <span class="bg-red-100 text-red-700 text-xs px-3 py-1 rounded-full font-bold border border-red-200">Ditolak</span>
+                            
                             @else
                                 <span class="bg-yellow-100 text-yellow-700 text-xs px-3 py-1 rounded-full font-bold border border-yellow-200">Menunggu</span>
                             @endif
@@ -146,10 +158,47 @@ class extends Component {
                         <td class="px-6 py-4 text-right">
                             @if($student->mahasiswaProfile->status_verifikasi == 'menunggu')
                                 <div class="flex justify-end gap-2">
-                                    <button wire:click="approve({{ $student->id }})" class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded shadow-sm transition">
+                                    <button 
+                                        type="button"
+                                        x-on:click="
+                                            Swal.fire({
+                                                title: 'Konfirmasi Setuju',
+                                                text: 'Yakin ingin menyetujui verifikasi mahasiswa ini?',
+                                                icon: 'question',
+                                                showCancelButton: true,
+                                                confirmButtonColor: '#21c46a',
+                                                cancelButtonColor: '#989ba0',
+                                                confirmButtonText: 'Ya, Setujui!',
+                                                cancelButtonText: 'Batal'
+                                            }).then((result) => {
+                                                if (result.isConfirmed) {
+                                                    $wire.approve({{ $student->id }})
+                                                }
+                                            })
+                                        "
+                                        class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs font-bold rounded shadow-sm transition">
                                         Setuju
                                     </button>
-                                    <button wire:click="reject({{ $student->id }})" class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded shadow-sm transition">
+
+                                    <button 
+                                        type="button"
+                                        x-on:click="
+                                            Swal.fire({
+                                                title: 'Konfirmasi Tolak',
+                                                text: 'Mahasiswa ini akan ditolak verifikasinya. Lanjutkan?',
+                                                icon: 'warning',
+                                                showCancelButton: true,
+                                                confirmButtonColor: '#ef4444',
+                                                cancelButtonColor: '#6b7280',
+                                                confirmButtonText: 'Ya, Tolak!',
+                                                cancelButtonText: 'Batal'
+                                            }).then((result) => {
+                                                if (result.isConfirmed) {
+                                                    $wire.reject({{ $student->id }})
+                                                }
+                                            })
+                                        "
+                                        class="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded shadow-sm transition">
                                         Tolak
                                     </button>
                                 </div>

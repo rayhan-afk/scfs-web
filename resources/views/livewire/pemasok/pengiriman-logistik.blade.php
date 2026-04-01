@@ -96,7 +96,7 @@
                         <p class="text-xs text-gray-400 font-bold uppercase">Kurir</p>
                         <p class="text-sm font-bold text-gray-800">{{ $item['kurir'] }}</p>
                     </div>
-                    <button wire:click="bukaModalLacak('{{ $item['id'] }}')" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 shadow-md shadow-blue-200 transition-all text-sm">
+                    <button wire:click="bukaModalLacak('{{ $item['id'] }}')" class="w-full bg-orange-600 text-white font-bold py-2.5 rounded-xl hover:bg-orange-700 shadow-md shadow-orange-200 transition-all text-sm">
                         Lacak Status
                     </button>
                     <button wire:click="bukaModalUpdate('{{ $item['id'] }}')" class="w-full bg-white border border-gray-200 text-gray-600 font-bold py-2.5 rounded-xl hover:bg-gray-50 transition-all text-sm flex justify-center items-center gap-2">
