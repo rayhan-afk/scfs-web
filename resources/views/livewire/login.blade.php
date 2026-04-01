@@ -38,7 +38,7 @@ class extends Component {
     
     <header class="w-full max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
         <div class="flex items-center gap-3">
-            <img src="{{ asset('images/logo-lapi.png') }}" alt="PT LAPI ITB" class="h-20 w-auto object-contain">
+            <img src="{{ asset('images/logo-scfs.png') }}" class="h-15 w-auto mx-auto object-contain">
         </div>
         
         <div class="flex items-center space-x-8 text-lg font-medium">
@@ -52,8 +52,11 @@ class extends Component {
     <main class="flex-grow flex items-center justify-center px-4">
         <div class="bg-white rounded-[2rem] shadow-2xl overflow-hidden w-full max-w-6xl flex min-h-[650px]">
             
-            <div class="hidden lg:block w-1/2 bg-cover bg-center relative" 
-                 style="background-image: url('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?q=80&w=1000&auto=format&fit=crop');">
+            <div class="hidden lg:block w-1/2 relative overflow-hidden">
+                <img src="{{ asset('images/gambar.png') }}" 
+                    alt="Gambar Latar"
+                    class="absolute inset-0 w-full h-full object-cover object-center">
+    
                 <div class="absolute inset-0 bg-black/10"></div>
             </div>
 
@@ -61,7 +64,8 @@ class extends Component {
                 
                 <div class="max-w-md mx-auto w-full">
                     <div class="text-center mb-8">
-                        <img src="{{ asset('images/logo-lapi.png') }}" alt="PT LAPI ITB" class="h-14 w-auto mx-auto mb-4">
+                        <img src="{{ asset('images/logo-scfs.png') }}" class="h-20 w-auto mx-auto object-contain">
+                        
                         <p class="text-gray-600 text-sm font-medium">Silahkan masukkan email dan kata sandi anda.</p>
                     </div>
 

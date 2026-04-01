@@ -314,7 +314,7 @@ class extends Component {
                 <h2 class="text-2xl font-bold text-gray-900">Halo, {{ $this->profile->nama_kantin }}! 👋</h2>
                 <p class="text-gray-500 text-sm mt-1">Siap melayani mahasiswa hari ini? Buka kasir POS sekarang.</p>
             </div>
-            <a href="{{ route('merchant.scan') }}" wire:navigate class="px-5 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-bold text-sm shadow-md shadow-emerald-200 transition flex items-center justify-center gap-2 focus:ring-4 focus:ring-emerald-100">
+            <a href="{{ route('merchant.scan') }}" wire:navigate class="px-4 py-2.5 bg-emerald-600 border border-emerald-200 text-white font-bold text-sm rounded-xl transition shadow-sm flex items-center gap-2 hover:bg-emerald-100 hover:text-emerald-700 group">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
                 Buka Mesin Kasir POS
             </a>
