@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             
             // Detail Profil Kantin
-            $table->string('nama_kantin');
+            $table->string('nama_kantin')->nullable();
             $table->string('nama_pemilik');
             $table->string('lokasi_blok')->nullable(); // Misal: Blok A, Kantin Timur, dll
             

@@ -18,4 +18,8 @@ class SupplyOrder extends Model
         return $this->hasMany(SupplyOrderDetail::class, 'supply_order_id');
     }
     // --------------------------
+    public function merchant()
+    {
+        return $this->belongsTo(User::class, 'merchant_id');
+    }
 }
