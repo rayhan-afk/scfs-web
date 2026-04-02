@@ -4,6 +4,8 @@ use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 use Livewire\WithPagination;
 use App\Models\User;
+use App\Models\Wallet; // 👈 TAMBAHKAN INI
+use Illuminate\Support\Str; // 👈 TAMBAHKAN INI
 
 new #[Layout('layouts.lkbb')] class extends Component {
     use WithPagination;
@@ -26,15 +28,11 @@ new #[Layout('layouts.lkbb')] class extends Component {
     {
         return [
             'merchants' => User::where('role', 'merchant')
-                // 1. Cek status_verifikasi di dalam tabel merchant_profiles
-                ->whereHas('merchantProfile', function($query) {
-                    $query->where('status_verifikasi', 'approved');
-                })
-                // 2. Pencarian berdasarkan nama user ATAU nama toko
+                // PENCARIAN
                 ->where(function($query) {
                     $query->where('name', 'like', '%'.$this->search.'%')
                           ->orWhereHas('merchantProfile', function($q) {
-                              $q->where('company_name', 'like', '%'.$this->search.'%');
+                              $q->where('nama_kantin', 'like', '%'.$this->search.'%');
                           });
                 })
                 ->with('merchantProfile')
@@ -76,11 +74,24 @@ new #[Layout('layouts.lkbb')] class extends Component {
             'topupAmount' => 'required|numeric|min:10000'
         ]);
 
-        if($this->selectedUser && $this->selectedUser->merchantProfile) {
-            $profile = $this->selectedUser->merchantProfile;
-            $profile->credit_limit += $this->topupAmount; // Menambah Limit Saldo
-            $profile->save();
+        if($this->selectedUser) {
             
+            // 1. Tambah saldo ke MerchantProfile (Kantong Kiri)
+            if ($this->selectedUser->merchantProfile) {
+                $profile = $this->selectedUser->merchantProfile;
+                $profile->saldo_token += $this->topupAmount;
+                $profile->save();
+            }
+            
+            // 2. Tambah saldo ke tabel Wallets (Kantong Kanan - INI YANG BARU 👇)
+            $merchantWallet = Wallet::firstOrCreate(
+                ['user_id' => $this->selectedUser->id, 'type' => 'USER_WALLET'],
+                ['account_number' => 'USR-' . strtoupper(Str::random(6)), 'balance' => 0, 'is_active' => true]
+            );
+            
+            // Gunakan increment agar datanya langsung bertambah
+            $merchantWallet->increment('balance', $this->topupAmount);
+
             session()->flash('message', 'Saldo/Limit berhasil ditambahkan sebesar Rp ' . number_format($this->topupAmount, 0, ',', '.'));
             $this->closeTopup();
         }
@@ -120,7 +131,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
                 @forelse($merchants as $merchant)
                 <tr class="hover:bg-blue-50/50 transition">
                     <td class="py-4 px-6">
-                        <div class="font-bold text-gray-800 text-base">{{ $merchant->merchantProfile->company_name ?? 'Belum Set Nama Toko' }}</div>
+                        <div class="font-bold text-gray-800 text-base">{{ $merchant->merchantProfile->nama_kantin ?? 'Belum Set Nama Toko' }}</div>
                         <div class="text-xs text-gray-400 mt-1">ID: #MCT-{{ str_pad($merchant->id, 4, '0', STR_PAD_LEFT) }}</div>
                     </td>
                     <td class="py-4 px-6">
@@ -129,7 +140,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
                     </td>
                     <td class="py-4 px-6">
                         <div class="font-extrabold text-blue-600 text-lg">
-                            Rp {{ number_format($merchant->merchantProfile->credit_limit ?? 0, 0, ',', '.') }}
+                            Rp {{ number_format($merchant->merchantProfile->saldo_token ?? 0, 0, ',', '.') }}
                         </div>
                         <div class="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">Sisa Limit Tersedia</div>
                     </td>
@@ -170,7 +181,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
             <div class="p-6 space-y-4 text-sm">
                 <div>
                     <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Nama Toko / Usaha</p>
-                    <p class="font-bold text-gray-800 text-lg">{{ $selectedUser->merchantProfile->company_name ?? '-' }}</p>
+                    <p class="font-bold text-gray-800 text-lg">{{ $selectedUser->merchantProfile->nama_kantin ?? '-' }}</p>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
@@ -199,7 +210,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
                 <button wire:click="closeTopup" class="text-blue-400 hover:text-blue-600"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
             </div>
             <div class="p-6">
-                <p class="text-sm text-gray-600 mb-4">Masukkan nominal penambahan saldo/limit untuk merchant <strong>{{ $selectedUser->merchantProfile->company_name ?? $selectedUser->name }}</strong>.</p>
+                <p class="text-sm text-gray-600 mb-4">Masukkan nominal penambahan saldo/limit untuk merchant <strong>{{ $selectedUser->merchantProfile->nama_kantin ?? $selectedUser->name }}</strong>.</p>
                 
                 <form wire:submit="submitTopup">
                     <div class="mb-4">

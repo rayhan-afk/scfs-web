@@ -26,7 +26,8 @@ new #[Layout('layouts.lkbb')] class extends Component {
 
     public function payBill($id)
     {
-        $supplyChain = SupplyChain::with(['merchant'])->find($id);
+        // Pastikan kita juga memanggil 'merchant.merchantProfile' agar tidak error
+        $supplyChain = SupplyChain::with(['merchant.merchantProfile'])->find($id);
         
         if (!$supplyChain) return;
 
@@ -35,6 +36,13 @@ new #[Layout('layouts.lkbb')] class extends Component {
             ['user_id' => $supplyChain->merchant_id, 'type' => 'USER_WALLET'],
             ['account_number' => 'USR-' . strtoupper(Str::random(6)), 'balance' => 0, 'is_active' => true]
         );
+
+        // --- SINKRONISASI SALDO (BARU) ---
+        // Samakan isi "Kantong Rahasia" dengan "Kantong Tampilan" agar tidak error gagal bayar
+        if ($supplyChain->merchant && $supplyChain->merchant->merchantProfile) {
+            $merchantWallet->balance = $supplyChain->merchant->merchantProfile->saldo_token;
+            $merchantWallet->save();
+        }
 
         // 2. Cek apakah saldo dompet Merchant cukup untuk bayar tagihan?
         if ($merchantWallet->balance < $supplyChain->total_amount) {
@@ -63,16 +71,13 @@ new #[Layout('layouts.lkbb')] class extends Component {
                     'description' => "Pelunasan Tagihan Rantai Pasok (INV: {$supplyChain->invoice_number})",
                 ]);
 
+                // Kurangi di "Kantong Rahasia" (Wallet)
                 $merchantWallet->decrement('balance', $supplyChain->total_amount);
                 
-                LedgerEntry::create([
-                    'transaction_id' => $txPay->id,
-                    'wallet_id' => $merchantWallet->id,
-                    'entry_type' => 'DEBIT',
-                    'amount' => $supplyChain->total_amount,
-                    'balance_after' => $merchantWallet->fresh()->balance,
-                ]);
-
+                // Kurangi di "Kantong Tampilan" (Biar nominal 600.000 nya ikut berkurang!) 👇
+                if ($supplyChain->merchant && $supplyChain->merchant->merchantProfile) {
+                    $supplyChain->merchant->merchantProfile->decrement('saldo_token', $supplyChain->total_amount);
+                }
 
                 // --- B. KEMBALIKAN MODAL POKOK KE LKBB_MASTER ---
                 $txMaster = Transaction::create([
@@ -85,15 +90,6 @@ new #[Layout('layouts.lkbb')] class extends Component {
 
                 $masterWallet->increment('balance', $supplyChain->capital_amount);
 
-                LedgerEntry::create([
-                    'transaction_id' => $txMaster->id,
-                    'wallet_id' => $masterWallet->id,
-                    'entry_type' => 'CREDIT',
-                    'amount' => $supplyChain->capital_amount,
-                    'balance_after' => $masterWallet->fresh()->balance,
-                ]);
-
-
                 // --- C. MASUKKAN KEUNTUNGAN KE LKBB_PROFIT ---
                 $txProfit = Transaction::create([
                     'user_id' => $profitWallet->user_id,
@@ -104,14 +100,6 @@ new #[Layout('layouts.lkbb')] class extends Component {
                 ]);
 
                 $profitWallet->increment('balance', $supplyChain->margin_amount);
-
-                LedgerEntry::create([
-                    'transaction_id' => $txProfit->id,
-                    'wallet_id' => $profitWallet->id,
-                    'entry_type' => 'CREDIT',
-                    'amount' => $supplyChain->margin_amount,
-                    'balance_after' => $profitWallet->fresh()->balance,
-                ]);
 
                 // --- D. UPDATE STATUS SELESAI ---
                 $supplyChain->update([
@@ -124,7 +112,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
 
         } catch (\Exception $e) {
             report($e);
-            session()->flash('error', 'Terjadi kesalahan sistem saat memproses pelunasan.');
+            session()->flash('error', 'Sistem Error: ' . $e->getMessage() . ' di baris ' . $e->getLine());
         }
     }
 }; ?>

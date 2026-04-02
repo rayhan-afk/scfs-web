@@ -54,6 +54,7 @@ class extends Component {
         } else {
             $this->cart[$id] = [
                 'id' => $produk->id,
+                'pemasok_id' => $produk->user_id, // <-- TAMBAHAN BARU: Simpan ID Pemasok
                 'nama' => $produk->nama_produk,
                 'harga' => (float)$produk->harga_grosir,
                 'satuan' => $produk->satuan ?? 'Unit',
@@ -101,36 +102,42 @@ class extends Component {
 
         try {
             DB::transaction(function () {
-               $order = SupplyOrder::create([
-                    'nomor_order' => 'PO-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -5)),
-                    'merchant_id' => Auth::id(),
-                    'total_estimasi' => 0, 
-                    'tanggal_kebutuhan' => $this->tanggal_kebutuhan,
-                    'catatan' => $this->catatan,
-                    // KITA PAKAI ENUM DARI DATABASE, TAPI LANGSUNG MASUK KE PEMASOK
-                    'status' => 'menunggu_lkbb' 
-                ]);
+                // PENTING: Kelompokkan order berdasarkan pemasok_id
+                // Supaya kalau merchant beli dari 2 pemasok berbeda, PO-nya dipisah.
+                $groupedCart = collect($this->cart)->groupBy('pemasok_id');
 
-                $realTotal = 0;
-
-                foreach ($this->cart as $item) {
-                    $produk = ProdukPemasok::findOrFail($item['id']);
-                    $subtotal = $produk->harga_grosir * $item['qty'];
-                    
-                    SupplyOrderDetail::create([
-                        'supply_order_id' => $order->id,
-                        'produk_pemasok_id' => $produk->id, 
-                        'nama_bahan_snapshot' => $produk->nama_produk,
-                        'harga_satuan_snapshot' => $produk->harga_grosir,
-                        'satuan_snapshot' => $item['satuan'],
-                        'qty' => $item['qty'],
-                        'subtotal' => $subtotal
+                foreach ($groupedCart as $pemasokId => $items) {
+                    $order = SupplyOrder::create([
+                        'nomor_order' => 'PO-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -5)),
+                        'merchant_id' => Auth::id(),
+                        'pemasok_id' => $pemasokId, // <-- KITA ISI KOLOM BARUNYA!
+                        'total_estimasi' => 0, 
+                        'tanggal_kebutuhan' => $this->tanggal_kebutuhan,
+                        'catatan' => $this->catatan,
+                        'status' => 'menunggu_lkbb', 
+                        'status_pembiayaan' => 'siap_diajukan' // <-- KITA ISI KOLOM STATUSNYA!
                     ]);
 
-                    $realTotal += $subtotal;
-                }
+                    $realTotal = 0;
 
-                $order->update(['total_estimasi' => $realTotal]);
+                    foreach ($items as $item) {
+                        $subtotal = $item['harga'] * $item['qty'];
+                        
+                        SupplyOrderDetail::create([
+                            'supply_order_id' => $order->id,
+                            'produk_pemasok_id' => $item['id'], 
+                            'nama_bahan_snapshot' => $item['nama'],
+                            'harga_satuan_snapshot' => $item['harga'],
+                            'satuan_snapshot' => $item['satuan'],
+                            'qty' => $item['qty'],
+                            'subtotal' => $subtotal
+                        ]);
+
+                        $realTotal += $subtotal;
+                    }
+
+                    $order->update(['total_estimasi' => $realTotal]);
+                }
             });
 
             $this->cart = [];

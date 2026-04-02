@@ -50,13 +50,8 @@ class PesananMasuk extends Component
 
     public function render()
     {
-        $pesanan = SupplyOrder::with(['details.produkPemasok'])
-            ->whereHas('details', function ($query) {
-                $query->whereHas('produkPemasok', function ($q) {
-                    $q->where('user_id', Auth::id());
-                });
-            })
-            // Jika tab "Diproses", kita tampilkan yang statusnya diproses_pemasok DAN dikirim
+        $pesanan = SupplyOrder::with(['details.produkPemasok', 'merchant'])
+            ->where('pemasok_id', Auth::id()) // <-- Ambil langsung dari kolom pemasok_id, tidak perlu whereHas yang berat
             ->when($this->activeTab === 'diproses_pemasok', function($query) {
                 $query->whereIn('status', ['diproses_pemasok', 'dikirim']);
             }, function($query) {
