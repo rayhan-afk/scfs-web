@@ -5,6 +5,8 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Contracts\Encryption\DecryptException;
 use App\Models\MerchantProduct;
 use App\Models\MerchantProfile;
 use App\Models\MahasiswaProfile;
@@ -23,8 +25,10 @@ class extends Component {
     
     // Payment State
     public $metode_pembayaran = 'digital'; // 'digital' (Beasiswa) atau 'tunai' (Umum)
-    public $nim_pembeli = '';
-    public $uang_diterima = ''; // Untuk kembalian jika tunai
+    
+    // Variabel untuk menampung String QR Enkripsi (Bisa di-paste manual / ditembak scanner USB)
+    public $qr_scanned_string = ''; 
+    public $uang_diterima = ''; 
 
     #[Computed]
     public function profile()
@@ -85,7 +89,7 @@ class extends Component {
     public function clearCart()
     {
         $this->cart = [];
-        $this->reset(['nim_pembeli', 'uang_diterima']);
+        $this->reset(['qr_scanned_string', 'uang_diterima']);
     }
 
     #[Computed]
@@ -100,7 +104,7 @@ class extends Component {
         return ['total' => $total, 'items' => $items];
     }
 
-    // --- PAYMENT CORE (HIGH SECURITY) ---
+    // --- PAYMENT CORE (HIGH SECURITY DECRYPTION) ---
 
     public function prosesPembayaran()
     {
@@ -111,7 +115,7 @@ class extends Component {
 
         // 1. Validasi Input Berdasarkan Metode
         if ($this->metode_pembayaran === 'digital') {
-            $this->validate(['nim_pembeli' => 'required|string|min:4'], ['nim_pembeli.required' => 'NIM/QR Wajib diisi untuk pembayaran digital.']);
+            $this->validate(['qr_scanned_string' => 'required|string'], ['qr_scanned_string.required' => 'Arahkan kursor ke kotak dan Scan QR Mahasiswa!']);
         } else {
             $this->validate(
                 ['uang_diterima' => 'required|numeric|min:' . $this->cartSummary['total']],
@@ -129,29 +133,53 @@ class extends Component {
                 $deskripsiTransaksi = [];
 
                 foreach ($this->cart as $item) {
-                    // Tarik harga asli dari DB untuk setiap item
                     $realProduct = MerchantProduct::where('merchant_id', $merchant->user_id)->findOrFail($item['id']);
                     
                     $subtotalJual = $realProduct->harga_jual * $item['qty'];
                     $subtotalPokok = $realProduct->harga_pokok * $item['qty'];
                     
                     $dbTotalAmount += $subtotalJual;
-                    $dbTotalProfit += ($subtotalJual - $subtotalPokok); // Profit = Jual - Modal
+                    $dbTotalProfit += ($subtotalJual - $subtotalPokok); 
                     
                     $deskripsiTransaksi[] = "{$item['qty']}x {$realProduct->nama_produk}";
                 }
 
                 $deskripsiFinal = implode(', ', $deskripsiTransaksi);
                 
-                // Kalkulasi Fee LKBB (Berdasarkan persentase profil dari PROFIT)
+                // Kalkulasi Fee LKBB 
                 $persentaseLKBB = $merchant->persentase_bagi_hasil ?? 0;
                 $feeLKBB = ($dbTotalProfit * $persentaseLKBB) / 100;
 
-                // 3. LOGIKA PERCABANGAN (Digital vs Tunai sesuai SOP)
+                // 3. LOGIKA PERCABANGAN 
                 if ($this->metode_pembayaran === 'digital') {
                     
-                    // --- ARUS DIGITAL (SOP #9 & #12) ---
-                    $mahasiswa = MahasiswaProfile::where('nim', $this->nim_pembeli)->lockForUpdate()->first();
+                    // --- ARUS DIGITAL DENGAN DEKRIPSI QR (SOP BARU) ---
+                    $mahasiswaUserId = null;
+
+                    try {
+                        // Buka Gembok Enkripsi QR Code
+                        $decrypted = Crypt::decryptString($this->qr_scanned_string);
+                        $payload = json_decode($decrypted, true);
+
+                        // Validasi Format
+                        if (!isset($payload['user_id']) || !isset($payload['exp'])) {
+                            throw new \Exception('Format QR Code tidak dikenali.');
+                        }
+
+                        // Validasi Anti-Screenshot (Waktu Kedaluwarsa)
+                        if (now()->timestamp > $payload['exp']) {
+                            throw new \Exception('QR Code sudah kedaluwarsa (Lebih dari 2 menit). Minta mahasiswa refresh QR di aplikasinya!');
+                        }
+
+                        $mahasiswaUserId = $payload['user_id'];
+
+                    } catch (DecryptException $e) {
+                        throw new \Exception('QR Code Ditolak! Pastikan itu QR dari Aplikasi Mahasiswa SCFS.');
+                    }
+
+                    // Proses Tarik Data Mahasiswa yang Tervalidasi
+                    $mahasiswa = MahasiswaProfile::where('user_id', $mahasiswaUserId)->lockForUpdate()->first();
+                    
                     if (!$mahasiswa || $mahasiswa->status_bantuan !== 'disetujui') {
                         throw new \Exception('Akun mahasiswa tidak valid atau belum menerima bantuan.');
                     }
@@ -162,7 +190,7 @@ class extends Component {
                     // Potong Saldo MHS
                     $mahasiswa->decrement('saldo', $dbTotalAmount);
 
-                    // Tambah Hak Digital Merchant (Harga Jual - Fee LKBB)
+                    // Tambah Hak Digital Merchant 
                     $merchant->increment('saldo_token', ($dbTotalAmount - $feeLKBB));
 
                     // Rekam Transaksi Digital
@@ -170,7 +198,7 @@ class extends Component {
                         'order_id'    => 'DIG-' . strtoupper(uniqid()),
                         'user_id'     => $mahasiswa->user_id,
                         'merchant_id' => $merchant->user_id,
-                        'type'        => 'pembayaran_makanan', // Bisa ditambahkan status 'digital' di DB ke depannya
+                        'type'        => 'pembayaran_makanan', 
                         'total_amount'=> $dbTotalAmount,
                         'fee_lkbb'    => $feeLKBB,
                         'status'      => 'sukses',
@@ -179,15 +207,12 @@ class extends Component {
 
                 } else {
                     
-                    // --- ARUS TUNAI (SOP #11 & #13) ---
-                    
-                    // Tambah Hutang Setoran Merchant (Uang fisik dipegang merchant, tapi Fee LKBB belum disetor)
+                    // --- ARUS TUNAI ---
                     $merchant->increment('tagihan_setoran_tunai', $feeLKBB);
                     
-                    // Rekam Transaksi Tunai (Tanpa user_id mahasiswa)
                     Transaction::create([
                         'order_id'    => 'CSH-' . strtoupper(uniqid()),
-                        'user_id'     => Auth::id(), // Diikat ke merchant sebagai anonim transaksi
+                        'user_id'     => Auth::id(), 
                         'merchant_id' => $merchant->user_id,
                         'type'        => 'pembayaran_makanan_tunai',
                         'total_amount'=> $dbTotalAmount,
@@ -310,16 +335,17 @@ class extends Component {
                 {{-- Input Area (Dynamic based on Tab) --}}
                 <div class="space-y-3 mb-4">
                     @if($metode_pembayaran === 'digital')
-                        <div>
-                            <input wire:model="nim_pembeli" type="text" placeholder="Scan QR / Ketik NIM Mahasiswa" 
-                                class="w-full py-3 px-4 text-sm font-bold text-gray-900 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 text-center uppercase tracking-widest transition">
-                            @error('nim_pembeli') <span class="text-[10px] font-bold text-rose-500 text-center block mt-1">{{ $message }}</span> @enderror
+                        <div class="relative">
+                            {{-- Fitur Kasir Fisik: Jika mereka pakai alat Scanner Barcode USB, alat tsb akan otomatis menekan "Enter" (wire:keydown.enter) --}}
+                            <input wire:model="qr_scanned_string" wire:keydown.enter="prosesPembayaran" type="text" placeholder="Klik disini & Tembak Scanner QR..." 
+                                class="w-full py-3 px-4 text-sm font-bold text-gray-900 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 text-center transition shadow-inner">
+                            @error('qr_scanned_string') <span class="text-[10px] font-bold text-rose-500 text-center block mt-1">{{ $message }}</span> @enderror
                         </div>
                     @else
                         <div>
                             <div class="relative">
                                 <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-emerald-600 font-bold text-sm">Rp</span>
-                                <input wire:model="uang_diterima" type="number" placeholder="Uang Tunai Diterima" 
+                                <input wire:model="uang_diterima" wire:keydown.enter="prosesPembayaran" type="number" placeholder="Uang Tunai Diterima" 
                                     class="w-full py-3 pl-12 pr-4 text-sm font-extrabold text-emerald-900 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:ring-4 focus:ring-emerald-100 focus:border-emerald-500 transition">
                             </div>
                             @error('uang_diterima') <span class="text-[10px] font-bold text-rose-500 block mt-1">{{ $message }}</span> @enderror
@@ -343,7 +369,7 @@ class extends Component {
                 <button wire:click="prosesPembayaran" wire:loading.attr="disabled"
                     @if(empty($cart)) disabled @endif
                     class="w-full py-4 text-sm font-extrabold text-white rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 focus:ring-4 disabled:opacity-50 disabled:cursor-not-allowed
-                    {{ $metode_pembayaran == 'digital' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 focus:ring-blue-100' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 focus:ring-emerald-100' }}">
+                    {{ $metode_pembayaran == 'digital' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 focus:ring-emerald-100' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 focus:ring-emerald-100' }}">
                     
                     <span wire:loading.remove wire:target="prosesPembayaran">
                         {{ $metode_pembayaran == 'digital' ? 'PROSES QR BEASISWA' : 'PROSES BAYAR TUNAI' }}

@@ -39,7 +39,7 @@
         @if($activeTab === 'informasi')
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-semibold text-gray-800">Detail Perusahaan</h3>
-                <button wire:click="toggleEdit" class="text-orange-600 hover:text-orange-800 text-sm font-medium transition-colors">
+                <button wire:click="toggleEdit" class="text-sm bg-white border border-orange-200 text-orange-600 font-bold px-4 py-2 rounded-lg hover:bg-orange-600 hover:text-white transition-colors shadow-sm">
                     {{ $isEditing ? 'Batal Edit' : 'Edit Profil' }}
                 </button>
             </div>
@@ -211,7 +211,7 @@
                     </div>
 
                     <div class="pt-4 flex items-center gap-4">
-                        <button type="submit" class="bg-orange-800 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-orange-900 transition-colors shadow-lg shadow-orange-200">
+                        <button type="submit" class="bg-orange-600 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-orange-900 transition-colors shadow-lg shadow-orange-200">
                             Simpan Kata Sandi
                         </button>
                         
