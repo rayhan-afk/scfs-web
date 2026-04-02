@@ -32,44 +32,36 @@ new #[Layout('layouts.lkbb')] class extends Component {
     }
 
     // Fungsi Approve
+    // Fungsi Approve
+    // Fungsi Approve
     public function approve($id)
     {
-        // SECURITY: Proteksi Otorisasi menggunakan Gate (Laravel Policy)
-        // Pastikan hanya role LKBB yang bisa menjalankan fungsi ini.
-        // Jika belum pakai Gate, bisa pakai: if(Auth::user()->role !== 'lkbb') abort(403);
-        
         try {
             DB::transaction(function () use ($id) {
-                // SECURITY: Pencegahan Race Condition & State Manipulation
-                // Kita kunci baris ini di database (lockForUpdate) agar tidak bisa diubah proses lain secara bersamaan
                 $request = SupplyChain::where('id', $id)
                     ->where('status', 'PENDING')
                     ->lockForUpdate()
                     ->firstOrFail();
 
-                // Lanjut ke tahap Pemasok
+                // 1. Update status di tabel LKBB menjadi FUNDED
                 $request->update([
                     'status' => 'FUNDED',
                     'updated_at' => now(),
                 ]);
 
-                // Opsional: Catat log audit ke tabel `audit_trails`
-                // AuditTrail::log('LKBB_APPROVED_PO', Auth::id(), $id);
+                // 2. OTOMATIS UPDATE STATUS DI TABEL PEMASOK
+                // Cari pesanan yang jembatannya (id_pengajuan) cocok dengan invoice_number ini
+                \App\Models\SupplyOrder::where('id_pengajuan', $request->invoice_number)
+                    ->update([
+                        'status_pembiayaan' => 'siap_diproduksi' // Sesuaikan dengan status tab Pemasok agar tombol mulai produksi muncul
+                    ]);
             });
 
-            session()->flash('message', "Pengajuan PO #{$id} berhasil disetujui. Menunggu persetujuan pemasok.");
+            session()->flash('message', "Pengajuan PO berhasil disetujui. Pemasok kini dapat memulai produksi.");
         } catch (\Exception $e) {
             \Log::error("Approval PO Failed: " . $e->getMessage());
-            session()->flash('error', 'Terjadi kesalahan atau pengajuan sudah diproses sebelumnya.');
+            session()->flash('error', 'Terjadi kesalahan saat menyetujui data.');
         }
-    }
-
-    // Fungsi Buka Modal Reject
-    public function openRejectModal($id)
-    {
-        $this->selectedId = $id;
-        $this->rejectReason = '';
-        $this->showRejectModal = true;
     }
 
     // Fungsi Reject (Tolak)
@@ -86,11 +78,18 @@ new #[Layout('layouts.lkbb')] class extends Component {
                     ->lockForUpdate()
                     ->firstOrFail();
 
+                // 1. Update status penolakan di tabel LKBB
                 $request->update([
-                    'status' => 'REJECTED_BY_LKBB',
-                    'rejection_reason' => htmlspecialchars($this->rejectReason, ENT_QUOTES, 'UTF-8'), // XSS Protection
+                    'status' => 'REJECTED', // Sesuaikan dengan Enum di database Anda
                     'updated_at' => now(),
                 ]);
+
+                // 2. KEMBALIKAN STATUS DI TABEL PEMASOK
+                \App\Models\SupplyOrder::where('id_pengajuan', $request->invoice_number)
+                    ->update([
+                        'status_pembiayaan' => 'siap_diajukan', // Kembalikan ke awal
+                        'id_pengajuan' => null // Putus jembatannya karena ditolak
+                    ]);
             });
 
             $this->showRejectModal = false;

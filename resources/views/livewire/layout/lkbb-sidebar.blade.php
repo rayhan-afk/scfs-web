@@ -16,7 +16,10 @@ new class extends Component
     // Logika untuk mendeteksi menu mana yang sedang aktif
     $isApprovalActive = request()->routeIs('approval.*', 'supply-chain.approval');
     $isMasterDompetActive = request()->is('keuangan/mahasiswa*', 'keuangan/merchant*', 'keuangan/pemasok*') || request()->routeIs('saldo.bantuan');
-    $isOperasionalActive = request()->routeIs('supply-chain.create', 'supply-chain.bills');
+    
+    // UPDATE: Menambahkan rute lkbb.scf.approval ke dalam pengecekan Operasional
+    $isOperasionalActive = request()->routeIs('supply-chain.create', 'supply-chain.bills', 'lkbb.scf.approval');
+    
     $isKeuanganActive = request()->is('keuangan/pencairan*', 'keuangan/penagihan*') || request()->routeIs('lkbb.wallets');
 @endphp
 
@@ -139,6 +142,11 @@ new class extends Component
             </button>
 
             <div x-show="operasionalOpen && sidebarOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mt-1 space-y-1 px-2">
+                
+                <a href="{{ route('lkbb.scf.approval') }}" class="flex items-center pl-10 pr-4 py-2 text-sm font-medium rounded-lg transition-colors {{ request()->routeIs('lkbb.scf.approval') ? 'text-blue-700 bg-blue-50/50 font-bold' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50' }}">
+                    Approval PO Pemasok
+                </a>
+
                 <a href="{{ route('supply-chain.create') }}" class="flex items-center pl-10 pr-4 py-2 text-sm font-medium rounded-lg transition-colors {{ request()->routeIs('supply-chain.create') ? 'text-blue-700 bg-blue-50/50 font-bold' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50' }}">
                     Pengajuan Pembiayaan
                 </a>

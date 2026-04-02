@@ -78,22 +78,25 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    @forelse($pesananDitampilkan as $item)
+                    {{-- Tambahkan $this-> agar mengambil dari Computed Property --}}
+                    @forelse($this->pesananDitampilkan as $item)
                         <tr class="hover:bg-gray-50 transition-colors">
                             @if($activeTab === 'siap_diajukan')
                                 <td class="p-4 text-center">
-                                    <input type="checkbox" wire:model.live="selectedPesanan" value="{{ $item['id'] }}" class="w-5 h-5 text-teal-600 rounded cursor-pointer">
+                                    <input type="checkbox" wire:model.live="selectedPesanan" value="{{ $item->id }}" class="w-5 h-5 text-teal-600 rounded cursor-pointer">
                                 </td>
                             @endif
-                            <td class="p-4 font-black text-gray-800 text-sm">{{ $item['id'] }}</td>
-                            <td class="p-4 text-sm font-medium text-gray-600">{{ $item['merchant'] }}</td>
-                            <td class="p-4 text-sm text-gray-500">{{ $item['tanggal'] }}</td>
-                            <td class="p-4 font-black text-gray-900 text-right">Rp {{ number_format($item['nominal'], 0, ',', '.') }}</td>
+                            
+                            {{-- Gunakan -> bukan [''] --}}
+                            <td class="p-4 font-black text-gray-800 text-sm">{{ $item->nomor_order }}</td>
+                            <td class="p-4 text-sm font-medium text-gray-600">{{ $item->merchant->name ?? 'Toko Tidak Ditemukan' }}</td>
+                            <td class="p-4 text-sm text-gray-500">{{ $item->created_at->format('d M Y') }}</td>
+                            <td class="p-4 font-black text-gray-900 text-right">Rp {{ number_format($item->total_estimasi, 0, ',', '.') }}</td>
                             
                             @if(in_array($activeTab, ['menunggu_lkbb', 'dicairkan', 'sedang_diproduksi']))
                                 <td class="p-4 text-center">
                                     <span class="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">
-                                        {{ $item['id_pengajuan'] }}
+                                        {{ $item->id_pengajuan ?? '-' }}
                                     </span>
                                 </td>
                             @endif
@@ -101,9 +104,9 @@
                             @if(in_array($activeTab, ['dicairkan', 'sedang_diproduksi', 'siap_dikirim']))
                                 <td class="p-4 text-center">
                                     @if($activeTab === 'dicairkan')
-                                        <button wire:click="mulaiProduksi('{{ $item['id'] }}')" class="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl shadow hover:bg-blue-700 transition">Mulai Produksi</button>
+                                        <button wire:click="mulaiProduksi({{ $item->id }})" class="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl shadow hover:bg-blue-700 transition">Mulai Produksi</button>
                                     @elseif($activeTab === 'sedang_diproduksi')
-                                        <button wire:click="selesaiQC('{{ $item['id'] }}')" class="px-4 py-2 bg-purple-600 text-white text-xs font-bold rounded-xl shadow hover:bg-purple-700 transition">Lolos QC</button>
+                                        <button wire:click="selesaiQC({{ $item->id }})" class="px-4 py-2 bg-purple-600 text-white text-xs font-bold rounded-xl shadow hover:bg-purple-700 transition">Lolos QC</button>
                                     @elseif($activeTab === 'siap_dikirim')
                                         <span class="px-3 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full">Menunggu Kurir</span>
                                     @endif
@@ -111,7 +114,7 @@
                             @endif
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="p-10 text-center text-gray-400 font-medium">Tidak ada data.</td></tr>
+                        <tr><td colspan="7" class="p-10 text-center text-gray-400 font-medium">Tidak ada data pesanan.</td></tr>
                     @endforelse
                 </tbody>
             </table>

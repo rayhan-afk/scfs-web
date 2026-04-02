@@ -117,6 +117,8 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/lkbb/riwayat-approval', 'lkbb.riwayat.riwayat-approval-mahasiswa')->name('lkbb.riwayat');
     Volt::route('/lkbb/riwayat/mahasiswa/{id}', 'lkbb.riwayat.detail-mahasiswa')->name('lkbb.mahasiswa.detail');
 
+    Volt::route('/lkbb/approval-scf', 'lkbb.supply-chain.approval')
+    ->name('lkbb.scf.approval');
     // ----------------------------------------------------------
     // RUTE DASHBOARD MERCHANT
     // ----------------------------------------------------------
