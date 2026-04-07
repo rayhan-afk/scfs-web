@@ -45,7 +45,11 @@ class extends Component {
         if ($user && $user->mahasiswaProfile) {
             $user->mahasiswaProfile->update(['status_verifikasi' => 'disetujui']);
             // Tambahkan ini
-            $this->dispatch('swal:success', title: 'Berhasil!', text: 'Mahasiswa telah disetujui.');
+            $this->dispatch('swal:success', 
+                title: 'Berhasil!', 
+                text: 'Mahasiswa telah disetujui.',
+                icon: 'success'
+            );
         }
     }
 
