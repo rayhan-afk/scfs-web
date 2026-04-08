@@ -174,7 +174,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
                             <button wire:click="openHistory({{ $supplier->id }})" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-200 transition">
                                 Riwayat Transaksi
                             </button>
-                            <button wire:click="openTopup({{ $supplier->id }})" class="px-3 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-bold hover:bg-gray-800 transition shadow-sm">
+                            <button wire:click="openTopup({{ $supplier->id }})" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition shadow-sm">
                                 + Suntik Saldo
                             </button>
                         </div>

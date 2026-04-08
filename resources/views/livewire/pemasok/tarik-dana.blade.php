@@ -100,7 +100,7 @@
                             @if($activeTab === 'diproses')
                                 <td class="p-4 text-center">
                                     {{-- Tombol ini hanya untuk mensimulasikan pencairan sukses dari sisi sistem --}}
-                                    <button wire:click="konfirmasiTransferSelesai('{{ $item['id_penarikan'] }}')" class="px-3 py-1.5 bg-gray-900 text-white text-[10px] uppercase font-bold rounded-lg hover:bg-gray-700">Simulasi Cair</button>
+                                    <button wire:click="konfirmasiTransferSelesai('{{ $item['id_penarikan'] }}')" class="px-3 py-1.5 bg-emerald-600 text-white text-[10px] uppercase font-bold rounded-lg hover:bg-emerald-700">Simulasi Cair</button>
                                 </td>
                             @endif
                         </tr>
