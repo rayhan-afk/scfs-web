@@ -120,8 +120,8 @@ new #[Layout('layouts.lkbb')] class extends Component {
 <div class="p-6">
     <div class="flex justify-between items-center mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-gray-800">Tagihan Merchant</h1>
-            <p class="text-gray-500 text-sm mt-1">Daftar tagihan rantai pasok yang harus dilunasi oleh Merchant.</p>
+            <h1 class="text-2xl font-bold text-gray-800">Tagihan Merchant Ke Pemasok</h1>
+            <p class="text-gray-500 text-sm mt-1">Daftar tagihan rantai pasok yang harus dilunasi oleh Merchant, Saldo Token Masuk Ke Pemasok.</p>
         </div>
     </div>
 
