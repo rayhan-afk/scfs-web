@@ -20,8 +20,15 @@ class extends Component {
     public $tanggal_kebutuhan = '';
     public $catatan = '';
 
+    public $sisaLimit = 0;
+
     public function mount()
-    {
+    {   
+        
+        $user = Auth::user();
+        if ($user && $user->merchantProfile) {
+            $this->sisaLimit = $user->merchantProfile->saldo_token; 
+        }
         $this->tanggal_kebutuhan = Carbon::tomorrow()->format('Y-m-d');
         
         $profile = MerchantProfile::where('user_id', Auth::id())->first();
@@ -154,7 +161,9 @@ class extends Component {
 }; ?>
 
 <div class="h-[calc(100vh-5rem)] w-full flex flex-col md:flex-row bg-gray-100/50">
+    
     <div class="w-full md:w-2/3 h-full flex flex-col p-4 md:p-6 overflow-hidden">
+        
         <div class="mb-4 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
                 <h2 class="text-2xl font-extrabold text-gray-900">Order Bahan Baku</h2>
@@ -166,6 +175,35 @@ class extends Component {
                 </span>
                 <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari bahan..." 
                     class="w-full py-2.5 pl-9 pr-4 text-sm bg-white border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-sm" />
+            </div>
+        </div>
+
+        <div class="mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="hidden sm:flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full text-blue-500 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-[10px] font-bold text-blue-800 uppercase tracking-wider mb-0.5">Sisa Limit LKBB</h3>
+                    <div class="text-xl font-extrabold text-blue-900">
+                        Rp {{ number_format($sisaLimit, 0, ',', '.') }}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <a href="/merchant/top-up" class="px-3 py-1.5 text-xs font-bold text-blue-700 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 transition shadow-sm text-center">
+                    + Top Up
+                </a>
+                
+                <button type="button" class="px-3 py-1.5 text-xs font-bold text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition shadow-sm flex items-center gap-1" title="Gunakan dana pribadi jika limit tidak cukup">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-emerald-500">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+                    </svg>
+                    Bayar Mandiri
+                </button>
             </div>
         </div>
 
@@ -248,12 +286,14 @@ class extends Component {
 
                 <div class="border-t border-gray-200 pt-3 mb-4 flex justify-between items-center">
                     <span class="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Total Pesanan</span>
-                    <span class="text-xl font-extrabold text-blue-600">Rp{{ number_format($this->cartTotal, 0, ',', '.') }}</span>
+                    <span class="text-xl font-extrabold {{ $this->cartTotal > $sisaLimit ? 'text-rose-600' : 'text-blue-600' }}">
+                        Rp{{ number_format($this->cartTotal, 0, ',', '.') }}
+                    </span>
                 </div>
 
                 <button wire:click="submitOrder" wire:loading.attr="disabled"
                     @if(empty($cart)) disabled @endif
-                    class="w-full py-3.5 text-sm font-extrabold text-white rounded-xl shadow-lg transition-all flex items-center justify-center bg-gray-900 hover:bg-gray-800 disabled:opacity-50">
+                    class="w-full py-3.5 text-sm font-extrabold text-white rounded-xl shadow-lg transition-all flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50">
                     <span wire:loading.remove wire:target="submitOrder">KIRIM PESANAN KE PEMASOK</span>
                     <span wire:loading wire:target="submitOrder">MENGIRIM PESANAN...</span>
                 </button>

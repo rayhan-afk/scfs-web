@@ -135,6 +135,7 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/merchant/riwayat', 'merchant.riwayat')->name('merchant.riwayat');
     Volt::route('/merchant/penerimaan', 'merchant.penerimaan')->name('merchant.penerimaan');
     Volt::route('/merchant/setoran', 'merchant.setoran')->name('merchant.setoran');
+    Volt::route('/merchant/top-up', 'merchant.top-up')->name('merchant.top-up');
 
     // ----------------------------------------------------------
     // PEMASOK ROUTES

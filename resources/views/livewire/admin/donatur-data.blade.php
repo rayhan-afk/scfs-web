@@ -70,31 +70,61 @@ class extends Component {
 
     public function saveDonatur()
     {
-        $this->validate([
+        // 1. Validasi Input
+        $validated = $this->validate([
             'nama_lengkap' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6',
+            'no_hp' => 'required', // Opsional: tambahkan validasi lain jika perlu
         ]);
 
-        $user = User::create([
-            'name' => $this->nama_lengkap,
-            'email' => $this->email,
-            'password' => Hash::make($this->password),
-            'role' => 'donatur',
-        ]);
+        try {
+            // Gunakan Database Transaction agar jika satu gagal, semua batal (Rollback)
+            \Illuminate\Support\Facades\DB::beginTransaction();
 
-        DonaturProfile::create([
-            'user_id' => $user->id,
-            'nama_lengkap' => $this->nama_lengkap,
-            'institusi' => $this->institusi,
-            'no_hp' => $this->no_hp,
-            'rekening_sumber' => $this->rekening_sumber,
-            'alamat' => $this->alamat,
-            'tipe_donatur' => $this->tipe_donatur,
-            'status_kemitraan' => 'aktif',
-        ]);
+            // 2. Simpan Data User
+            $user = User::create([
+                'name' => $this->nama_lengkap,
+                'email' => $this->email,
+                'password' => Hash::make($this->password),
+                'role' => 'donatur',
+            ]);
 
-        $this->closeAddModal();
+            // 3. Simpan Data Profile
+            DonaturProfile::create([
+                'user_id' => $user->id,
+                'nama_lengkap' => $this->nama_lengkap,
+                'institusi' => $this->institusi,
+                'no_hp' => $this->no_hp,
+                'rekening_sumber' => $this->rekening_sumber,
+                'alamat' => $this->alamat,
+                'tipe_donatur' => $this->tipe_donatur,
+                'status_kemitraan' => 'aktif'
+            ]);
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            // 4. Tutup Modal & Reset Form
+            $this->closeAddModal();
+            $this->resetForm();
+
+            // 5. Kirim Notifikasi Berhasil
+            $this->dispatch('swal:success', 
+                title: 'Berhasil!', 
+                text: 'Data donatur baru telah berhasil disimpan.',
+                icon: 'success'
+            );
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+
+            // 6. Kirim Notifikasi Gagal
+            $this->dispatch('swal:error', 
+                title: 'Gagal Menyimpan!', 
+                text: 'Terjadi kesalahan sistem. Silakan coba lagi.',
+                icon: 'error'
+            );
+        }
     }
 }; ?>
 

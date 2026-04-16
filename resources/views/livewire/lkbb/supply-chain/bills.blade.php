@@ -13,6 +13,16 @@ use Illuminate\Support\Str;
 
 new #[Layout('layouts.lkbb')] class extends Component {
     
+    public $showPayModal = false;
+    public $selectedId = null;
+
+    // Fungsi untuk memicu modal muncul
+    public function openPayModal($id)
+    {
+        $this->selectedId = $id;
+        $this->showPayModal = true;
+    }
+
     // Menampilkan daftar tagihan yang sudah cair (FUNDED) dan belum lunas
     #[Computed]
     public function bills()
@@ -24,8 +34,10 @@ new #[Layout('layouts.lkbb')] class extends Component {
             ->get();
     }
 
-    public function payBill($id)
+    public function payBill()
     {
+        $id = $this->selectedId;
+
         // Pastikan kita juga memanggil 'merchant.merchantProfile' agar tidak error
         $supplyChain = SupplyChain::with(['merchant.merchantProfile'])->find($id);
         
@@ -108,6 +120,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
                 ]);
             });
 
+            $this->showPayModal = false; // Tutup modal setelah sukses
             session()->flash('message', 'Tagihan berhasil dilunasi! Modal kembali dan Keuntungan telah masuk ke Dompet Profit.');
 
         } catch (\Exception $e) {
@@ -120,8 +133,8 @@ new #[Layout('layouts.lkbb')] class extends Component {
 <div class="p-6">
     <div class="flex justify-between items-center mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-gray-800">Tagihan Merchant</h1>
-            <p class="text-gray-500 text-sm mt-1">Daftar tagihan rantai pasok yang harus dilunasi oleh Merchant.</p>
+            <h1 class="text-2xl font-bold text-gray-800">Tagihan Merchant Ke Pemasok</h1>
+            <p class="text-gray-500 text-sm mt-1">Daftar tagihan rantai pasok yang harus dilunasi oleh Merchant, Saldo Token Masuk Ke Pemasok.</p>
         </div>
     </div>
 
@@ -180,11 +193,9 @@ new #[Layout('layouts.lkbb')] class extends Component {
 
                             <td class="px-6 py-4 text-right">
                                 <button 
-                                    wire:click="payBill({{ $bill->id }})" 
-                                    wire:confirm="Lunasi tagihan ini? Saldo Dompet Merchant akan dipotong sebesar Rp {{ number_format($bill->total_amount, 0, ',', '.') }}."
-                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-bold transition-colors shadow-sm inline-flex items-center gap-1">
-                                    
-                                    <span wire:loading.remove wire:target="payBill({{ $bill->id }})">Bayar Tagihan</span>
+                                    wire:click="openPayModal({{ $bill->id }})" 
+                                    class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-bold transition-colors shadow-sm">
+                                    Bayar Tagihan
                                     <span wire:loading wire:target="payBill({{ $bill->id }})">Memproses...</span>
                                 </button>
                             </td>
@@ -201,4 +212,61 @@ new #[Layout('layouts.lkbb')] class extends Component {
             </table>
         </div>
     </div>
+
+    {{-- MODAL KONFIRMASI PEMBAYARAN --}}
+    @if($showPayModal)
+        <div class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+                <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 text-center">
+                        <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-4">
+                            <svg class="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                            </svg>
+                        </div>
+                        
+                        <h3 class="text-xl leading-6 font-bold text-gray-900">Konfirmasi Pelunasan</h3>
+                        
+                        @php
+                            $selectedBill = \App\Models\SupplyChain::find($selectedId);
+                        @endphp
+
+                        <div class="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100 text-left">
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-gray-500">Invoice:</span>
+                                <span class="font-bold text-blue-600">{{ $selectedBill->invoice_number ?? '-' }}</span>
+                            </div>
+                            <div class="flex justify-between text-sm mb-2">
+                                <span class="text-gray-500">Merchant:</span>
+                                <span class="font-medium text-gray-800">{{ $selectedBill->merchant->name ?? '-' }}</span>
+                            </div>
+                            <div class="border-t border-dashed border-gray-300 my-2"></div>
+                            <div class="flex justify-between text-base">
+                                <span class="font-bold text-gray-700">Total Potong Saldo:</span>
+                                <span class="font-black text-red-600">Rp {{ number_format($selectedBill->total_amount ?? 0, 0, ',', '.') }}</span>
+                            </div>
+                        </div>
+
+                        <p class="mt-4 text-sm text-gray-500 italic">
+                            *Saldo Dompet Merchant akan otomatis dipotong untuk pengembalian Modal & Profit LKBB.
+                        </p>
+                    </div>
+
+                    <div class="bg-gray-50 px-4 py-4 sm:px-6 sm:flex sm:flex-row-reverse gap-2">
+                        <button wire:click="payBill" type="button" class="w-full inline-flex justify-center rounded-xl border border-transparent shadow-sm px-6 py-2.5 bg-green-600 text-white font-bold hover:bg-green-700 transition-all sm:w-auto text-sm">
+                            <span wire:loading.remove wire:target="payBill">Ya, Bayar Sekarang</span>
+                            <span wire:loading wire:target="payBill">Memproses...</span>
+                        </button>
+                        <button wire:click="$set('showPayModal', false)" type="button" class="mt-3 w-full inline-flex justify-center rounded-xl border border-gray-300 px-6 py-2.5 bg-white text-gray-700 font-bold hover:bg-gray-50 sm:mt-0 sm:w-auto text-sm transition-all">
+                            Batal
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

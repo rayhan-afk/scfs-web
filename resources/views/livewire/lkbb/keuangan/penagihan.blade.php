@@ -7,51 +7,61 @@ use Illuminate\Support\Facades\DB;
 use App\Models\SetoranTunai;
 use App\Models\MerchantProfile;
 
-new 
-#[Layout('layouts.lkbb')] 
-class extends Component {
-    
-    public string $nama_petugas = '';
-    public ?int $selectedSetoranId = null;
-    public bool $isModalOpen = false;
+new #[Layout('layouts.lkbb')] class extends Component {
+    use WithPagination;
 
-    #[Computed]
-    public function tiketPending()
-    {
-        return SetoranTunai::with('merchant')
-                ->where('status', 'menunggu_penjemputan') 
-                ->latest()
-                ->get();
+    public $search = '';
+    public $tab = 'pending'; // 'pending' (Belum Lunas), 'success' (Lunas)
+
+    // Form Simulasi (Untuk Testing)
+    public $showSimulasiModal = false;
+    public $simulasiUserId = '';
+    public $simulasiAmount = '';
+
+    // Modal Konfirmasi Pelunasan
+    public $showConfirmModal = false;
+    public $selectedTransaction = null;
+
+    public function updatingSearch() {
+        $this->resetPage();
+    }
+
+    public function updatingTab() {
+        $this->resetPage();
     }
 
     #[Computed]
     public function riwayatHariIni()
     {
-        return SetoranTunai::with('merchant')
-                ->where('status', 'selesai')
-                ->whereDate('updated_at', today())
-                ->latest()
-                ->get();
+        // Mengambil transaksi dengan tipe 'tagihan_merchant'
+        $tagihan = Transaction::with('user')
+            ->where('type', 'tagihan_merchant')
+            ->where('status', $this->tab)
+            ->when($this->search, function($query) {
+                $query->whereHas('user', function($q) {
+                    $q->where('name', 'like', '%'.$this->search.'%');
+                })->orWhere('order_id', 'like', '%'.$this->search.'%');
+            })
+            ->latest()
+            ->paginate(10);
+
+        return [
+            'daftarTagihan' => $tagihan,
+            // Mengambil user merchant untuk dropdown simulasi
+            'merchants' => User::whereIn('role', ['merchant', 'Merchant'])->get()
+        ];
     }
 
-    public function openAccModal($id)
-    {
-        $this->selectedSetoranId = $id;
-        $this->nama_petugas = ''; 
-        $this->isModalOpen = true;
+    public function confirmPayment($transactionId) {
+        $this->selectedTransaction = Transaction::with('user')->find($transactionId);
+        $this->showConfirmModal = true;
     }
 
-    public function konfirmasiTerimaUang()
+    // --- FUNGSI INTI: TERIMA SETORAN TUNAI ---
+    public function terimaSetoran($transactionId)
     {
-        $this->validate([
-            'nama_petugas' => 'required|min:3'
-        ], [
-            'nama_petugas.required' => 'Nama petugas wajib diisi untuk catatan audit.',
-            'nama_petugas.min' => 'Nama petugas terlalu singkat.'
-        ]);
-
-        $setId = $this->selectedSetoranId;
-        $petugas = $this->nama_petugas;
+        $trx = Transaction::with('user')->find($transactionId);
+        if (!$trx || $trx->status !== 'pending') return;
 
         try {
             DB::transaction(function () use ($setId, $petugas) {
@@ -88,21 +98,50 @@ class extends Component {
         } catch (\Exception $e) {
             session()->flash('error', 'Gagal memproses: ' . $e->getMessage());
         }
+
+        $this->showConfirmModal = false;
+        $this->selectedTransaction = null;
+    }
+
+    // --- FUNGSI TESTING: Membuat Tagihan Dummy ---
+    public function submitSimulasi()
+    {
+        $this->validate([
+            'simulasiUserId' => 'required',
+            'simulasiAmount' => 'required|numeric|min:5000',
+        ]);
+
+        Transaction::create([
+            'user_id' => $this->simulasiUserId,
+            'order_id' => 'TGH-' . Str::upper(Str::random(8)),
+            'total_amount' => $this->simulasiAmount,
+            'type' => 'tagihan_merchant',
+            'status' => 'pending',
+            'description' => 'Tagihan setoran tunai dari transaksi Mahasiswa',
+        ]);
+
+        $this->showSimulasiModal = false;
+        $this->reset(['simulasiUserId', 'simulasiAmount']);
+        session()->flash('message', 'Simulasi Tagihan Merchant berhasil dibuat!');
     }
 }; ?>
 
-{{-- PERBAIKAN: Menghapus max-w-7xl mx-auto agar desain melebar penuh (Fluid) --}}
-<div class="py-8 px-6 md:px-8 w-full space-y-6 relative">
-    
-    <div class="mb-8">
-        <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Penagihan Tunai (Pickup)</h2>
-        <p class="text-gray-500 text-sm mt-1">Kelola penjemputan uang fisik fee LKBB dari kantin-kantin (Merchant).</p>
-    </div>
-
-    @if(session('success'))
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl mb-4 flex items-center gap-3">
-            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-            <span class="font-bold">{{ session('success') }}</span>
+<div class="p-6">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">Penagihan Merchant (Collection)</h1>
+            <p class="text-gray-500 text-sm mt-1">Kelola tagihan Merchant atas penerimaan uang tunai dari Mahasiswa.</p>
+        </div>
+        <div class="flex gap-3 w-full md:w-auto">
+            <div class="relative flex-1 md:w-64">
+                <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari Merchant/ID..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 text-sm">
+                <div class="absolute left-3 top-2.5 text-gray-400">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+            </div>
+            <button wire:click="$set('showSimulasiModal', true)" class="px-4 py-2 bg-orange-50 text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-600 hover:text-white text-sm font-bold whitespace-nowrap transition">
+                + Simulasi Tagihan
+            </button>
         </div>
     @endif
     @if(session('error'))
@@ -111,67 +150,61 @@ class extends Component {
         </div>
     @endif
 
-    {{-- PERBAIKAN GRID: Dibuat lebih lebar dan menyesuaikan layar besar (xl:gap-8) --}}
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 xl:gap-8">
-        
-        {{-- KOLOM KIRI (LEBIH LEBAR UNTUK KARTU) --}}
-        <div class="xl:col-span-2 space-y-4">
-            <h3 class="text-sm font-extrabold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                Menunggu Penjemputan Uang
-            </h3>
+    <div class="flex gap-4 border-b border-gray-200 mb-6">
+        <button wire:click="$set('tab', 'pending')" class="pb-3 px-1 border-b-2 font-semibold text-sm transition-colors {{ $tab === 'pending' ? 'border-orange-600 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+            Menunggu Setoran (Hutang)
+        </button>
+        <button wire:click="$set('tab', 'success')" class="pb-3 px-1 border-b-2 font-semibold text-sm transition-colors {{ $tab === 'success' ? 'border-green-600 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+            Sudah Lunas
+        </button>
+    </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
-                @forelse($this->tiketPending as $tiket)
-                    <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col justify-between">
-                        <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-400"></div>
-                        
-                        <div>
-                            <div class="flex justify-between items-start mb-2">
-                                <span class="font-mono text-xs font-extrabold text-gray-900">{{ $tiket->nomor_setoran }}</span>
-                                <span class="bg-amber-50 text-amber-700 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase">Pickup</span>
-                            </div>
-                            
-                            <h4 class="font-bold text-gray-800 text-base truncate">{{ $tiket->merchant->name ?? 'Kantin ID: '.$tiket->merchant_id }}</h4>
-                            <p class="text-xs text-gray-400 mb-5">{{ $tiket->created_at->format('d M Y, H:i') }}</p>
-
-                            <div class="bg-gray-50 rounded-xl p-4 flex justify-between items-center mb-5 border border-gray-100">
-                                <span class="text-xs font-bold text-gray-500 uppercase">Tagihan Fisik:</span>
-                                <span class="text-xl font-black text-blue-600">Rp {{ number_format($tiket->nominal, 0, ',', '.') }}</span>
-                            </div>
-                        </div>
-
-                        <button wire:click="openAccModal({{ $tiket->id }})" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-3 rounded-xl transition-all shadow-lg shadow-blue-200 flex justify-center items-center gap-2 mt-auto focus:ring-4 focus:ring-blue-100">
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            ACC Uang Diterima
-                        </button>
-                    </div>
-                @empty
-                    <div class="col-span-full bg-white border border-gray-200 rounded-2xl p-10 text-center shadow-sm">
-                        <div class="text-5xl mb-4 opacity-40">🛵</div>
-                        <p class="text-base font-bold text-gray-600">Semua penjemputan uang sudah beres!</p>
-                        <p class="text-xs text-gray-400 mt-1">Belum ada tugas penagihan tunai untuk saat ini.</p>
-                    </div>
-                @endforelse
-            </div>
-        </div>
-
-        {{-- KOLOM KANAN (SEKARANG PUNYA RUANG LEBIH LUAS) --}}
-        <div class="xl:col-span-1">
-            <h3 class="text-sm font-extrabold text-gray-400 uppercase tracking-wider mb-4">Setoran Masuk Hari Ini</h3>
-            <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden h-full flex flex-col">
-                <ul class="divide-y divide-gray-100 flex-1">
-                    @forelse($this->riwayatHariIni as $riwayat)
-                        <li class="p-5 hover:bg-gray-50 transition-colors">
-                            <div class="flex justify-between items-center mb-1.5">
-                                <span class="font-bold text-sm text-gray-900 truncate pr-2">{{ $riwayat->merchant->name ?? 'Kantin' }}</span>
-                                <span class="text-xs font-black text-emerald-600 whitespace-nowrap">Rp {{ number_format($riwayat->nominal, 0, ',', '.') }}</span>
-                            </div>
-                            <div class="flex justify-between items-center text-xs text-gray-500 mt-2">
-                                <span>Kolektor: <strong class="text-gray-700">{{ $riwayat->nama_petugas }}</strong></span>
-                                <span>{{ $riwayat->updated_at->format('H:i') }}</span>
-                            </div>
-                        </li>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-gray-50 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 font-semibold">
+                        <th class="px-6 py-4">ID Tagihan & Waktu</th>
+                        <th class="px-6 py-4">Nama Merchant</th>
+                        <th class="px-6 py-4">Nominal Disetorkan</th>
+                        <th class="px-6 py-4">Status</th>
+                        <th class="px-6 py-4 text-right">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    @forelse($daftarTagihan as $trx)
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="px-6 py-4">
+                                <div class="font-bold text-gray-800">{{ $trx->order_id }}</div>
+                                <div class="text-xs text-gray-400 mt-1">{{ $trx->created_at->format('d M Y, H:i') }}</div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="font-bold text-blue-600">{{ $trx->user->name ?? 'User Terhapus' }}</div>
+                            </td>
+                            <td class="px-6 py-4 font-extrabold text-gray-900">
+                                Rp {{ number_format($trx->total_amount, 0, ',', '.') }}
+                            </td>
+                            <td class="px-6 py-4">
+                                @if($trx->status === 'pending')
+                                    <span class="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-xs font-bold">Belum Disetor</span>
+                                @else
+                                    <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold">Lunas</span>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                @if($trx->status === 'pending')
+                                    <button 
+                                        wire:click="confirmPayment({{ $trx->id }})" 
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition shadow-sm active:scale-95">
+                                        Terima Uang & Lunaskan
+                                    </button>
+                                @else
+                                    <span class="text-xs text-gray-400 italic font-medium bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
+                                        Transaksi Selesai
+                                    </span>
+                                @endif
+                            </td>
+                        </tr>
                     @empty
                         <li class="p-8 text-center text-sm text-gray-500 font-medium">Belum ada uang fisik yang diterima hari ini.</li>
                     @endforelse
@@ -191,22 +224,64 @@ class extends Component {
                 <h3 class="text-xl font-bold text-center text-gray-900 mb-1">Konfirmasi Setoran</h3>
                 <p class="text-sm text-center text-gray-500 mb-6 leading-relaxed">Siapa nama petugas LKBB yang membawa uang fisik ini ke kantor?</p>
                 
-                <form wire:submit="konfirmasiTerimaUang">
-                    <div class="mb-6">
-                        <label class="block text-[11px] font-bold text-gray-500 uppercase mb-2">Nama Kolektor / Petugas</label>
-                        <input type="text" wire:model="nama_petugas" placeholder="Contoh: Pak Budi" class="w-full border border-gray-300 rounded-xl p-3.5 text-sm focus:ring-blue-500 focus:border-blue-500 font-medium transition-colors">
-                        @error('nama_petugas') <span class="text-xs text-rose-500 font-bold block mt-1.5">{{ $message }}</span> @enderror
-                    </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nominal Tunai (Rp)</label>
+                    <input type="number" wire:model="simulasiAmount" class="w-full border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 px-4 py-2 text-sm" placeholder="Contoh: 150000">
+                    @error('simulasiAmount') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                </div>
+                
+                <div class="flex justify-end gap-3">
+                    <button type="button" wire:click="$set('showSimulasiModal', false)" class="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 text-sm font-semibold">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-semibold">Buat Tagihan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @endif
 
-                    <div class="flex justify-end gap-3">
-                        <button type="button" wire:click="$set('isModalOpen', false)" class="flex-1 py-3 text-sm font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors">Batal</button>
-                        <button type="submit" wire:loading.attr="disabled" class="flex-1 py-3 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 disabled:opacity-50 focus:ring-4 focus:ring-blue-100">
-                            <span wire:loading.remove wire:target="konfirmasiTerimaUang">Simpan Data</span>
-                            <span wire:loading wire:target="konfirmasiTerimaUang">Memproses...</span>
-                        </button>
+    @if($showConfirmModal && $selectedTransaction)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center border border-gray-100">
+            <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+            </div>
+
+            <h3 class="text-xl font-extrabold text-gray-900 mb-2">Konfirmasi Terima Kas</h3>
+            <p class="text-sm text-gray-500 mb-6 leading-relaxed">
+                Pastikan Anda telah menerima uang tunai fisik sebesar <br>
+                <span class="font-bold text-gray-900 text-xl block mt-1">Rp {{ number_format($selectedTransaction->total_amount, 0, ',', '.') }}</span>
+                dari <span class="font-bold text-blue-600">{{ $selectedTransaction->user->name }}</span>
+            </p>
+
+            <div class="space-y-3">
+                <button 
+                    wire:click="terimaSetoran({{ $selectedTransaction->id }})" 
+                    wire:loading.attr="disabled"
+                    class="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold transition-all disabled:opacity-50 flex items-center justify-center">
+                    <span wire:loading.remove wire:target="terimaSetoran">
+                        Ya, Sudah Saya Terima
+                    </span>
+
+                    <div wire:loading wire:target="terimaSetoran">
+                        <div class="flex flex-row items-center justify-center gap-2">
+                            <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="text-white">Memproses...</span>
+                        </div>
                     </div>
-                </form>
+                </button>
+                
+                <button 
+                    wire:click="$set('showConfirmModal', false)" 
+                    class="w-full py-2 text-gray-400 hover:text-gray-600 font-semibold transition">
+                    Belum, Batal
+                </button>
             </div>
         </div>
+    </div>
     @endif
 </div>

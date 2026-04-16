@@ -4,6 +4,7 @@ use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 use App\Models\SupplyChain;
+use App\Models\SupplyOrder; // 👈 TAMBAHKAN INI
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -15,24 +16,62 @@ new #[Layout('layouts.lkbb')] class extends Component {
     public $selectedId = null;
     public $rejectReason = '';
 
+    // Properti untuk Modal Detail Pesanan 👈 TAMBAHKAN INI
+    public $isDetailModalOpen = false;
+    public $selectedPoDetails = [];
+    public $selectedRequestInfo = null;
+
     // Mengambil daftar pengajuan yang HANYA menunggu persetujuan LKBB
     #[Computed]
     public function pendingRequests()
     {
-        // JURUS DEBUGGING: Cek apakah Laravel bisa baca tabelnya
-        // dd(SupplyChain::all()->toArray());
         return SupplyChain::with([
                 'merchant', // Asumsi ada relasi belongsTo ke User (Merchant)
                 'supplier'  // Asumsi ada relasi belongsTo ke User (Pemasok)
             ])
-            // UBAH BARIS INI: Sesuaikan dengan isi persis di database
             ->where('status', 'PENDING') 
             ->orderBy('created_at', 'desc')
             ->get();
     }
 
-    // Fungsi Approve
-    // Fungsi Approve
+    // Fungsi Buka Modal Detail 👈 TAMBAHKAN INI
+    // Fungsi Buka Modal Detail
+    public function openDetailModal($id)
+    {
+        // 1. Cari data pengajuan beserta relasi user-nya
+        $request = SupplyChain::with(['merchant', 'supplier'])->find($id);
+        
+        if ($request) {
+            $this->selectedRequestInfo = $request;
+            
+            // 2. Ambil pesanan dari SupplyOrder beserta relasi detail dan produknya
+            $order = SupplyOrder::with(['details.produkPemasok'])
+                ->where('id_pengajuan', $request->invoice_number)
+                ->first();
+            
+            // 3. Masukkan data detail ke dalam variabel array
+            $this->selectedPoDetails = $order ? $order->details : [];
+            
+            $this->isDetailModalOpen = true;
+        }
+    }
+
+    // Fungsi Tutup Modal Detail 👈 TAMBAHKAN INI
+    public function closeDetailModal()
+    {
+        $this->isDetailModalOpen = false;
+        $this->selectedPoDetails = [];
+        $this->selectedRequestInfo = null;
+    }
+
+    // Fungsi Buka Modal Reject (diperbarui agar rapi)
+    public function openRejectModal($id)
+    {
+        $this->selectedId = $id;
+        $this->rejectReason = '';
+        $this->showRejectModal = true;
+    }
+
     // Fungsi Approve
     public function approve($id)
     {
@@ -50,10 +89,9 @@ new #[Layout('layouts.lkbb')] class extends Component {
                 ]);
 
                 // 2. OTOMATIS UPDATE STATUS DI TABEL PEMASOK
-                // Cari pesanan yang jembatannya (id_pengajuan) cocok dengan invoice_number ini
-                \App\Models\SupplyOrder::where('id_pengajuan', $request->invoice_number)
+                SupplyOrder::where('id_pengajuan', $request->invoice_number)
                     ->update([
-                        'status_pembiayaan' => 'siap_diproduksi' // Sesuaikan dengan status tab Pemasok agar tombol mulai produksi muncul
+                        'status_pembiayaan' => 'siap_diproduksi'
                     ]);
             });
 
@@ -80,12 +118,12 @@ new #[Layout('layouts.lkbb')] class extends Component {
 
                 // 1. Update status penolakan di tabel LKBB
                 $request->update([
-                    'status' => 'REJECTED', // Sesuaikan dengan Enum di database Anda
+                    'status' => 'REJECTED', 
                     'updated_at' => now(),
                 ]);
 
                 // 2. KEMBALIKAN STATUS DI TABEL PEMASOK
-                \App\Models\SupplyOrder::where('id_pengajuan', $request->invoice_number)
+                SupplyOrder::where('id_pengajuan', $request->invoice_number)
                     ->update([
                         'status_pembiayaan' => 'siap_diajukan', // Kembalikan ke awal
                         'id_pengajuan' => null // Putus jembatannya karena ditolak
@@ -148,6 +186,9 @@ new #[Layout('layouts.lkbb')] class extends Component {
                                 {{ \Carbon\Carbon::parse($req->due_date)->format('d M Y') }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <button wire:click="openDetailModal({{ $req->id }})" class="text-gray-700 bg-gray-100 border border-gray-300 hover:bg-gray-200 px-3 py-1.5 rounded-md shadow-sm transition-colors text-xs font-bold mr-2">
+                                    Detail
+                                </button>
                                 <button wire:click="approve({{ $req->id }})" wire:confirm="Apakah Anda yakin ingin menyetujui pendanaan ini?" class="text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-md shadow-sm transition-colors text-xs font-bold mr-2">
                                     Approve
                                 </button>
@@ -167,6 +208,87 @@ new #[Layout('layouts.lkbb')] class extends Component {
             </table>
         </div>
     </div>
+
+    @if($isDetailModalOpen && $selectedRequestInfo)
+    <div class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-detail" role="dialog" aria-modal="true">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" wire:click="closeDetailModal"></div>
+            
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+                <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-lg leading-6 font-extrabold text-gray-900" id="modal-detail">
+                            Detail Pesanan #PO-{{ str_pad($selectedRequestInfo->id, 5, '0', STR_PAD_LEFT) }}
+                        </h3>
+                        <p class="text-xs text-gray-500 mt-1">Invoice Ref: {{ $selectedRequestInfo->invoice_number }}</p>
+                    </div>
+                    <button wire:click="closeDetailModal" class="text-gray-400 hover:text-gray-600">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+                
+                <div class="bg-white px-6 py-5">
+                    <div class="grid grid-cols-2 gap-4 mb-6 bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+                        <div>
+                            <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider">Pemesan (Merchant)</span>
+                            <span class="block text-sm font-semibold text-gray-900 mt-1">{{ $selectedRequestInfo->merchant->name ?? '-' }}</span>
+                        </div>
+                        <div>
+                            <span class="block text-xs font-bold text-gray-500 uppercase tracking-wider">Tujuan (Pemasok)</span>
+                            <span class="block text-sm font-semibold text-gray-900 mt-1">{{ $selectedRequestInfo->supplier->name ?? '-' }}</span>
+                        </div>
+                    </div>
+
+                    <h4 class="text-sm font-bold text-gray-800 mb-3 border-b pb-2">Rincian Barang yang Dipesan:</h4>
+                    
+                    <div class="overflow-x-auto border border-gray-200 rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-bold text-gray-500">Nama Bahan/Barang</th>
+                                    <th class="px-4 py-2 text-center text-xs font-bold text-gray-500">Qty</th>
+                                    <th class="px-4 py-2 text-right text-xs font-bold text-gray-500">Harga Satuan</th>
+                                    <th class="px-4 py-2 text-right text-xs font-bold text-gray-500">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                @forelse($selectedPoDetails as $detail)
+                                    <tr class="hover:bg-gray-50 text-sm">
+                                        <td class="px-4 py-3 font-medium text-gray-900">
+                                            {{ $detail->nama_bahan_snapshot ?? $detail->produkPemasok->nama_bahan ?? 'Data Tidak Diketahui' }}
+                                        </td>
+                                        
+                                        <td class="px-4 py-3 text-center text-gray-700">{{ $detail->qty ?? 0 }}</td>
+                                        <td class="px-4 py-3 text-right text-gray-700">Rp {{ number_format($detail->harga_satuan_snapshot ?? 0, 0, ',', '.') }}</td>
+                                        <td class="px-4 py-3 text-right font-bold text-gray-900">Rp {{ number_format($detail->subtotal ?? 0, 0, ',', '.') }}</td>
+                                    </tr> 
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="px-4 py-6 text-center text-sm text-gray-500">Detail barang tidak ditemukan.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                            <tfoot class="bg-gray-50 border-t-2 border-gray-200">
+                                <tr>
+                                    <td colspan="3" class="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase">Total Pembiayaan Pokok:</td>
+                                    <td class="px-4 py-3 text-right font-extrabold text-blue-700 text-base">Rp {{ number_format($selectedRequestInfo->capital_amount, 0, ',', '.') }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 sm:flex sm:flex-row-reverse">
+                    <button wire:click="closeDetailModal" type="button" class="w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-bold text-gray-700 hover:bg-gray-100 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm transition-colors">
+                        Tutup Panel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
 
     @if($showRejectModal)
         <div class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
