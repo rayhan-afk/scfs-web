@@ -22,6 +22,11 @@ new #[Layout('layouts.lkbb')] class extends Component {
     public $simulasiUserId = '';
     public $simulasiAmount = '';
 
+    // Modal Konfirmasi Persetujuan/Penolakan
+    public $showApproveModal = false;
+    public $showRejectModal = false;
+    public $selectedTransaction = null;
+
     public function updatingSearch() {
         $this->resetPage();
     }
@@ -50,6 +55,17 @@ new #[Layout('layouts.lkbb')] class extends Component {
                 $q->where('balance', '>', 0);
             })->get()
         ];
+    }
+
+    // Fungsi untuk memicu modal (Bukan langsung eksekusi)
+    public function confirmApprove($transactionId) {
+        $this->selectedTransaction = Transaction::with('user')->find($transactionId);
+        $this->showApproveModal = true;
+    }
+
+    public function confirmReject($transactionId) {
+        $this->selectedTransaction = Transaction::find($transactionId);
+        $this->showRejectModal = true;
     }
 
     // --- FUNGSI INTI: PERSETUJUAN PENCAIRAN DANA ---
@@ -93,10 +109,16 @@ new #[Layout('layouts.lkbb')] class extends Component {
             });
 
             session()->flash('message', 'Pencairan Rp ' . number_format($trx->total_amount, 0, ',', '.') . ' untuk ' . $trx->user->name . ' berhasil disetujui!');
+
+            $this->showApproveModal = false;
+            $this->selectedTransaction = null;
+
         } catch (\Exception $e) {
             report($e);
             session()->flash('error', 'Terjadi kesalahan sistem saat memotong saldo.');
         }
+
+        $this->showApproveModal = false;
     }
 
     // --- FUNGSI INTI: TOLAK PENCAIRAN ---
@@ -110,6 +132,8 @@ new #[Layout('layouts.lkbb')] class extends Component {
             ]);
             session()->flash('message', 'Permintaan pencairan dana telah ditolak.');
         }
+
+        $this->showRejectModal = false;
     }
 
     // --- FUNGSI TESTING: Membuat Request Penarikan Dummy ---
@@ -148,7 +172,9 @@ new #[Layout('layouts.lkbb')] class extends Component {
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </div>
             </div>
-            <button wire:click="$set('showSimulasiModal', true)" class="px-4 py-2 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg hover:bg-indigo-100 text-sm font-bold whitespace-nowrap transition">
+            <button 
+                wire:click="$set('showSimulasiModal', true)" 
+                class="px-4 py-2 bg-indigo-50 text-indigo-600 border border-indigo-200 rounded-lg hover:bg-blue-600 hover:text-white text-sm font-bold whitespace-nowrap transition">
                 + Simulasi Request
             </button>
         </div>
@@ -217,8 +243,9 @@ new #[Layout('layouts.lkbb')] class extends Component {
                             <td class="px-6 py-4 text-right">
                                 @if($wd->status === 'pending')
                                     <div class="flex justify-end gap-2">
-                                        <button wire:click="rejectWithdrawal({{ $wd->id }})" wire:confirm="Tolak penarikan ini?" class="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition">Tolak</button>
-                                        <button wire:click="approveWithdrawal({{ $wd->id }})" wire:confirm="Setujui dan potong saldo pengguna sebesar Rp {{ number_format($wd->total_amount, 0, ',', '.') }}?" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition">Setujui</button>
+                                        <button wire:click="confirmReject({{ $wd->id }})" class="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition">Tolak</button>
+                                        
+                                        <button wire:click="confirmApprove({{ $wd->id }})" class="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition">Setujui</button>
                                     </div>
                                 @else
                                     <span class="text-xs text-gray-400 italic">Tidak ada aksi</span>
@@ -269,6 +296,50 @@ new #[Layout('layouts.lkbb')] class extends Component {
                     <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold">Buat Request</button>
                 </div>
             </form>
+        </div>
+    </div>
+    @endif
+
+    @if($showApproveModal && $selectedTransaction)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
+            <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Konfirmasi Transfer</h3>
+            <p class="text-sm text-gray-500 mb-6">
+                Apakah Anda yakin ingin mencairkan dana sebesar <br>
+                <span class="font-bold text-gray-800 text-lg">Rp {{ number_format($selectedTransaction->total_amount, 0, ',', '.') }}</span> <br>
+                kepada <span class="font-bold text-blue-600">{{ $selectedTransaction->user->name }}</span>?
+            </p>
+            <div class="flex flex-col gap-2">
+                <button 
+                    wire:click="approveWithdrawal({{ $selectedTransaction->id }})" 
+                    wire:loading.attr="disabled"
+                    class="w-full py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 font-bold transition disabled:opacity-50">
+                    <span wire:loading.remove wire:target="approveWithdrawal">Ya, Cairkan Dana</span>
+                    <span wire:loading wire:target="approveWithdrawal">Memproses...</span>
+                </button>
+                <button wire:click="$set('showApproveModal', false)" class="w-full py-3 text-gray-500 hover:text-gray-700 font-semibold transition">Batal</button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    @if($showRejectModal && $selectedTransaction)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center">
+            <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </div>
+            <h3 class="text-xl font-bold text-gray-900 mb-2">Tolak Pencairan</h3>
+            <p class="text-sm text-gray-500 mb-6">
+                Permintaan penarikan dari <strong>{{ $selectedTransaction->user->name }}</strong> akan dibatalkan. Tindakan ini tidak dapat diubah.
+            </p>
+            <div class="flex flex-col gap-2">
+                <button wire:click="rejectWithdrawal({{ $selectedTransaction->id }})" class="w-full py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold transition">Ya, Tolak Permintaan</button>
+                <button wire:click="$set('showRejectModal', false)" class="w-full py-3 text-gray-500 hover:text-gray-700 font-semibold transition">Batal</button>
+            </div>
         </div>
     </div>
     @endif

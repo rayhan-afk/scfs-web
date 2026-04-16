@@ -293,7 +293,7 @@ class extends Component {
 
                 <button wire:click="submitOrder" wire:loading.attr="disabled"
                     @if(empty($cart)) disabled @endif
-                    class="w-full py-3.5 text-sm font-extrabold text-white rounded-xl shadow-lg transition-all flex items-center justify-center bg-gray-900 hover:bg-gray-800 disabled:opacity-50">
+                    class="w-full py-3.5 text-sm font-extrabold text-white rounded-xl shadow-lg transition-all flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50">
                     <span wire:loading.remove wire:target="submitOrder">KIRIM PESANAN KE PEMASOK</span>
                     <span wire:loading wire:target="submitOrder">MENGIRIM PESANAN...</span>
                 </button>

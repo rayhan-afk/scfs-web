@@ -7,13 +7,30 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\SupplyOrder;
 
-new 
-#[Layout('layouts.app')] 
+new #[Layout('layouts.app')] 
 class extends Component {
     
     // UI State
     public $statusFilter = 'aktif'; // 'aktif' (belum selesai), 'selesai'
     public $search = '';
+
+    // PROPERTI BARU UNTUK MODAL
+    public $showConfirmModal = false;
+    public $selectedOrderId = null;
+
+    // FUNGSI UNTUK MEMBUKA MODAL
+    public function openConfirmModal($id)
+    {
+        $this->selectedOrderId = $id;
+        $this->showConfirmModal = true;
+    }
+
+    // FUNGSI UNTUK MENUTUP MODAL
+    public function closeConfirmModal()
+    {
+        $this->showConfirmModal = false;
+        $this->selectedOrderId = null;
+    }
 
     /**
      * ENGINE UTAMA: Mengambil daftar pesanan beserta detail barangnya (Eager Loading)
@@ -45,12 +62,14 @@ class extends Component {
     /**
      * CORE ACTION: Konfirmasi Penerimaan Barang Fisik
      */
-    public function konfirmasiTerima($orderId)
+    public function konfirmasiTerima()
     {
+        if (!$this->selectedOrderId) return;
+
         try {
-            DB::transaction(function () use ($orderId) {
+            DB::transaction(function () {
                 // 1. Strict Query & Pessimistic Lock (Anti-IDOR & Anti-Race Condition)
-                $order = SupplyOrder::where('id', $orderId)
+                $order = SupplyOrder::where('id', $this->selectedOrderId)
                             ->where('merchant_id', Auth::id())
                             ->lockForUpdate()
                             ->firstOrFail();
@@ -69,9 +88,11 @@ class extends Component {
                 // kuantitas stok otomatis ke Gudang Merchant, kodenya ditaruh di sini.
             });
 
+            $this->closeConfirmModal(); // Tutup modal setelah sukses
             session()->flash('success', 'Penerimaan barang berhasil dikonfirmasi! Siklus order telah selesai.');
 
         } catch (\Exception $e) {
+            $this->closeConfirmModal();
             session()->flash('error', $e->getMessage());
         }
     }
@@ -183,13 +204,15 @@ class extends Component {
                     {{-- Tombol Aksi Kritis --}}
                     <div class="flex justify-end pt-4 border-t border-gray-100">
                         @if($order->status == 'dikirim')
-                            <button wire:click="konfirmasiTerima({{ $order->id }})" 
-                                wire:confirm="Pastikan fisik barang sudah tiba dan sesuai rincian. Lanjutkan konfirmasi terima?"
+                            <button wire:click="openConfirmModal({{ $order->id }})" 
                                 class="px-6 py-2.5 bg-emerald-600 text-white text-sm font-extrabold rounded-xl shadow-lg shadow-emerald-200 hover:bg-emerald-700 transition flex items-center gap-2 focus:ring-4 focus:ring-emerald-100">
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
                                 Konfirmasi Barang Fisik Diterima
                             </button>
                         @elseif($order->status == 'selesai')
+                            {{-- Kode status selesai tetap sama --}}
                             <span class="text-xs font-bold text-emerald-600 flex items-center gap-1 bg-emerald-50 px-3 py-1.5 rounded-lg">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 Transaksi Tuntas (Tercatat)
@@ -212,4 +235,45 @@ class extends Component {
         @endforelse
     </div>
 
+    {{-- MODAL POP-UP KONFIRMASI --}}
+    @if($showConfirmModal)
+        <div class="fixed inset-0 z-[999] overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+            <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+                
+                {{-- Overlay Gelap --}}
+                <div class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" wire:click="closeConfirmModal"></div>
+
+                <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+                {{-- Konten Modal --}}
+                <div class="inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-gray-100">
+                    <div class="bg-white px-6 pt-8 pb-6 sm:p-8 sm:pb-6 text-center">
+                        {{-- Icon Animasi --}}
+                        <div class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-emerald-100 mb-6">
+                            <svg class="h-10 w-10 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        
+                        <h3 class="text-xl font-black text-gray-900 mb-2">Konfirmasi Penerimaan?</h3>
+                        <p class="text-sm text-gray-500 leading-relaxed">
+                            Pastikan fisik barang sudah tiba di lokasi Anda dan jumlahnya sesuai dengan rincian pesanan. Tindakan ini tidak dapat dibatalkan.
+                        </p>
+                    </div>
+
+                    <div class="bg-gray-50 px-6 py-4 sm:px-8 sm:flex sm:flex-row-reverse gap-3">
+                        <button wire:click="konfirmasiTerima" type="button" 
+                            class="w-full inline-flex justify-center rounded-xl border border-transparent shadow-sm px-6 py-3 bg-emerald-600 text-base font-bold text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 sm:w-auto sm:text-sm transition-all">
+                            <span wire:loading.remove wire:target="konfirmasiTerima">Ya, Sudah Terima Barang</span>
+                            <span wire:loading wire:target="konfirmasiTerima">Memproses...</span>
+                        </button>
+                        <button wire:click="closeConfirmModal" type="button" 
+                            class="mt-3 w-full inline-flex justify-center rounded-xl border border-gray-300 shadow-sm px-6 py-3 bg-white text-base font-bold text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm transition-all">
+                            Batal
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

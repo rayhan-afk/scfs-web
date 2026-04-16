@@ -21,6 +21,10 @@ new #[Layout('layouts.lkbb')] class extends Component {
     public $simulasiUserId = '';
     public $simulasiAmount = '';
 
+    // Modal Konfirmasi Pelunasan
+    public $showConfirmModal = false;
+    public $selectedTransaction = null;
+
     public function updatingSearch() {
         $this->resetPage();
     }
@@ -48,6 +52,11 @@ new #[Layout('layouts.lkbb')] class extends Component {
             // Mengambil user merchant untuk dropdown simulasi
             'merchants' => User::whereIn('role', ['merchant', 'Merchant'])->get()
         ];
+    }
+
+    public function confirmPayment($transactionId) {
+        $this->selectedTransaction = Transaction::with('user')->find($transactionId);
+        $this->showConfirmModal = true;
     }
 
     // --- FUNGSI INTI: TERIMA SETORAN TUNAI ---
@@ -88,6 +97,9 @@ new #[Layout('layouts.lkbb')] class extends Component {
             report($e);
             session()->flash('error', 'Terjadi kesalahan sistem saat memproses pelunasan.');
         }
+
+        $this->showConfirmModal = false;
+        $this->selectedTransaction = null;
     }
 
     // --- FUNGSI TESTING: Membuat Tagihan Dummy ---
@@ -126,7 +138,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </div>
             </div>
-            <button wire:click="$set('showSimulasiModal', true)" class="px-4 py-2 bg-orange-50 text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-100 text-sm font-bold whitespace-nowrap transition">
+            <button wire:click="$set('showSimulasiModal', true)" class="px-4 py-2 bg-orange-50 text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-600 hover:text-white text-sm font-bold whitespace-nowrap transition">
                 + Simulasi Tagihan
             </button>
         </div>
@@ -181,11 +193,15 @@ new #[Layout('layouts.lkbb')] class extends Component {
                             </td>
                             <td class="px-6 py-4 text-right">
                                 @if($trx->status === 'pending')
-                                    <button wire:click="terimaSetoran({{ $trx->id }})" wire:confirm="Terima uang fisik tunai sebesar Rp {{ number_format($trx->total_amount, 0, ',', '.') }} dari Merchant ini?" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition shadow-sm">
+                                    <button 
+                                        wire:click="confirmPayment({{ $trx->id }})" 
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 transition shadow-sm active:scale-95">
                                         Terima Uang & Lunaskan
                                     </button>
                                 @else
-                                    <span class="text-xs text-gray-400 italic">Selesai</span>
+                                    <span class="text-xs text-gray-400 italic font-medium bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
+                                        Transaksi Selesai
+                                    </span>
                                 @endif
                             </td>
                         </tr>
@@ -233,6 +249,52 @@ new #[Layout('layouts.lkbb')] class extends Component {
                     <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-semibold">Buat Tagihan</button>
                 </div>
             </form>
+        </div>
+    </div>
+    @endif
+
+    @if($showConfirmModal && $selectedTransaction)
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl text-center border border-gray-100">
+            <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+            </div>
+
+            <h3 class="text-xl font-extrabold text-gray-900 mb-2">Konfirmasi Terima Kas</h3>
+            <p class="text-sm text-gray-500 mb-6 leading-relaxed">
+                Pastikan Anda telah menerima uang tunai fisik sebesar <br>
+                <span class="font-bold text-gray-900 text-xl block mt-1">Rp {{ number_format($selectedTransaction->total_amount, 0, ',', '.') }}</span>
+                dari <span class="font-bold text-blue-600">{{ $selectedTransaction->user->name }}</span>
+            </p>
+
+            <div class="space-y-3">
+                <button 
+                    wire:click="terimaSetoran({{ $selectedTransaction->id }})" 
+                    wire:loading.attr="disabled"
+                    class="w-full py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold transition-all disabled:opacity-50 flex items-center justify-center">
+                    <span wire:loading.remove wire:target="terimaSetoran">
+                        Ya, Sudah Saya Terima
+                    </span>
+
+                    <div wire:loading wire:target="terimaSetoran">
+                        <div class="flex flex-row items-center justify-center gap-2">
+                            <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span class="text-white">Memproses...</span>
+                        </div>
+                    </div>
+                </button>
+                
+                <button 
+                    wire:click="$set('showConfirmModal', false)" 
+                    class="w-full py-2 text-gray-400 hover:text-gray-600 font-semibold transition">
+                    Belum, Batal
+                </button>
+            </div>
         </div>
     </div>
     @endif
