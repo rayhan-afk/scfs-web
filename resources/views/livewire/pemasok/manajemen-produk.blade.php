@@ -51,7 +51,7 @@
                 <thead>
                     <tr class="bg-gray-50/80 border-b border-gray-100">
                         <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Detail Produk</th>
-                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Grosir</th>
+                        <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Harga & Margin</th>
                         <th class="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Status Stok</th>
                         <th class="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-widest">Aksi</th>
                     </tr>
@@ -77,8 +77,20 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">
-                            <p class="text-sm font-black text-gray-700">Rp {{ number_format($p->harga_grosir, 0, ',', '.') }}</p>
-                            <p class="text-[10px] text-gray-400 font-bold uppercase mt-0.5">Per Unit</p>
+                            <div class="flex flex-col gap-1">
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="text-gray-500 text-xs">Modal:</span>
+                                    <span class="font-bold text-gray-700">Rp {{ number_format($p->harga_modal ?? 0, 0, ',', '.') }}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="text-gray-500 text-xs">Margin:</span>
+                                    <span class="font-bold text-green-600">+ Rp {{ number_format($p->margin_pemasok ?? 0, 0, ',', '.') }}</span>
+                                </div>
+                                <div class="border-t border-gray-100 mt-1 pt-1 flex items-center justify-between">
+                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Total PO</span>
+                                    <span class="font-black text-gray-900 text-sm">Rp {{ number_format(($p->harga_modal ?? 0) + ($p->margin_pemasok ?? 0), 0, ',', '.') }}</span>
+                                </div>
+                            </div>
                         </td>
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
@@ -155,21 +167,60 @@
                             <input type="text" wire:model="sku" class="w-full rounded-xl border-gray-200 bg-gray-50 font-mono text-sm uppercase text-gray-500" readonly>
                         </div>
                         <div class="col-span-1">
-                            <label class="block text-xs font-bold text-gray-600 uppercase tracking-widest mb-1.5">Harga Grosir (Rp)</label>
-                            <input type="number" wire:model="harga_grosir" class="w-full rounded-xl border-gray-200 focus:ring-blue-500 text-sm" placeholder="0">
-                            @error('harga_grosir') <span class="text-red-500 text-xs font-semibold">{{ $message }}</span> @enderror
+                            <label class="block text-xs font-bold text-gray-600 uppercase tracking-widest mb-1.5">Nama Produk</label>
+                            <input type="text" wire:model="nama_produk" class="w-full rounded-xl border-gray-200 focus:ring-blue-500 text-sm" placeholder="Contoh: Beras Premium">
+                            @error('nama_produk') <span class="text-red-500 text-xs font-semibold">{{ $message }}</span> @enderror
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-xs font-bold text-gray-600 uppercase tracking-widest mb-1.5">Nama Produk</label>
-                        <input type="text" wire:model="nama_produk" class="w-full rounded-xl border-gray-200 focus:ring-blue-500 text-sm" placeholder="Contoh: Beras Premium 5kg">
-                        @error('nama_produk') <span class="text-red-500 text-xs font-semibold">{{ $message }}</span> @enderror
+                    {{-- PERUBAHAN DI SINI: Harga Modal & Margin Menggunakan Alpine.js Masking Rupiah --}}
+                    <div class="grid grid-cols-2 gap-4 bg-orange-50 p-4 rounded-xl border border-orange-100">
+                        
+                        {{-- Input Harga Modal dengan Alpine --}}
+                        <div class="col-span-1" x-data="{
+                                uang: @entangle('harga_modal'),
+                                formatRupiah(value) {
+                                    if(!value) return '';
+                                    return value.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                                }
+                            }">
+                            <label class="block text-xs font-bold text-gray-600 uppercase tracking-widest mb-1.5">Harga Modal</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rp</span>
+                                <input type="text"
+                                       x-bind:value="formatRupiah(uang)"
+                                       x-on:input="uang = $event.target.value.replace(/\D/g, '')"
+                                       class="w-full rounded-xl border-gray-200 focus:ring-blue-500 text-sm pl-9 font-bold" placeholder="0">
+                            </div>
+                            @error('harga_modal') <span class="text-red-500 text-xs font-semibold">{{ $message }}</span> @enderror
+                            <p class="text-[9px] text-gray-500 mt-1">Biaya produksi yang didanai LKBB.</p>
+                        </div>
+
+                        {{-- Input Margin Pemasok dengan Alpine --}}
+                        <div class="col-span-1" x-data="{
+                                uang: @entangle('margin_pemasok'),
+                                formatRupiah(value) {
+                                    if(!value) return '';
+                                    return value.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                                }
+                            }">
+                            <label class="block text-xs font-bold text-green-600 uppercase tracking-widest mb-1.5">Margin / Untung</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-green-600 font-bold text-sm">Rp</span>
+                                <input type="text"
+                                       x-bind:value="formatRupiah(uang)"
+                                       x-on:input="uang = $event.target.value.replace(/\D/g, '')"
+                                       class="w-full rounded-xl border-green-200 focus:ring-green-500 text-sm pl-9 font-bold" placeholder="0">
+                            </div>
+                            @error('margin_pemasok') <span class="text-red-500 text-xs font-semibold">{{ $message }}</span> @enderror
+                            <p class="text-[9px] text-green-600 mt-1">Keuntungan bersih Anda.</p>
+                        </div>
+
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-gray-600 uppercase tracking-widest mb-1.5">Stok Saat Ini</label>
+                            <label class="block text-xs font-bold text-gray-600 uppercase tracking-widest mb-1.5">Stok Awal</label>
                             <input type="number" wire:model="stok_sekarang" class="w-full rounded-xl border-gray-200 focus:ring-blue-500 text-sm" placeholder="0">
                             @error('stok_sekarang') <span class="text-red-500 text-xs font-semibold">{{ $message }}</span> @enderror
                         </div>
@@ -197,7 +248,7 @@
 
                     <div>
                         <label class="block text-xs font-bold text-gray-600 uppercase tracking-widest mb-1.5">Deskripsi Singkat</label>
-                        <textarea wire:model="deskripsi" class="w-full rounded-xl border-gray-200 focus:ring-blue-500 text-sm" rows="3" placeholder="Jelaskan detail produk..."></textarea>
+                        <textarea wire:model="deskripsi" class="w-full rounded-xl border-gray-200 focus:ring-blue-500 text-sm" rows="2" placeholder="Jelaskan detail produk..."></textarea>
                     </div>
 
                     <div class="flex gap-3 pt-2">
@@ -212,6 +263,7 @@
     </div>
     @endif
 
+    {{-- MODAL OPNAME TETAP SAMA SEPERTI ASLINYA --}}
     @if($showModalOpname)
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
         <div class="bg-white rounded-[24px] shadow-2xl w-full max-w-md p-6">

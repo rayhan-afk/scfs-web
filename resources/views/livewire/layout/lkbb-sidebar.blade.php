@@ -17,7 +17,10 @@ new class extends Component
     $isTokenActive = request()->routeIs('lkbb.injeksi-saldo', 'lkbb.riwayat-injeksi');
     $isApprovalActive = request()->routeIs('approval.*', 'supply-chain.approval');
     $isMasterDompetActive = request()->is('keuangan/mahasiswa*', 'keuangan/merchant*', 'keuangan/pemasok*') || request()->routeIs('saldo.bantuan');
-    $isOperasionalActive = request()->routeIs('supply-chain.create', 'supply-chain.bills', 'lkbb.scf.approval');
+    
+    // PERUBAHAN DISINI: Hanya deteksi route lkbb.scf.approval
+    $isOperasionalActive = request()->routeIs('lkbb.scf.approval');
+    
     $isSetoranActive = request()->routeIs('keuangan.penagihan', 'keuangan.riwayat-fee');
     $isKeuanganActive = request()->is('keuangan/pencairan*') || request()->routeIs('lkbb.wallets', 'lkbb.withdraw.merchant.approval', 'lkbb.withdraw.pemasok.approval');
 @endphp
@@ -53,7 +56,7 @@ new class extends Component
         </div>
     </div>
 
-    {{-- Navigasi Menu (BISA DI-SCROLL) --}}
+    {{-- Navigasi Menu --}}
     <nav class="flex-1 min-h-0 px-3 py-6 space-y-2 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/40">
         
         <div x-show="sidebarOpen" x-transition class="px-4 mb-2 mt-2 text-xs font-bold text-indigo-300 uppercase tracking-widest whitespace-nowrap">
@@ -170,6 +173,7 @@ new class extends Component
             Operasional
         </div>
 
+        {{-- PERUBAHAN DISINI: Menu Rantai Pasok yang sudah dibersihkan --}}
         <div x-data="{ operasionalOpen: true }" class="mt-1">
             <button @click="if(!sidebarOpen) sidebarOpen = true; operasionalOpen = !operasionalOpen" 
                     class="w-full flex items-center justify-between px-3 py-3 text-[15px] font-bold rounded-xl transition-all duration-200 group {{ $isOperasionalActive ? 'bg-white/20 text-white' : 'text-indigo-100 hover:bg-white/10 hover:text-white' }}"
@@ -182,15 +186,16 @@ new class extends Component
             </button>
 
             <div x-show="operasionalOpen && sidebarOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mt-2 space-y-1 px-2 border-l-2 border-white/20 ml-4">
+                
+                {{-- Hanya menyisakan menu Approval PO Pemasok --}}
                 <a href="{{ route('lkbb.scf.approval') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.scf.approval') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
                     Approval PO Pemasok
                 </a>
-                <a href="{{ route('supply-chain.create') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('supply-chain.create') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
-                    Pengajuan Pembiayaan
+
+                <a href="{{ route('lkbb.scf.riwayat') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.scf.riwayat') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
+                    Riwayat Pendanaan PO
                 </a>
-                <a href="{{ route('supply-chain.bills') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('supply-chain.bills') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
-                    Tagihan Merchant
-                </a>
+                
             </div>
         </div>
 

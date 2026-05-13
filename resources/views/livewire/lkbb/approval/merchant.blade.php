@@ -14,7 +14,9 @@ new #[Layout('layouts.lkbb')] class extends Component {
     
     // Form States
     public string $catatan_penolakan = ''; 
-    public $persentase_bagi_hasil = 10; // Default 10%
+    
+    // 1. VARIABEL SUDAH DISERAGAMKAN
+    public $persentase_fee_merchant = 10; // Default 10%
 
     #[Computed]
     public function pendingMerchants()
@@ -29,7 +31,9 @@ new #[Layout('layouts.lkbb')] class extends Component {
     {
         $this->selectedMerchant = MerchantProfile::with('user')->findOrFail($id);
         $this->catatan_penolakan = ''; 
-        $this->persentase_bagi_hasil = 10; // Reset ke default
+        
+        // 2. RESET VARIABEL SUDAH DISERAGAMKAN
+        $this->persentase_fee_merchant = 10; 
         $this->showModal = true;
     }
 
@@ -40,43 +44,35 @@ new #[Layout('layouts.lkbb')] class extends Component {
         $this->resetValidation();
     }
 
-    /**
-     * Mengeksekusi Persetujuan (Approve) dengan validasi & keamanan IDOR
-     */
     public function approveMerchant()
     {
-        // 1. Validasi input Persentase Bagi Hasil
+        // 3. VALIDASI SUDAH DISERAGAMKAN
         $this->validate([
-            'persentase_bagi_hasil' => 'required|numeric|min:0|max:100'
+            'persentase_fee_merchant' => 'required|numeric|min:0|max:100'
         ]);
 
-        // 2. Security Check: Pastikan data ada di state dan statusnya memang 'menunggu_review'
         if (!$this->selectedMerchant || $this->selectedMerchant->status_verifikasi !== 'menunggu_review') {
             session()->flash('error', 'Aksi tidak valid atau status merchant sudah berubah.');
             return $this->closeModal();
         }
 
-        // 3. Update Database
+        // 4. UPDATE DATABASE SUDAH DISERAGAMKAN
         $this->selectedMerchant->update([
-            'status_verifikasi'     => 'disetujui',
-            'persentase_bagi_hasil' => $this->persentase_bagi_hasil,
-            'status_toko'           => 'tutup', // Biarkan merchant yang buka sendiri tokonya nanti
+            'status_verifikasi'       => 'disetujui',
+            'persentase_fee_merchant' => $this->persentase_fee_merchant,
+            'status_toko'             => 'tutup', 
         ]);
         
-        session()->flash('message', "Merchant {$this->selectedMerchant->nama_kantin} berhasil disetujui dengan bagi hasil {$this->persentase_bagi_hasil}%!");
+        session()->flash('message', "Merchant {$this->selectedMerchant->nama_kantin} berhasil disetujui dengan bagi hasil {$this->persentase_fee_merchant}%!");
         $this->closeModal();
     }
 
-    /**
-     * Mengeksekusi Penolakan (Reject) dengan validasi & keamanan IDOR
-     */
     public function rejectMerchant()
     {
         $this->validate([
-            'catatan_penolakan' => 'required|string|min:5' // Wajib diisi agar merchant tahu salahnya
+            'catatan_penolakan' => 'required|string|min:5' 
         ]);
 
-        // Security Check
         if (!$this->selectedMerchant || $this->selectedMerchant->status_verifikasi !== 'menunggu_review') {
             session()->flash('error', 'Aksi tidak valid atau status merchant sudah berubah.');
             return $this->closeModal();
@@ -227,10 +223,12 @@ new #[Layout('layouts.lkbb')] class extends Component {
                             {{-- Form Setujui & Tolak --}}
                             <div class="grid grid-cols-1 gap-4">
                                 <div class="bg-green-50 p-4 rounded-xl border border-green-100">
-                                    <label class="block text-[10px] font-bold text-green-700 uppercase tracking-wider mb-2">Tentukan Persentase Bagi Hasil (%)</label>
-                                    <input wire:model="persentase_bagi_hasil" type="number" min="0" max="100" class="w-full text-sm rounded-lg border-green-200 focus:border-green-500 focus:ring-green-500 bg-white">
-                                    @error('persentase_bagi_hasil') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
-                                    <p class="text-[10px] text-green-600 mt-1.5">*Angka ini menentukan potongan transaksi yang akan menjadi hak LKBB.</p>
+                                    <label class="block text-[10px] font-bold text-green-700 uppercase tracking-wider mb-2">Persentase Laba untuk Merchant (%)</label>
+                                    
+                                    <input wire:model="persentase_fee_merchant" type="number" min="0" max="100" class="w-full text-sm rounded-lg border-green-200 focus:border-green-500 focus:ring-green-500 bg-white">
+                                    @error('persentase_fee_merchant') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                                    
+                                    <p class="text-[10px] text-green-600 mt-1.5">*Angka ini menentukan berapa persen keuntungan yang masuk ke dompet Merchant (Sisa % akan menjadi milik LKBB).</p>
                                 </div>
 
                                 <div class="bg-red-50 p-4 rounded-xl border border-red-100">
@@ -291,7 +289,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
                         </button>
                         <button 
                             wire:click="approveMerchant"
-                            wire:confirm="Setujui pengajuan ini dengan persentase bagi hasil {{ $persentase_bagi_hasil }}%?"
+                            wire:confirm="Setujui pengajuan ini dengan keuntungan Merchant sebesar {{ $persentase_fee_merchant }}%?"
                             class="px-6 py-2.5 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl shadow-sm transition focus:ring-4 focus:ring-green-100 flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                             Setujui & Aktifkan
