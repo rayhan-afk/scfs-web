@@ -15,6 +15,11 @@ new #[Layout('layouts.lkbb')] class extends Component {
     // Form States
     public string $catatan_penolakan = ''; 
 
+    // Toast Notification States
+    public bool $showToast = false;
+    public string $toastType = '';
+    public string $toastMessage = '';
+
     #[Computed]
     public function pendingSuppliers()
     {
@@ -38,20 +43,33 @@ new #[Layout('layouts.lkbb')] class extends Component {
         $this->resetValidation();
     }
 
+    public function dismissToast()
+    {
+        $this->showToast = false;
+        $this->toastType = '';
+        $this->toastMessage = '';
+    }
+
     public function approveSupplier()
     {
         if (!$this->selectedSupplier || $this->selectedSupplier->status_verifikasi !== 'menunggu_review') {
-            session()->flash('error', 'Aksi tidak valid atau status pemasok sudah berubah.');
+            $this->toastType = 'error';
+            $this->toastMessage = 'Aksi tidak valid atau status pemasok sudah berubah.';
+            $this->showToast = true;
             return $this->closeModal();
         }
 
-        // Update Database ke 'disetujui'
+        $namaUsaha = $this->selectedSupplier->nama_usaha;
+
         $this->selectedSupplier->update([
             'status_verifikasi' => 'disetujui',
         ]);
         
-        session()->flash('message', "Pemasok {$this->selectedSupplier->nama_usaha} berhasil diaktifkan!");
         $this->closeModal();
+
+        $this->toastType = 'success';
+        $this->toastMessage = "Pemasok {$namaUsaha} berhasil disetujui dan diaktifkan!";
+        $this->showToast = true;
     }
 
     public function rejectSupplier()
@@ -61,35 +79,197 @@ new #[Layout('layouts.lkbb')] class extends Component {
         ]);
 
         if (!$this->selectedSupplier || $this->selectedSupplier->status_verifikasi !== 'menunggu_review') {
-            session()->flash('error', 'Aksi tidak valid.');
+            $this->toastType = 'error';
+            $this->toastMessage = 'Aksi tidak valid.';
+            $this->showToast = true;
             return $this->closeModal();
         }
+
+        $namaUsaha = $this->selectedSupplier->nama_usaha;
 
         $this->selectedSupplier->update([
             'status_verifikasi' => 'ditolak',
             'catatan_penolakan' => $this->catatan_penolakan
         ]);
         
-        session()->flash('error', "Pendaftaran {$this->selectedSupplier->nama_usaha} ditolak.");
         $this->closeModal();
+
+        $this->toastType = 'error';
+        $this->toastMessage = "Pendaftaran {$namaUsaha} berhasil ditolak.";
+        $this->showToast = true;
     }
 }; ?>
 
-<div class="p-6 max-w-7xl mx-auto">
+<div
+    x-data="{
+        showToast: false,
+        toastType: '',
+        toastMessage: '',
+        toastTimer: null,
+
+        showConfirm: false,
+        confirmType: '',
+        confirmTitle: '',
+        confirmMessage: '',
+        confirmAction: null,
+
+        openConfirm(type, title, message, action) {
+            this.confirmType = type;
+            this.confirmTitle = title;
+            this.confirmMessage = message;
+            this.confirmAction = action;
+            this.showConfirm = true;
+        },
+
+        doConfirm() {
+            if (this.confirmAction) this.confirmAction();
+            this.showConfirm = false;
+        },
+
+        triggerToast(type, message) {
+            clearTimeout(this.toastTimer);
+            this.toastType = type;
+            this.toastMessage = message;
+            this.showToast = true;
+            this.toastTimer = setTimeout(() => { this.showToast = false; }, 4500);
+        }
+    }"
+    x-on:show-toast.window="triggerToast($event.detail.type, $event.detail.message)"
+    class="p-6 max-w-7xl mx-auto"
+>
+
+    {{-- ===== TOAST NOTIFICATION ===== --}}
+    <div
+        x-show="showToast"
+        x-transition:enter="transition ease-out duration-400"
+        x-transition:enter-start="opacity-0 translate-y-6 scale-95"
+        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+        x-transition:leave="transition ease-in duration-300"
+        x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+        x-transition:leave-end="opacity-0 translate-y-6 scale-95"
+        class="fixed bottom-6 right-6 z-[9999] w-full max-w-sm"
+        style="display: none;"
+    >
+        {{-- SUCCESS --}}
+        <div x-show="toastType === 'success'" class="flex items-start gap-4 bg-white border border-green-100 rounded-2xl shadow-2xl shadow-green-100/60 p-5 relative overflow-hidden">
+            <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-green-400 to-emerald-500 rounded-l-2xl"></div>
+            <div class="flex-shrink-0 w-11 h-11 bg-green-100 rounded-xl flex items-center justify-center ml-2">
+                <svg class="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="flex-1 pt-0.5 min-w-0">
+                <p class="text-sm font-black text-gray-900">Pemasok Disetujui!</p>
+                <p class="text-xs text-gray-500 mt-1 leading-relaxed" x-text="toastMessage"></p>
+                <div class="mt-3 h-1 bg-green-100 rounded-full overflow-hidden">
+                    <div x-show="showToast && toastType === 'success'"
+                         x-transition:enter="transition-none"
+                         x-transition:enter-start="width: 100%"
+                         x-init="$watch('showToast', v => { if(v && toastType==='success') { $el.style.width='100%'; setTimeout(()=>{ $el.style.transition='width 4.2s linear'; $el.style.width='0%'; },50); } })"
+                         style="height:100%; background: linear-gradient(to right, #4ade80, #10b981); border-radius:9999px; width:100%;"></div>
+                </div>
+            </div>
+            <button @click="showToast = false" class="flex-shrink-0 text-gray-300 hover:text-gray-500 transition mt-0.5">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+
+        {{-- ERROR / TOLAK --}}
+        <div x-show="toastType === 'error'" class="flex items-start gap-4 bg-white border border-red-100 rounded-2xl shadow-2xl shadow-red-100/60 p-5 relative overflow-hidden">
+            <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-red-400 to-rose-500 rounded-l-2xl"></div>
+            <div class="flex-shrink-0 w-11 h-11 bg-red-100 rounded-xl flex items-center justify-center ml-2">
+                <svg class="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <div class="flex-1 pt-0.5 min-w-0">
+                <p class="text-sm font-black text-gray-900">Pendaftaran Ditolak</p>
+                <p class="text-xs text-gray-500 mt-1 leading-relaxed" x-text="toastMessage"></p>
+                <div class="mt-3 h-1 bg-red-100 rounded-full overflow-hidden">
+                    <div x-show="showToast && toastType === 'error'"
+                         x-init="$watch('showToast', v => { if(v && toastType==='error') { $el.style.width='100%'; setTimeout(()=>{ $el.style.transition='width 4.2s linear'; $el.style.width='0%'; },50); } })"
+                         style="height:100%; background: linear-gradient(to right, #f87171, #f43f5e); border-radius:9999px; width:100%;"></div>
+                </div>
+            </div>
+            <button @click="showToast = false" class="flex-shrink-0 text-gray-300 hover:text-gray-500 transition mt-0.5">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+    </div>
+    {{-- ===== END TOAST ===== --}}
+
+
+    {{-- ===== CUSTOM CONFIRM DIALOG ===== --}}
+    <div
+        x-show="showConfirm"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm"
+        style="display: none;"
+    >
+        <div
+            x-show="showConfirm"
+            x-transition:enter="transition ease-out duration-250"
+            x-transition:enter-start="opacity-0 scale-90 -translate-y-4"
+            x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100 translate-y-0"
+            x-transition:leave-end="opacity-0 scale-95 translate-y-2"
+            class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative"
+            @click.outside="showConfirm = false"
+        >
+            {{-- Icon --}}
+            <div class="flex justify-center mb-5">
+                <div x-show="confirmType === 'approve'" class="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center shadow-sm shadow-blue-100">
+                    <svg class="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div x-show="confirmType === 'reject'" class="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center shadow-sm shadow-red-100">
+                    <svg class="w-8 h-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                </div>
+            </div>
+
+            {{-- Text --}}
+            <div class="text-center mb-8">
+                <h3 class="text-lg font-black text-gray-900 mb-2" x-text="confirmTitle"></h3>
+                <p class="text-sm text-gray-500 leading-relaxed" x-text="confirmMessage"></p>
+            </div>
+
+            {{-- Buttons --}}
+            <div class="flex gap-3">
+                <button
+                    @click="showConfirm = false"
+                    class="flex-1 px-6 py-3 text-sm font-bold text-gray-600 bg-gray-100 rounded-2xl hover:bg-gray-200 transition-all duration-200"
+                >
+                    Batal
+                </button>
+                <button
+                    @click="doConfirm()"
+                    :class="confirmType === 'approve'
+                        ? 'flex-1 px-6 py-3 text-sm font-bold text-white bg-[#2463EB] rounded-2xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all duration-200'
+                        : 'flex-1 px-6 py-3 text-sm font-bold text-white bg-red-500 rounded-2xl shadow-lg shadow-red-200 hover:bg-red-600 transition-all duration-200'"
+                    x-text="confirmType === 'approve' ? 'Ya, Setujui' : 'Ya, Tolak'"
+                >
+                </button>
+            </div>
+        </div>
+    </div>
+    {{-- ===== END CONFIRM DIALOG ===== --}}
+
+
     <div class="flex justify-between items-center mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-800">Approval Pemasok / Grosir</h1>
             <p class="text-gray-500 text-sm mt-1">Verifikasi legalitas gudang dan data pemilik pemasok rantai pasok.</p>
         </div>
     </div>
-
-    {{-- Alert Messages --}}
-    @if (session()->has('message'))
-        <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl mb-4 flex items-center gap-2">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            <span class="font-medium">{{ session('message') }}</span>
-        </div>
-    @endif
 
     <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
         <div class="overflow-x-auto">
@@ -206,13 +386,33 @@ new #[Layout('layouts.lkbb')] class extends Component {
                     </div>
                 </div>
 
+                {{-- Footer dengan tombol yang memicu custom confirm --}}
                 <div class="px-8 py-6 border-t border-gray-100 flex justify-between items-center bg-gray-50/50">
                     <button wire:click="closeModal" class="px-6 py-3 text-sm font-bold text-gray-500 hover:text-gray-700 transition">Tutup</button>
                     <div class="flex gap-4">
-                        <button wire:click="rejectSupplier" wire:confirm="Tolak pengajuan pemasok ini?" class="px-6 py-3 text-sm font-bold text-red-600 bg-white border border-red-200 rounded-2xl hover:bg-red-50 transition">
+                        {{-- Tombol Tolak → custom confirm merah --}}
+                        <button
+                            @click="openConfirm(
+                                'reject',
+                                'Tolak Pendaftaran Pemasok?',
+                                'Tindakan ini akan menolak pendaftaran pemasok. Pastikan catatan penolakan sudah diisi.',
+                                () => $wire.rejectSupplier()
+                            )"
+                            class="px-6 py-3 text-sm font-bold text-red-600 bg-white border border-red-200 rounded-2xl hover:bg-red-50 transition"
+                        >
                             Tolak Pendaftaran
                         </button>
-                        <button wire:click="approveSupplier" wire:confirm="Setujui pendaftaran pemasok ini?" class="px-8 py-3 text-sm font-bold text-white bg-[#2463EB] rounded-2xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition flex items-center gap-2">
+
+                        {{-- Tombol Setujui → custom confirm biru --}}
+                        <button
+                            @click="openConfirm(
+                                'approve',
+                                'Setujui Pendaftaran Pemasok?',
+                                'Pemasok akan langsung aktif dan dapat menggunakan sistem setelah disetujui.',
+                                () => $wire.approveSupplier()
+                            )"
+                            class="px-8 py-3 text-sm font-bold text-white bg-[#2463EB] rounded-2xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition flex items-center gap-2"
+                        >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
                             Setujui Pemasok
                         </button>
@@ -220,5 +420,28 @@ new #[Layout('layouts.lkbb')] class extends Component {
                 </div>
             </div>
         </div>
+
+        {{-- Script untuk trigger toast setelah Livewire selesai --}}
+        <script>
+            document.addEventListener('livewire:initialized', () => {
+                Livewire.on('show-toast', (event) => {
+                    window.dispatchEvent(new CustomEvent('show-toast', { detail: event }));
+                });
+            });
+        </script>
     @endif
+
+    {{-- Livewire hook untuk toast setelah approveSupplier/rejectSupplier --}}
+    @if($showToast)
+        <script>
+            window.dispatchEvent(new CustomEvent('show-toast', {
+                detail: {
+                    type: @js($toastType),
+                    message: @js($toastMessage)
+                }
+            }));
+        </script>
+        {{ $this->dismissToast() }}
+    @endif
+
 </div>

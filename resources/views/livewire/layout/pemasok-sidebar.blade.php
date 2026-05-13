@@ -16,7 +16,7 @@ new class extends Component
     // Logika untuk mendeteksi menu mana yang sedang aktif
     $isDashboardActive = request()->routeIs('pemasok.dashboard');
     $isPesananActive = request()->routeIs('pemasok.pesanan-masuk') || request()->is('pemasok/pesanan*'); 
-    $isKeuanganActive = request()->is('pemasok/keuangan*') || request()->routeIs('pemasok.pengajuan-dana-lkbb', 'pemasok.tarik-dana');
+    $isKeuanganActive = request()->is('pemasok/keuangan*') || request()->routeIs('pemasok.tarik-dana');
 @endphp
 
 <aside 
@@ -64,11 +64,7 @@ new class extends Component
                 : 'text-orange-100 hover:bg-white/10 hover:text-white' }}"
             :class="sidebarOpen ? '' : 'justify-center'" 
             title="Dashboard">
-
-            <svg class="w-6 h-6 flex-shrink-0 transition-colors
-                {{ $isDashboardActive 
-                    ? 'text-[#EA580C]' 
-                    : 'text-orange-300 group-hover:text-white' }}"
+            <svg class="w-6 h-6 flex-shrink-0 transition-colors {{ $isDashboardActive ? 'text-[#EA580C]' : 'text-orange-300 group-hover:text-white' }}"
                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z M14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z M4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z M14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
             </svg>
@@ -144,15 +140,7 @@ new class extends Component
                 <a href="#" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all text-orange-100 hover:text-white hover:bg-white/10 font-semibold">
                     Informasi Saldo
                 </a>
-                
-                {{-- MENU BARU: Pengajuan Dana LKBB --}}
-                <a href="{{ route('pemasok.pengajuan-dana-lkbb') }}" wire:navigate 
-                   class="flex items-center pl-10 pr-4 py-2 text-sm font-medium rounded-lg transition-colors {{ request()->routeIs('pemasok.pengajuan-dana-lkbb') ? 'text-orange-700 bg-orange-50 font-bold' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50' }}">
-                    Pengajuan Dana LKBB
-                </a>
-
-                <a href="{{ route('pemasok.tarik-dana') }}" wire:navigate 
-                   class="flex items-center pl-10 pr-4 py-2 text-sm font-medium rounded-lg transition-colors {{ request()->routeIs('pemasok.tarik-dana') ? 'text-orange-700 bg-orange-50 font-bold' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50' }}">
+                <a href="{{ route('pemasok.tarik-dana') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('pemasok.tarik-dana') ? 'text-[#EA580C] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-orange-100 hover:text-white hover:bg-white/10 font-semibold' }}">
                     Tarik Dana (Withdraw)
                 </a>
             </div>
