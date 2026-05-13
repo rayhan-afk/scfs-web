@@ -23,8 +23,8 @@ class ManajemenProduk extends Component
     public $showModalOpname = false;
     public $isEdit = false;
 
-    // Data Form Produk
-    public $produk_id, $sku, $nama_produk, $harga_grosir, $stok_sekarang, $batas_minimum_stok, $deskripsi, $foto_produk, $foto_produk_lama;
+    // Data Form Produk (SUDAH DIUBAH: Modal & Margin)
+    public $produk_id, $sku, $nama_produk, $harga_modal, $margin_pemasok, $stok_sekarang, $batas_minimum_stok, $deskripsi, $foto_produk, $foto_produk_lama;
 
     // Data Form Opname
     public $stok_fisik, $keterangan_opname;
@@ -53,6 +53,7 @@ class ManajemenProduk extends Component
             $this->action = ''; 
         }
     }
+
     public function render()
     {
         $query = ProdukPemasok::where('user_id', Auth::id())
@@ -76,25 +77,27 @@ class ManajemenProduk extends Component
     // Modal Handlers
     public function bukaModalTambah()
     {
-       // Ini kunci untuk memperbaiki bug foto lama yang nyangkut
+       // Reset data termasuk modal & margin
         $this->reset([
-            'nama_produk', 'harga_grosir', 'stok_sekarang', 
+            'nama_produk', 'harga_modal', 'margin_pemasok', 'stok_sekarang', 
             'batas_minimum_stok', 'deskripsi', 'foto_produk', 
-            'foto_produk_lama', 'satuan' // pastikan satuan juga di-reset
+            'foto_produk_lama', 'satuan'
         ]);
 
         $this->isEdit = false;
-        $this->sku = 'SKU-' . strtoupper(\Illuminate\Support\Str::random(6));
+        $this->sku = 'SKU-' . strtoupper(Str::random(6));
         $this->satuan = 'pcs'; // Set default ke pcs
         $this->showModalProduk = true;
     }
 
     public function simpanProduk()
     {
+        // Validasi disesuaikan dengan Harga Modal dan Margin
         $this->validate([
             'sku' => 'required|unique:produk_pemasoks,sku,' . $this->produk_id,
             'nama_produk' => 'required|min:3',
-            'harga_grosir' => 'required|numeric',
+            'harga_modal' => 'required|numeric|min:0',
+            'margin_pemasok' => 'required|numeric|min:0',
             'stok_sekarang' => 'required|integer',
             'batas_minimum_stok' => 'required|integer',
             'satuan' => 'required|string|max:20',
@@ -105,7 +108,8 @@ class ManajemenProduk extends Component
             'user_id' => Auth::id(),
             'sku' => $this->sku,
             'nama_produk' => $this->nama_produk,
-            'harga_grosir' => $this->harga_grosir,
+            'harga_modal' => $this->harga_modal,
+            'margin_pemasok' => $this->margin_pemasok,
             'stok_sekarang' => $this->stok_sekarang,
             'batas_minimum_stok' => $this->batas_minimum_stok,
             'deskripsi' => $this->deskripsi,
@@ -156,10 +160,12 @@ class ManajemenProduk extends Component
         $this->reset(['stok_fisik', 'keterangan_opname']);
         $this->dispatch('toast', ['message' => 'Stok Opname berhasil dicatat!', 'type' => 'success']);
     }
+
     public function updatedFotoProduk()
     {
         $this->validate(['foto_produk' => 'image|max:1024']);
     }
+
     public function editProduk($id)
     {
         $this->isEdit = true;
@@ -168,20 +174,25 @@ class ManajemenProduk extends Component
         
         $this->sku = $produk->sku;
         $this->nama_produk = $produk->nama_produk;
-        $this->harga_grosir = $produk->harga_grosir;
+        
+        // Panggil data Harga Modal dan Margin dari DB
+        $this->harga_modal = $produk->harga_modal;
+        $this->margin_pemasok = $produk->margin_pemasok;
+        
         $this->stok_sekarang = $produk->stok_sekarang;
         $this->batas_minimum_stok = $produk->batas_minimum_stok;
         $this->deskripsi = $produk->deskripsi;
         $this->foto_produk_lama = $produk->foto_produk;
         $this->satuan = $produk->satuan ?? 'pcs';
+        
         $this->showModalProduk = true;
     }
-    
 
     private function resetForm()
     {
-        $this->reset(['produk_id', 'sku', 'nama_produk', 'harga_grosir', 'stok_sekarang', 'batas_minimum_stok', 'deskripsi', 'foto_produk', 'isEdit']);
+        $this->reset([
+            'produk_id', 'sku', 'nama_produk', 'harga_modal', 'margin_pemasok', 
+            'stok_sekarang', 'batas_minimum_stok', 'deskripsi', 'foto_produk', 'isEdit'
+        ]);
     }
-
-    
 }

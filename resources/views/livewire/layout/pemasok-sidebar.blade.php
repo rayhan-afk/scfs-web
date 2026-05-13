@@ -119,12 +119,6 @@ new class extends Component
                 <a href="#" class="flex items-center pl-10 pr-4 py-2 text-sm font-medium rounded-lg transition-colors text-gray-500 hover:text-gray-900 hover:bg-gray-50">
                     Informasi Saldo
                 </a>
-                
-                {{-- MENU BARU: Pengajuan Dana LKBB --}}
-                <a href="{{ route('pemasok.pengajuan-dana-lkbb') }}" wire:navigate 
-                   class="flex items-center pl-10 pr-4 py-2 text-sm font-medium rounded-lg transition-colors {{ request()->routeIs('pemasok.pengajuan-dana-lkbb') ? 'text-orange-700 bg-orange-50 font-bold' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50' }}">
-                    Pengajuan Dana LKBB
-                </a>
 
                 <a href="{{ route('pemasok.tarik-dana') }}" wire:navigate 
                    class="flex items-center pl-10 pr-4 py-2 text-sm font-medium rounded-lg transition-colors {{ request()->routeIs('pemasok.tarik-dana') ? 'text-orange-700 bg-orange-50 font-bold' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50' }}">
