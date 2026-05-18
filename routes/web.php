@@ -128,7 +128,7 @@ Route::middleware(['auth'])->group(function () {
     // MERCHANT ROUTES
     // ----------------------------------------------------------
     Volt::route('/merchant/dashboard', 'dashboard.merchant')->name('merchant.dashboard');
-    Volt::route('/merchant/scan', 'merchant.scan-qr')->name('merchant.scan');
+    Volt::route('/merchant/pos', 'merchant.pos-merchant')->name('merchant.pos');
     Volt::route('/merchant/withdraw', 'merchant.withdraw')->name('merchant.withdraw');
     Volt::route('/merchant/katalog', 'merchant.katalog')->name('merchant.katalog');
     Volt::route('/merchant/profile', 'merchant.profile')->name('merchant.profile');

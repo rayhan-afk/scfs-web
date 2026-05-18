@@ -16,17 +16,10 @@ new
 #[Layout('layouts.app')] 
 class extends Component {
     
-    // POS State
     public $kategoriAktif = 'semua';
     public $search = '';
-    
-    // Cart State
     public array $cart = []; 
-    
-    // Payment State
-    public $metode_pembayaran = 'digital'; // 'digital' (Beasiswa) atau 'tunai' (Umum)
-    
-    // Variabel untuk menampung String QR Enkripsi (Bisa di-paste manual / ditembak scanner USB)
+    public $metode_pembayaran = 'digital'; 
     public $qr_scanned_string = ''; 
     public $uang_diterima = ''; 
 
@@ -39,7 +32,10 @@ class extends Component {
     #[Computed]
     public function products()
     {
-        $query = MerchantProduct::where('merchant_id', Auth::id())->where('is_tersedia', true);
+        // PERBAIKAN: Memastikan hanya menarik barang yang memiliki STOK > 0 dan TERSEDIA = 1
+        $query = MerchantProduct::where('merchant_id', Auth::id())
+                    ->where('is_tersedia', 1)
+                    ->where('stok', '>', 0);
 
         if ($this->search) {
             $query->where('nama_produk', 'like', '%' . $this->search . '%');
@@ -51,15 +47,20 @@ class extends Component {
         return $query->get();
     }
 
-    // --- CART LOGIC ---
-    
     public function addToCart($id)
     {
         $product = MerchantProduct::find($id);
-        if (!$product) return;
+        if (!$product || $product->stok <= 0) {
+            session()->flash('error', 'Stok barang ini sudah habis!');
+            return;
+        }
 
         if (isset($this->cart[$id])) {
-            $this->cart[$id]['qty']++;
+            if ($this->cart[$id]['qty'] < $product->stok) {
+                $this->cart[$id]['qty']++;
+            } else {
+                session()->flash('error', 'Maksimal pesanan ' . $product->nama_produk . ' hanya ' . $product->stok);
+            }
         } else {
             $this->cart[$id] = [
                 'id' => $product->id,
@@ -81,11 +82,6 @@ class extends Component {
         }
     }
 
-    public function removeFromCart($id)
-    {
-        if (isset($this->cart[$id])) unset($this->cart[$id]);
-    }
-
     public function clearCart()
     {
         $this->cart = [];
@@ -96,15 +92,11 @@ class extends Component {
     public function cartSummary()
     {
         $total = 0;
-        $items = 0;
         foreach ($this->cart as $item) {
             $total += $item['harga_jual'] * $item['qty'];
-            $items += $item['qty'];
         }
-        return ['total' => $total, 'items' => $items];
+        return ['total' => $total];
     }
-
-    // --- PAYMENT CORE (HIGH SECURITY DECRYPTION) ---
 
     public function prosesPembayaran()
     {
@@ -113,87 +105,63 @@ class extends Component {
             return;
         }
 
-        // 1. Validasi Input Berdasarkan Metode
         if ($this->metode_pembayaran === 'digital') {
-            $this->validate(['qr_scanned_string' => 'required|string'], ['qr_scanned_string.required' => 'Arahkan kursor ke kotak dan Scan QR Mahasiswa!']);
+            $this->validate(['qr_scanned_string' => 'required|string']);
         } else {
-            $this->validate(
-                ['uang_diterima' => 'required|numeric|min:' . $this->cartSummary['total']],
-                ['uang_diterima.min' => 'Uang tunai kurang dari total belanja!']
-            );
+            if($this->uang_diterima != '') {
+                $this->validate(['uang_diterima' => 'numeric|min:' . $this->cartSummary['total']]);
+            }
         }
 
         try {
             DB::transaction(function () {
                 $merchant = MerchantProfile::where('user_id', Auth::id())->lockForUpdate()->firstOrFail();
                 
-                // 2. SERVER-SIDE RECALCULATION (Mencegah Tampering Cart)
                 $dbTotalAmount = 0;
+                $dbTotalPokok = 0;
                 $dbTotalProfit = 0;
                 $deskripsiTransaksi = [];
 
                 foreach ($this->cart as $item) {
-                    $realProduct = MerchantProduct::where('merchant_id', $merchant->user_id)->findOrFail($item['id']);
+                    $realProduct = MerchantProduct::where('merchant_id', $merchant->user_id)->lockForUpdate()->findOrFail($item['id']);
+                    
+                    if ($realProduct->stok < $item['qty']) throw new \Exception("Stok {$realProduct->nama_produk} habis.");
+
+                    // POTONG STOK DI SINI
+                    $realProduct->decrement('stok', $item['qty']);
                     
                     $subtotalJual = $realProduct->harga_jual * $item['qty'];
                     $subtotalPokok = $realProduct->harga_pokok * $item['qty'];
                     
                     $dbTotalAmount += $subtotalJual;
+                    $dbTotalPokok += $subtotalPokok;
                     $dbTotalProfit += ($subtotalJual - $subtotalPokok); 
                     
                     $deskripsiTransaksi[] = "{$item['qty']}x {$realProduct->nama_produk}";
                 }
-
-                $deskripsiFinal = implode(', ', $deskripsiTransaksi);
                 
-                // Kalkulasi Fee LKBB 
                 $persentaseLKBB = $merchant->persentase_bagi_hasil ?? 0;
                 $feeLKBB = ($dbTotalProfit * $persentaseLKBB) / 100;
+                
+                $hakMerchant = $dbTotalProfit - $feeLKBB; 
+                $tagihanKeLKBB = $dbTotalPokok + $feeLKBB; 
 
-                // 3. LOGIKA PERCABANGAN 
                 if ($this->metode_pembayaran === 'digital') {
-                    
-                    // --- ARUS DIGITAL DENGAN DEKRIPSI QR (SOP BARU) ---
-                    $mahasiswaUserId = null;
-
                     try {
-                        // Buka Gembok Enkripsi QR Code
                         $decrypted = Crypt::decryptString($this->qr_scanned_string);
                         $payload = json_decode($decrypted, true);
-
-                        // Validasi Format
-                        if (!isset($payload['user_id']) || !isset($payload['exp'])) {
-                            throw new \Exception('Format QR Code tidak dikenali.');
-                        }
-
-                        // Validasi Anti-Screenshot (Waktu Kedaluwarsa)
-                        if (now()->timestamp > $payload['exp']) {
-                            throw new \Exception('QR Code sudah kedaluwarsa (Lebih dari 2 menit). Minta mahasiswa refresh QR di aplikasinya!');
-                        }
-
+                        if (!isset($payload['user_id']) || now()->timestamp > $payload['exp']) throw new \Exception();
                         $mahasiswaUserId = $payload['user_id'];
-
-                    } catch (DecryptException $e) {
-                        throw new \Exception('QR Code Ditolak! Pastikan itu QR dari Aplikasi Mahasiswa SCFS.');
+                    } catch (\Exception $e) {
+                        throw new \Exception('QR Code Ditolak atau Kadaluwarsa.');
                     }
 
-                    // Proses Tarik Data Mahasiswa yang Tervalidasi
                     $mahasiswa = MahasiswaProfile::where('user_id', $mahasiswaUserId)->lockForUpdate()->first();
-                    
-                    if (!$mahasiswa || $mahasiswa->status_bantuan !== 'disetujui') {
-                        throw new \Exception('Akun mahasiswa tidak valid atau belum menerima bantuan.');
-                    }
-                    if ($mahasiswa->saldo < $dbTotalAmount) {
-                        throw new \Exception("Saldo mahasiswa tidak cukup. Sisa: Rp " . number_format($mahasiswa->saldo, 0, ',', '.'));
-                    }
+                    if (!$mahasiswa || $mahasiswa->saldo < $dbTotalAmount) throw new \Exception("Saldo mahasiswa tidak cukup!");
 
-                    // Potong Saldo MHS
                     $mahasiswa->decrement('saldo', $dbTotalAmount);
+                    $merchant->increment('saldo_token', $hakMerchant);
 
-                    // Tambah Hak Digital Merchant 
-                    $merchant->increment('saldo_token', ($dbTotalAmount - $feeLKBB));
-
-                    // Rekam Transaksi Digital
                     Transaction::create([
                         'order_id'    => 'DIG-' . strtoupper(uniqid()),
                         'user_id'     => $mahasiswa->user_id,
@@ -202,35 +170,27 @@ class extends Component {
                         'total_amount'=> $dbTotalAmount,
                         'fee_lkbb'    => $feeLKBB,
                         'status'      => 'sukses',
-                        'description' => '[QR] ' . $deskripsiFinal
+                        'description' => '[QR] ' . implode(', ', $deskripsiTransaksi)
                     ]);
 
                 } else {
-                    
-                    // --- ARUS TUNAI ---
-                    $merchant->increment('tagihan_setoran_tunai', $feeLKBB);
+                    $merchant->increment('tagihan_setoran_tunai', $tagihanKeLKBB);
                     
                     Transaction::create([
-                        'order_id'    => 'CSH-' . strtoupper(uniqid()),
+                        'order_id'    => 'UMM-' . strtoupper(uniqid()),
                         'user_id'     => Auth::id(), 
                         'merchant_id' => $merchant->user_id,
                         'type'        => 'pembayaran_makanan_tunai',
                         'total_amount'=> $dbTotalAmount,
                         'fee_lkbb'    => $feeLKBB,
                         'status'      => 'sukses',
-                        'description' => '[TUNAI] ' . $deskripsiFinal
+                        'description' => '[UMUM] ' . implode(', ', $deskripsiTransaksi)
                     ]);
                 }
             });
 
-            // 4. Feedback Success
-            $kembalian = $this->metode_pembayaran === 'tunai' ? ((int)$this->uang_diterima - $this->cartSummary['total']) : 0;
-            $msg = $this->metode_pembayaran === 'tunai' 
-                    ? "Pembayaran Tunai Berhasil. Kembalian: Rp " . number_format($kembalian, 0, ',', '.') 
-                    : "Pembayaran Digital (QR) Berhasil!";
-            
             $this->clearCart();
-            session()->flash('success', $msg);
+            session()->flash('success', 'Transaksi Berhasil!');
 
         } catch (\Exception $e) {
             session()->flash('error', $e->getMessage());
@@ -240,17 +200,15 @@ class extends Component {
 
 <div class="h-[calc(100vh-5rem)] w-full flex flex-col md:flex-row bg-gray-100/50">
     
-    {{-- BAGIAN KIRI: KATALOG PRODUK (2/3 Layar) --}}
     <div class="w-full md:w-2/3 h-full flex flex-col p-4 md:p-6 overflow-hidden">
-        
         <div class="mb-4">
-            <h2 class="text-2xl font-extrabold text-gray-900">Sistem Kasir Terpadu</h2>
-            <p class="text-xs font-medium text-gray-500 mt-1">Pilih menu dari katalog untuk memproses transaksi.</p>
+            <h2 class="text-2xl font-extrabold text-gray-900">Mesin Kasir (Point of Sale)</h2>
+            <p class="text-xs font-medium text-gray-500 mt-1">Pilih menu dari etalase. Stok akan otomatis berkurang saat transaksi selesai.</p>
         </div>
 
-        {{-- Filter Categories --}}
         <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide mb-4">
-            @foreach(['semua' => 'Semua', 'makanan' => 'Makanan', 'minuman' => 'Minuman', 'barang_koperasi' => 'Koperasi'] as $val => $label)
+            {{-- PERBAIKAN: TAB LAINNYA SUDAH DITAMBAHKAN --}}
+            @foreach(['semua' => 'Semua', 'makanan' => 'Makanan', 'minuman' => 'Minuman', 'barang_koperasi' => 'Koperasi', 'lainnya' => 'Lainnya'] as $val => $label)
                 <button wire:click="$set('kategoriAktif', '{{ $val }}')" 
                     class="px-5 py-2.5 text-xs font-bold rounded-full whitespace-nowrap transition-all shadow-sm border 
                     {{ $kategoriAktif === $val ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
@@ -259,12 +217,14 @@ class extends Component {
             @endforeach
         </div>
 
-        {{-- Product Grid (Scrollable) --}}
         <div class="flex-1 overflow-y-auto scrollbar-hide pr-2">
             <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-10">
                 @forelse($this->products as $item)
-                    <div wire:click="addToCart({{ $item->id }})" class="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-300 transition-all cursor-pointer group overflow-hidden flex flex-col">
-                        <div class="h-28 w-full bg-gray-100 relative overflow-hidden">
+                    <div wire:click="addToCart({{ $item->id }})" class="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md hover:border-emerald-300 transition-all cursor-pointer group overflow-hidden flex flex-col relative">
+                        <div class="absolute top-2 right-2 z-10 bg-white/90 backdrop-blur-sm px-2 py-0.5 rounded-md text-[10px] font-bold text-gray-800 shadow-sm border border-gray-100">
+                            Stok: {{ $item->stok }}
+                        </div>
+                        <div class="h-28 w-full bg-gray-50 relative overflow-hidden">
                             @if($item->foto_produk)
                                 <img src="{{ asset('storage/' . $item->foto_produk) }}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300">
                             @else
@@ -279,18 +239,17 @@ class extends Component {
                         </div>
                     </div>
                 @empty
-                    <div class="col-span-full py-10 text-center">
-                        <p class="text-gray-400 text-sm font-bold">Tidak ada produk ditemukan.</p>
+                    <div class="col-span-full py-10 text-center bg-white rounded-2xl border-2 border-dashed border-gray-200">
+                        <p class="text-gray-500 text-sm font-bold">Menu tidak ditemukan atau stok habis.</p>
+                        <p class="text-xs text-gray-400 mt-1">Cek Etalase Backoffice Anda.</p>
                     </div>
                 @endforelse
             </div>
         </div>
     </div>
 
-    {{-- BAGIAN KANAN: KERANJANG (CART) & PEMBAYARAN (1/3 Layar) --}}
     <div class="w-full md:w-1/3 h-full bg-white border-l border-gray-200 shadow-xl flex flex-col relative z-10">
         
-        {{-- Area Cart Items --}}
         <div class="flex-1 flex flex-col h-full overflow-hidden">
             <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                 <h3 class="font-extrabold text-gray-900 flex items-center gap-2">
@@ -304,7 +263,7 @@ class extends Component {
                 @if(empty($cart))
                     <div class="h-full flex flex-col items-center justify-center text-gray-400 opacity-70">
                         <svg class="w-16 h-16 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                        <p class="text-sm font-bold">Keranjang Kosong</p>
+                        <p class="text-sm font-bold">Pilih pesanan dari layar kiri</p>
                     </div>
                 @else
                     @foreach($cart as $id => $item)
@@ -314,83 +273,65 @@ class extends Component {
                                 <p class="text-[10px] font-bold text-emerald-600 mt-0.5">Rp{{ number_format($item['harga_jual'], 0, ',', '.') }}</p>
                             </div>
                             <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-1 border border-gray-200">
-                                <button wire:click="decreaseQty({{ $id }})" class="w-6 h-6 flex items-center justify-center bg-white text-gray-600 rounded shadow-sm hover:bg-gray-100 font-bold focus:outline-none">-</button>
+                                <button wire:click="decreaseQty({{ $id }})" class="w-6 h-6 flex items-center justify-center bg-white text-gray-600 rounded shadow-sm hover:bg-gray-100 font-bold">-</button>
                                 <span class="text-xs font-extrabold w-4 text-center">{{ $item['qty'] }}</span>
-                                <button wire:click="addToCart({{ $id }})" class="w-6 h-6 flex items-center justify-center bg-emerald-100 text-emerald-700 rounded shadow-sm hover:bg-emerald-200 font-bold focus:outline-none">+</button>
+                                <button wire:click="addToCart({{ $id }})" class="w-6 h-6 flex items-center justify-center bg-emerald-100 text-emerald-700 rounded shadow-sm hover:bg-emerald-200 font-bold">+</button>
                             </div>
                         </div>
                     @endforeach
                 @endif
             </div>
 
-            {{-- Area Pembayaran (Payment Gateway) --}}
             <div class="p-5 bg-white border-t border-gray-200 shadow-[0_-10px_20px_rgba(0,0,0,0.03)]">
                 
-                {{-- Payment Method Tabs --}}
                 <div class="flex p-1 bg-gray-100 rounded-xl mb-4">
-                    <button wire:click="$set('metode_pembayaran', 'digital')" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all {{ $metode_pembayaran == 'digital' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">💳 Beasiswa (QR)</button>
-                    <button wire:click="$set('metode_pembayaran', 'tunai')" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all {{ $metode_pembayaran == 'tunai' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">💵 Umum (Tunai)</button>
+                    <button wire:click="$set('metode_pembayaran', 'digital')" class="flex-1 py-2 text-[11px] font-bold rounded-lg transition-all {{ $metode_pembayaran == 'digital' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">💳 QR Beasiswa</button>
+                    <button wire:click="$set('metode_pembayaran', 'tunai')" class="flex-1 py-2 text-[11px] font-bold rounded-lg transition-all {{ $metode_pembayaran == 'tunai' ? 'bg-emerald-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">💵 Tunai/QRIS Umum</button>
                 </div>
 
-                {{-- Input Area (Dynamic based on Tab) --}}
                 <div class="space-y-3 mb-4">
                     @if($metode_pembayaran === 'digital')
                         <div class="relative">
-                            {{-- Fitur Kasir Fisik: Jika mereka pakai alat Scanner Barcode USB, alat tsb akan otomatis menekan "Enter" (wire:keydown.enter) --}}
-                            <input wire:model="qr_scanned_string" wire:keydown.enter="prosesPembayaran" type="text" placeholder="Klik disini & Tembak Scanner QR..." 
+                            <input wire:model="qr_scanned_string" wire:keydown.enter="prosesPembayaran" type="text" placeholder="Arahkan Kursor & Scan QR Mhs..." 
                                 class="w-full py-3 px-4 text-sm font-bold text-gray-900 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 text-center transition shadow-inner">
-                            @error('qr_scanned_string') <span class="text-[10px] font-bold text-rose-500 text-center block mt-1">{{ $message }}</span> @enderror
                         </div>
                     @else
-                        <div>
+                        <div class="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
+                            <p class="text-[10px] text-emerald-800 font-bold mb-2">Uang Fisik / QRIS (Boleh dikosongkan jika pas):</p>
                             <div class="relative">
                                 <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-emerald-600 font-bold text-sm">Rp</span>
-                                <input wire:model="uang_diterima" wire:keydown.enter="prosesPembayaran" type="number" placeholder="Uang Tunai Diterima" 
-                                    class="w-full py-3 pl-12 pr-4 text-sm font-extrabold text-emerald-900 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:ring-4 focus:ring-emerald-100 focus:border-emerald-500 transition">
+                                <input wire:model="uang_diterima" wire:keydown.enter="prosesPembayaran" type="number" placeholder="Nominal Diterima" 
+                                    class="w-full py-3 pl-12 pr-4 text-sm font-extrabold text-emerald-900 bg-white border border-emerald-200 rounded-xl focus:ring-4 focus:ring-emerald-100 focus:border-emerald-500 transition shadow-sm">
                             </div>
-                            @error('uang_diterima') <span class="text-[10px] font-bold text-rose-500 block mt-1">{{ $message }}</span> @enderror
-                            
-                            {{-- Realtime Kembalian --}}
                             @if($uang_diterima && (int)$uang_diterima >= $this->cartSummary['total'] && $this->cartSummary['total'] > 0)
-                                <div class="mt-2 text-right text-xs font-bold text-gray-600">
-                                    Kembalian: <span class="text-orange-600">Rp{{ number_format((int)$uang_diterima - $this->cartSummary['total'], 0, ',', '.') }}</span>
+                                <div class="mt-3 text-right text-xs font-bold text-gray-600 border-t border-emerald-100 pt-2">
+                                    Kembalian: <span class="text-orange-600 text-sm">Rp{{ number_format((int)$uang_diterima - $this->cartSummary['total'], 0, ',', '.') }}</span>
                                 </div>
                             @endif
                         </div>
                     @endif
                 </div>
 
-                {{-- Grand Total & Submit --}}
                 <div class="border-t border-gray-200 pt-3 mb-4 flex justify-between items-center">
-                    <span class="text-sm font-bold text-gray-500 uppercase tracking-wider">Total</span>
+                    <span class="text-sm font-bold text-gray-500 uppercase tracking-wider">Total Tagihan</span>
                     <span class="text-2xl font-extrabold text-gray-900">Rp{{ number_format($this->cartSummary['total'], 0, ',', '.') }}</span>
                 </div>
 
                 <button wire:click="prosesPembayaran" wire:loading.attr="disabled"
                     @if(empty($cart)) disabled @endif
                     class="w-full py-4 text-sm font-extrabold text-white rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 focus:ring-4 disabled:opacity-50 disabled:cursor-not-allowed
-                    {{ $metode_pembayaran == 'digital' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 focus:ring-emerald-100' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 focus:ring-emerald-100' }}">
-                    
-                    <span wire:loading.remove wire:target="prosesPembayaran">
-                        {{ $metode_pembayaran == 'digital' ? 'PROSES QR BEASISWA' : 'PROSES BAYAR TUNAI' }}
-                    </span>
+                    {{ $metode_pembayaran == 'digital' ? 'bg-blue-600 hover:bg-blue-700 shadow-blue-200 focus:ring-blue-100' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 focus:ring-emerald-100' }}">
+                    <span wire:loading.remove wire:target="prosesPembayaran">{{ $metode_pembayaran == 'digital' ? 'PROSES QR BEASISWA' : 'PROSES PEMBAYARAN UMUM' }}</span>
                     <span wire:loading wire:target="prosesPembayaran">MEMPROSES...</span>
                 </button>
                 
-                {{-- Global Error / Success Messages --}}
                 @if(session('error'))
-                    <div class="mt-3 text-[10px] font-bold text-rose-600 bg-rose-50 px-3 py-2 rounded-lg text-center border border-rose-200 animate-pulse">
-                        {{ session('error') }}
-                    </div>
+                    <div class="mt-3 text-[10px] font-bold text-rose-600 bg-rose-50 px-3 py-3 rounded-xl text-center border border-rose-200 shadow-sm">{{ session('error') }}</div>
                 @endif
                 @if(session('success'))
-                    <div class="mt-3 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg text-center border border-emerald-200">
-                        {{ session('success') }}
-                    </div>
+                    <div class="mt-3 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-3 py-3 rounded-xl text-center border border-emerald-200 shadow-sm">{{ session('success') }}</div>
                 @endif
-
             </div>
         </div>
     </div>
-
 </div>
