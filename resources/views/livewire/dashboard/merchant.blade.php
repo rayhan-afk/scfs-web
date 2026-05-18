@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\MerchantProfile;
 use App\Models\MerchantProduct;
 use App\Models\Transaction;
+use App\Models\SupplyOrder;
+use App\Models\SupplyOrderDetail;
 use App\Models\User;
 use App\Notifications\NewMerchantSubmission;
 use Carbon\Carbon;
