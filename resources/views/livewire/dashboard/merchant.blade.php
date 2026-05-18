@@ -6,6 +6,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 use Illuminate\Support\Facades\Auth;
 use App\Models\MerchantProfile;
+use App\Models\MerchantProduct;
 use App\Models\Transaction;
 use App\Models\SupplyOrder;
 use App\Models\SupplyOrderDetail;
@@ -73,14 +74,14 @@ class extends Component {
         ];
     }
 
-    // MENGHITUNG TOTAL TITIPAN LKBB
+    // MENGHITUNG TOTAL TITIPAN LKBB BERDASARKAN FISIK BARANG SAAT INI
     #[Computed]
     public function totalModalLKBB()
     {
-        return SupplyOrderDetail::whereHas('supplyOrder', function($q) {
-            $q->where('merchant_id', Auth::id())
-              ->where('status', 'selesai'); // Barang sudah di etalase
-        })->sum('subtotal');
+        // Nilai aset LKBB = sisa porsi di etalase * harga modalnya
+        return MerchantProduct::where('merchant_id', Auth::id())
+                ->selectRaw('SUM(stok * harga_pokok) as total_aset')
+                ->value('total_aset') ?? 0;
     }
 
     public function getChartData()
@@ -332,7 +333,7 @@ class extends Component {
                 <h2 class="text-2xl font-bold text-gray-900">Halo, {{ $this->profile->nama_kantin }}! 👋</h2>
                 <p class="text-gray-500 text-sm mt-1">Siap melayani mahasiswa hari ini? Buka kasir POS sekarang.</p>
             </div>
-            <a href="{{ route('merchant.pos') }}" wire:navigate class="px-4 py-2.5 bg-emerald-600 border border-emerald-200 text-white font-bold text-sm rounded-xl transition shadow-sm flex items-center gap-2 hover:bg-emerald-100 hover:text-emerald-700 group">
+            <a href="{{ route('merchant.pos') }}" wire:navigate class="px-6 py-3 bg-[#059669] text-white font-bold text-sm rounded-xl transition shadow-lg shadow-emerald-200 flex items-center gap-2 hover:bg-emerald-700">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
                 Buka Mesin Kasir POS
             </a>
@@ -346,25 +347,28 @@ class extends Component {
                 <div class="relative z-10 flex flex-col h-full justify-between">
                     <p class="text-emerald-100 text-[10px] font-extrabold tracking-widest mb-1">SALDO E-WALLET (HAK ANDA)</p>
                     <h3 class="text-3xl font-black tracking-tight truncate py-2">Rp {{ number_format($this->profile->saldo_token ?? 0, 0, ',', '.') }}</h3>
-                    <a href="{{ route('merchant.withdraw') }}" class="text-[10px] font-bold text-white hover:text-emerald-100 underline underline-offset-2">Tarik Dana Sekarang →</a>
+                    <a href="{{ route('merchant.withdraw') ?? '#' }}" class="text-[10px] font-bold text-white hover:text-emerald-100 underline underline-offset-2">Tarik Dana Sekarang →</a>
                 </div>
             </div>
 
-            {{-- Card 2: Uang Laci Kasir (Fisik) --}}
+            {{-- Card 2: Tagihan Setoran (Hutang LKBB dari Jualan Tunai) --}}
             <div class="bg-gradient-to-br from-amber-500 to-amber-700 rounded-2xl p-5 text-white shadow-lg shadow-amber-200/50 relative overflow-hidden">
                 <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -mr-8 -mt-8 pointer-events-none"></div>
                 <div class="relative z-10 flex flex-col h-full justify-between">
-                    <p class="text-amber-100 text-[10px] font-extrabold tracking-widest mb-1">UANG TUNAI DI LACI</p>
-                    <h3 class="text-3xl font-black tracking-tight truncate py-2">Rp {{ number_format($this->statHariIni['uang_laci_hari_ini'] ?? 0, 0, ',', '.') }}</h3>
-                    <p class="text-[9px] text-amber-200 font-bold">*) Termasuk tagihan LKBB yg belum disetor.</p>
+                    <p class="text-amber-100 text-[10px] font-extrabold tracking-widest mb-1 flex items-center justify-between">
+                        TAGIHAN SETORAN LKBB
+                        <span class="bg-red-500 text-white px-1.5 py-0.5 rounded text-[8px] animate-pulse">Wajib Bayar</span>
+                    </p>
+                    <h3 class="text-3xl font-black tracking-tight truncate py-2">Rp {{ number_format($this->profile->tagihan_setoran_tunai ?? 0, 0, ',', '.') }}</h3>
+                    <a href="{{ route('merchant.setoran') ?? '#' }}" wire:navigate class="text-[10px] font-bold text-white hover:text-amber-100 underline underline-offset-2">Lunasi Tagihan Sekarang →</a>
                 </div>
             </div>
 
-            {{-- Card 3: Total Titipan Barang LKBB --}}
+            {{-- Card 3: Total Titipan Barang LKBB (BERDASARKAN STOK AKTIF) --}}
             <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-center border-l-4 border-l-indigo-500">
                 <p class="text-[10px] text-gray-500 font-extrabold tracking-widest mb-1">TOTAL MODAL LKBB (BARANG)</p>
                 <h3 class="text-2xl font-black text-gray-900 truncate my-1">Rp {{ number_format($this->totalModalLKBB, 0, ',', '.') }}</h3>
-                <p class="text-[10px] font-bold text-gray-400">Nilai barang titipan LKBB di warung Anda.</p>
+                <p class="text-[10px] font-bold text-gray-400">Nilai sisa barang titipan LKBB di etalase Anda.</p>
             </div>
 
             {{-- Card 4: Volume Transaksi Hari Ini --}}
@@ -442,7 +446,7 @@ class extends Component {
                 <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col flex-1">
                     <div class="px-5 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                         <h3 class="font-black text-gray-900 text-sm">Penjualan Terakhir</h3>
-                        <a href="{{ route('merchant.riwayat') }}" wire:navigate class="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 uppercase tracking-widest">Lihat</a>
+                        <a href="{{ route('merchant.riwayat') ?? '#' }}" wire:navigate class="text-[10px] font-bold text-emerald-600 hover:text-emerald-800 uppercase tracking-widest">Lihat</a>
                     </div>
                     <div class="overflow-x-auto p-2">
                         <div class="space-y-1">
@@ -484,7 +488,7 @@ class extends Component {
                 <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col flex-1">
                     <div class="px-5 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                         <h3 class="font-black text-gray-900 text-sm">Status Order Barang</h3>
-                        <a href="{{ route('merchant.penerimaan') }}" wire:navigate class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-widest">Resi</a>
+                        <a href="{{ route('merchant.penerimaan') ?? '#' }}" wire:navigate class="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase tracking-widest">Resi</a>
                     </div>
                     <div class="overflow-x-auto p-2">
                         <div class="space-y-1">
