@@ -71,8 +71,8 @@ class extends Component {
 <div class="min-h-screen flex flex-col justify-between font-sans text-gray-800" style="background-color: #EEF2FF;">
     
     <header class="w-full max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
-        <div class="flex items-center gap-3">
-            <img src="{{ asset('images/logo-scfs.png') }}" class="h-15 w-auto mx-auto object-contain">
+        <div class="flex items-center justify-center">
+            <img src="{{ asset('images/logo-trevora.png') }}" class="h-16 w-auto object-contain" alt="Logo Trevora">
         </div>
         
         <div class="flex items-center space-x-8 text-lg font-medium">
@@ -84,11 +84,10 @@ class extends Component {
     <main class="flex-grow flex items-center justify-center px-4 py-8">
         <div class="bg-white rounded-[2rem] shadow-2xl overflow-hidden w-full max-w-6xl flex min-h-[700px]">
             
-            <div class="hidden lg:block w-1/2 relative overflow-hidden">
+            <div class="hidden lg:block w-1/2 relative bg-gray-100 overflow-hidden">
                 <img src="{{ asset('images/gambar.jpg') }}" 
                     alt="Gambar Latar"
-                    class="absolute inset-0 w-full h-full object-cover object-center">
-    
+                    class="absolute inset-0 w-full h-full object-contain p-8 object-center">
                 <div class="absolute inset-0 bg-black/10"></div>
             </div>
 
@@ -96,7 +95,7 @@ class extends Component {
                 
                 <div class="max-w-md mx-auto w-full">
                     <div class="text-center mb-8">
-                        <img src="{{ asset('images/logo-scfs.png') }}" class="h-20 w-auto mx-auto object-contain">
+                        <img src="{{ asset('images/logo-trevora.png') }}" class="h-20 w-auto mx-auto object-contain">
                         <h2 class="text-2xl font-bold text-gray-900">Buat Akun Baru</h2>
                         <p class="text-gray-600 text-sm mt-2">Silahkan lengkapi data diri anda.</p>
                     </div>
