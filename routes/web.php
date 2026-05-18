@@ -47,10 +47,31 @@ Route::middleware(['auth'])->group(function () {
         }
     })->name('dashboard');
 
+
     // ----------------------------------------------------------
     // PROFILE
     // ----------------------------------------------------------
     Route::view('/profile', 'profile')->name('profile');
+
+    // Notifikasi ROute
+    Route::post('/notifications/read/{id}', function ($id) {
+
+    $notification = auth()->user()
+        ->notifications()
+        ->findOrFail($id);
+
+    $notification->markAsRead();
+
+    return back();
+
+    })->name('notifications.read');
+
+    Route::post('/notifications/read-all', function () {
+        auth()->user()
+            ->unreadNotifications
+            ->markAsRead();
+        return back();
+    })->name('notifications.readAll');
 
     // ----------------------------------------------------------
     // ADMIN ROUTES
@@ -66,7 +87,7 @@ Route::middleware(['auth'])->group(function () {
     // Merchant
     Volt::route('/admin/data-merchant', 'admin.merchant-data')->name('admin.merchant.index');
     Volt::route('/admin/data-merchant/{id}', 'admin.merchant-detail')->name('admin.merchant.detail');
-
+    
     // Pemasok
     Volt::route('/admin/data-pemasok', 'admin.pemasok-data')->name('admin.pemasok.index');
     Volt::route('/admin/data-pemasok/{id}', 'admin.pemasok-detail')->name('admin.pemasok.detail');
@@ -140,6 +161,7 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/merchant/withdraw', 'merchant.withdraw')->name('merchant.withdraw');
     Volt::route('/merchant/katalog', 'merchant.katalog')->name('merchant.katalog');
     Volt::route('/merchant/profile', 'merchant.profile')->name('merchant.profile');
+    Volt::route('/merchant/application-status', 'merchant.application-status')->name('merchant.application-status');
     Volt::route('/merchant/order', 'merchant.order-bahan')->name('merchant.order');
     Volt::route('/merchant/riwayat', 'merchant.riwayat')->name('merchant.riwayat');
     Volt::route('/merchant/penerimaan', 'merchant.penerimaan')->name('merchant.penerimaan');

@@ -8,8 +8,8 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\MerchantProfile;
 use App\Models\MerchantProduct;
 use App\Models\Transaction;
-use App\Models\SupplyOrder;
-use App\Models\SupplyOrderDetail;
+use App\Models\User;
+use App\Notifications\NewMerchantSubmission;
 use Carbon\Carbon;
 
 new 
@@ -211,6 +211,11 @@ class extends Component {
         }
 
         $this->profile->update($updateData);
+        $lkbbUsers = User::where('role', 'lkbb')->get();
+
+        foreach ($lkbbUsers as $lkbb) {
+            $lkbb->notify(new NewMerchantSubmission($this->profile));
+        }
         session()->flash('message', 'Data berhasil dikirim! Silakan tunggu verifikasi LKBB.');
         unset($this->profile); 
     }

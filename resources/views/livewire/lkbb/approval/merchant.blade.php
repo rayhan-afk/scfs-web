@@ -5,12 +5,16 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 use Livewire\WithPagination;
 use App\Models\MerchantProfile;
+use App\Notifications\MerchantApproved;
+use App\Notifications\MerchantRejected;
 
 new #[Layout('layouts.lkbb')] class extends Component {
     use WithPagination;
 
     public $selectedMerchant = null;
     public bool $showModal = false;
+    public bool $showApproveConfirm = false;
+    public bool $showRejectConfirm = false;
     
     // Form States
     public string $catatan_penolakan = ''; 
@@ -53,6 +57,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
 
         if (!$this->selectedMerchant || $this->selectedMerchant->status_verifikasi !== 'menunggu_review') {
             session()->flash('error', 'Aksi tidak valid atau status merchant sudah berubah.');
+            $this->showApproveConfirm = false;
             return $this->closeModal();
         }
 
@@ -62,6 +67,10 @@ new #[Layout('layouts.lkbb')] class extends Component {
             'persentase_fee_merchant' => $this->persentase_fee_merchant,
             'status_toko'             => 'tutup', 
         ]);
+
+        $this->selectedMerchant
+            ->user
+            ->notify(new MerchantApproved());
         
         session()->flash('message', "Merchant {$this->selectedMerchant->nama_kantin} berhasil disetujui dengan bagi hasil {$this->persentase_fee_merchant}%!");
         $this->closeModal();
@@ -82,8 +91,15 @@ new #[Layout('layouts.lkbb')] class extends Component {
             'status_verifikasi' => 'ditolak',
             'catatan_penolakan' => $this->catatan_penolakan
         ]);
+
+        $this->selectedMerchant
+            ->user
+            ->notify(
+                new MerchantRejected($this->catatan_penolakan)
+            );
         
         session()->flash('error', "Pengajuan Merchant {$this->selectedMerchant->nama_kantin} telah ditolak.");
+        $this->showRejectConfirm = false;
         $this->closeModal();
     }
 }; ?>
@@ -291,21 +307,93 @@ new #[Layout('layouts.lkbb')] class extends Component {
                     </button>
                     <div class="flex gap-3">
                         <button 
-                            wire:click="rejectMerchant"
-                            wire:confirm="Yakin ingin MENOLAK pengajuan kantin ini? Pastikan Anda sudah mengisi alasan penolakan."
+                            wire:click="$set('showRejectConfirm', true)"
                             class="px-5 py-2.5 text-sm font-bold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-xl transition focus:ring-4 focus:ring-red-100">
                             Tolak Pengajuan
                         </button>
                         <button 
-                            wire:click="approveMerchant"
-                            wire:confirm="Setujui pengajuan ini dengan keuntungan Merchant sebesar {{ $persentase_fee_merchant }}%?"
+                            wire:click="$set('showApproveConfirm', true)"
                             class="px-6 py-2.5 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl shadow-sm transition focus:ring-4 focus:ring-green-100 flex items-center gap-2">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                            
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+
                             Setujui & Aktifkan
                         </button>
                     </div>
                 </div>
             </div>
         </div>
+        @if($showApproveConfirm)
+            <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <div class="p-6 text-center">
+                        <div class="w-20 h-20 mx-auto rounded-full bg-green-100 flex items-center justify-center text-4xl mb-5">
+                            ✅
+                        </div>
+                        <h2 class="text-2xl font-black text-gray-800 mb-2">
+                            Setujui Merchant?
+                        </h2>
+                        <p class="text-gray-500 text-sm leading-relaxed">
+                            Merchant akan langsung aktif dengan pembagian laba
+                            <span class="font-bold text-green-600">
+                                {{ $persentase_fee_merchant }}%
+                            </span>
+                        </p>
+                        <div class="flex gap-3 mt-8">
+                            <button
+                                wire:click="$set('showApproveConfirm', false)"
+                                class="flex-1 py-3 rounded-2xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-100 transition">
+                                Batal
+                            </button>
+                            <button
+                                wire:click="approveMerchant"
+                                class="flex-1 py-3 rounded-2xl bg-green-600 hover:bg-green-700 text-white font-bold shadow-lg shadow-green-200 transition">
+                                Ya, Setujui
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endif
+
+            @if($showRejectConfirm)
+            <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+                <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <div class="p-6 text-center">
+                        <div class="w-20 h-20 mx-auto rounded-full bg-red-100 flex items-center justify-center text-4xl mb-5">
+                            ❌
+                        </div>
+                        <h2 class="text-2xl font-black text-gray-800 mb-2">
+                            Tolak Pengajuan?
+                        </h2>
+                        <p class="text-gray-500 text-sm leading-relaxed">
+                            Pastikan alasan penolakan sudah benar sebelum melanjutkan.
+                        </p>
+                        <div class="mt-4 bg-gray-50 border rounded-2xl p-4 text-left">
+                            <div class="text-xs font-bold text-gray-500 uppercase mb-2">
+                                Alasan Penolakan
+                            </div>
+                            <div class="text-sm text-gray-700">
+                                {{ $catatan_penolakan ?: 'Belum ada alasan diisi.' }}
+                            </div>
+                        </div>
+                        <div class="flex gap-3 mt-8">
+                            <button
+                                wire:click="$set('showRejectConfirm', false)"
+                                class="flex-1 py-3 rounded-2xl border border-gray-200 text-gray-700 font-bold hover:bg-gray-100 transition">
+                                Batal
+                            </button>
+                            <button
+                                wire:click="rejectMerchant"
+                                class="flex-1 py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold shadow-lg shadow-red-200 transition">
+                                Ya, Tolak
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endif
     @endif
 </div>

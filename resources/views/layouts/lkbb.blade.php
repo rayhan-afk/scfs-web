@@ -12,6 +12,7 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
+
 <body class="font-sans antialiased bg-gray-50" x-data="{ sidebarOpen: false }"> 
     <div class="flex h-screen overflow-hidden">
         
@@ -35,19 +36,74 @@
 
         <div class="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
             
-            <header class="flex items-center justify-between p-4 bg-white border-b border-gray-200 md:hidden sticky top-0 z-20">
-                <div class="font-bold text-blue-900">LKBB SYSTEM</div>
-                <button @click="sidebarOpen = true" class="text-gray-500 hover:text-gray-700 focus:outline-none bg-gray-100 p-2 rounded-lg">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-                </button>
-            </header>
+            <header class="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-100 sticky top-0 z-20 shadow-sm">
 
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800">
+                        LKBB Command Center
+                    </h1>
+
+                    <p class="text-sm text-gray-400 mt-1">
+                        Realtime monitoring ecosystem SCFS
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-4">
+
+                    <x-notification-dropdown />
+
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 text-white flex items-center justify-center font-bold shadow-lg">
+                        {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                    </div>
+
+                </div>
+
+            </header>
             <main class="w-full h-full p-6 md:p-8">
                 {{ $slot }}
             </main>
             
         </div>
     </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
 
+        window.Echo
+            .private('App.Models.User.{{ auth()->id() }}')
+            .notification((notification) => {
+
+                const toast = document.createElement('div');
+
+                toast.innerHTML = `
+                    <div class="fixed top-5 right-5 z-[9999] w-[340px] bg-white border border-gray-100 shadow-2xl rounded-2xl p-4 animate-pulse">
+                        <div class="flex gap-3 items-start">
+                            
+                            <div class="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center text-xl">
+                                🔔
+                            </div>
+
+                            <div class="flex-1">
+                                <h3 class="font-bold text-gray-800 text-sm">
+                                    ${notification.title}
+                                </h3>
+
+                                <p class="text-xs text-gray-500 mt-1 leading-relaxed">
+                                    ${notification.message}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.remove();
+                    location.reload();
+                }, 4000);
+            });
+
+    });
+    </script>
 </body>
 </html>

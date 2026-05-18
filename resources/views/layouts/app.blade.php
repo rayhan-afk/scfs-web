@@ -42,7 +42,29 @@
 
                 {{-- 2. KONTEN UTAMA (KANAN) --}}
                 <div class="relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 transition-all duration-300">
-                    
+                    <header class="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+                        <div>
+                            <h1 class="text-lg font-bold text-gray-800">
+                                @if(Auth::user()->role === 'admin')
+                                    Admin Dashboard
+                                @elseif(Auth::user()->role === 'merchant')
+                                    Merchant Dashboard
+                                @elseif(Auth::user()->role === 'pemasok')
+                                    Pemasok Dashboard
+                                @endif
+                            </h1>
+
+                            <p class="text-xs text-gray-400 mt-1">
+                                Realtime SCFS Notification Center
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <x-notification-dropdown />
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 text-white flex items-center justify-center font-bold shadow-lg">
+                                {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                            </div>
+                        </div>
+                    </header>
                     {{-- Header Mobile (Hanya muncul di HP) --}}
                     <header class="bg-white shadow-sm flex items-center justify-between px-6 py-4 md:hidden sticky top-0 z-20">
                         <span class="font-bold text-lg text-gray-800">
@@ -121,5 +143,47 @@
                 });
             });
         </script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+
+                window.Echo
+                    .private('App.Models.User.{{ auth()->id() }}')
+                    .notification((notification) => {
+
+                        const toast = document.createElement('div');
+
+                        toast.innerHTML = `
+                            <div class="fixed top-5 right-5 z-[9999] w-[340px] bg-white border border-gray-100 shadow-2xl rounded-2xl p-4">
+                                <div class="flex gap-3 items-start">
+
+                                    <div class="w-12 h-12 rounded-2xl bg-orange-100 flex items-center justify-center text-xl">
+                                        🔔
+                                    </div>
+
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-gray-800 text-sm">
+                                            ${notification.title}
+                                        </h3>
+
+                                        <p class="text-xs text-gray-500 mt-1 leading-relaxed">
+                                            ${notification.message}
+                                        </p>
+                                    </div>
+
+                                </div>
+                            </div>
+                        `;
+
+                        document.body.appendChild(toast);
+
+                        setTimeout(() => {
+                            toast.remove();
+                            location.reload();
+                        }, 4000);
+
+                    });
+
+            });
+            </script>
     </body>
 </html>
