@@ -20,16 +20,20 @@ class ApprovalPo extends Component
 
     public function render()
     {
-        // Mengambil order yang statusnya menunggu_lkbb, lengkapi dengan relasi merchant & pemasok
         $orders = SupplyOrder::with(['merchant.merchantProfile', 'pemasok.pemasokProfile', 'details'])
             ->where('status', 'menunggu_lkbb')
             ->when($this->search, function ($query) {
-                $query->where('nomor_order', 'like', '%' . $this->search . '%');
+                $query->where('nomor_order', 'like', '%' . $this->search . '%')
+                      ->orWhereHas('merchant', function($q) {
+                          $q->where('name', 'like', '%' . $this->search . '%');
+                      })
+                      ->orWhereHas('merchant.merchantProfile', function($q) {
+                          $q->where('nama_kantin', 'like', '%' . $this->search . '%');
+                      });
             })
             ->latest()
             ->paginate(10);
 
-        // Ambil saldo brankas investasi LKBB untuk ditampilkan di dashboard
         $brankasInvestasi = Wallet::where('type', 'LKBB_INVESTMENT')->first();
 
         return view('livewire.lkbb.approval-po', [
@@ -59,6 +63,11 @@ class ApprovalPo extends Component
             DB::transaction(function () {
                 $order = SupplyOrder::lockForUpdate()->findOrFail($this->selectedOrder->id);
                 
+                // DOUBLE PROTECTION: Cegah double click atau data basi
+                if ($order->status !== 'menunggu_lkbb') {
+                    throw new \Exception("Pesanan ini sudah diproses sebelumnya.");
+                }
+
                 // 1. Validasi Brankas
                 $brankasLKBB = Wallet::where('type', 'LKBB_INVESTMENT')->lockForUpdate()->first();
                 if (!$brankasLKBB || $brankasLKBB->balance < $order->total_estimasi) {
@@ -68,15 +77,16 @@ class ApprovalPo extends Component
                 // 2. Potong Saldo LKBB
                 $brankasLKBB->decrement('balance', $order->total_estimasi);
 
-                // 3. Catat Transaksi
+                // 3. Catat Transaksi (Sebagai tanda bukti transfer sistem ke Pemasok)
                 Transaction::create([
                     'order_id' => $order->nomor_order,
                     'user_id' => $order->pemasok_id, 
+                    'merchant_id' => $order->merchant_id, // Kita rekam juga merchantnya biar transparan
                     'sender_wallet_id' => $brankasLKBB->id,
                     'type' => 'PEMBIAYAAN_PO',
                     'status' => 'success',
                     'total_amount' => $order->total_estimasi,
-                    'description' => "Pencairan dana PO ke Pemasok untuk Kantin ID: " . $order->merchant_id
+                    'description' => "Pencairan dana PO ke Pemasok untuk Kantin: " . ($order->merchant->merchantProfile->nama_kantin ?? $order->merchant->name)
                 ]);
 
                 // 4. POTONG STOK BARANG PEMASOK SECARA OTOMATIS
@@ -94,7 +104,7 @@ class ApprovalPo extends Component
                 ]);
             });
 
-            session()->flash('success', "Dana berhasil dicairkan dan Stok Pemasok otomatis telah di-booking!");
+            session()->flash('success', "Dana Rp " . number_format($this->selectedOrder->total_estimasi, 0, ',', '.') . " berhasil dicairkan ke Pemasok. Stok otomatis di-booking!");
             $this->tutupModal();
 
         } catch (\Exception $e) {
@@ -114,7 +124,7 @@ class ApprovalPo extends Component
                 'catatan' => 'Ditolak LKBB: ' . $this->alasanPenolakan
             ]);
 
-            session()->flash('error', "Pengajuan PO telah ditolak.");
+            session()->flash('error', "Pengajuan PO telah ditolak dan dibatalkan.");
             $this->tutupModal();
         }
     }

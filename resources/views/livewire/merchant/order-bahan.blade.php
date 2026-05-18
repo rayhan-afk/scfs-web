@@ -46,13 +46,15 @@ class extends Component {
         if (!$produk) return;
 
         if (isset($this->cart[$id])) {
-            if ($this->cart[$id]['qty'] < $produk->stok_sekarang) {
-                $this->cart[$id]['qty']++;
+            // Ambil nilai qty saat ini, kalau kosong/string jadikan 0 dulu
+            $currentQty = (int) ($this->cart[$id]['qty'] === '' ? 0 : $this->cart[$id]['qty']);
+            
+            if ($currentQty < $produk->stok_sekarang) {
+                $this->cart[$id]['qty'] = $currentQty + 1;
             } else {
                 session()->flash('error', 'Stok maksimum tercapai untuk ' . $produk->nama_produk);
             }
         } else {
-            // STRUKTUR KERANJANG BARU (Sesuai Logika Modal + Margin)
             $this->cart[$id] = [
                 'id'             => $produk->id,
                 'pemasok_id'     => $produk->user_id,
@@ -68,11 +70,39 @@ class extends Component {
     public function decreaseQty($id)
     {
         if (isset($this->cart[$id])) {
-            if ($this->cart[$id]['qty'] > 1) {
-                $this->cart[$id]['qty']--;
+            $currentQty = (int) ($this->cart[$id]['qty'] === '' ? 0 : $this->cart[$id]['qty']);
+            
+            if ($currentQty > 1) {
+                $this->cart[$id]['qty'] = $currentQty - 1;
             } else {
                 unset($this->cart[$id]);
             }
+        }
+    }
+
+    // UPDATE LOGIKA: Real-Time Input yang lebih aman
+    public function updateQty($id, $qty)
+    {
+        if (!isset($this->cart[$id])) return;
+
+        // Jika user menghapus input (kosong), biarkan kosong sebentar tanpa menghapus barangnya
+        if ($qty === '') {
+            $this->cart[$id]['qty'] = ''; 
+            return;
+        }
+
+        $qty = (int) $qty;
+
+        if ($qty <= 0) {
+            // Daripada menghilang tiba-tiba pas diketik 0, kita set kembali ke 1. 
+            // Kalau mau hapus, harus klik tombol minus (-).
+            $this->cart[$id]['qty'] = 1;
+        } elseif ($qty > $this->cart[$id]['stok_max']) {
+            // Mentok di stok maksimal
+            $this->cart[$id]['qty'] = $this->cart[$id]['stok_max'];
+            session()->flash('error', 'Maksimal pesanan untuk ' . $this->cart[$id]['nama'] . ' adalah ' . $this->cart[$id]['stok_max']);
+        } else {
+            $this->cart[$id]['qty'] = $qty;
         }
     }
 
@@ -84,10 +114,11 @@ class extends Component {
     #[Computed]
     public function cartTotal()
     {
-        // Total dihitung dari (Modal + Margin) * Qty
         return array_reduce($this->cart, function ($carry, $item) {
+            // Tangani jika qty sedang dikosongkan sementara oleh user
+            $qty = (int) ($item['qty'] === '' ? 0 : $item['qty']);
             $harga_total_per_item = $item['harga_modal'] + $item['margin_pemasok'];
-            return $carry + ($harga_total_per_item * $item['qty']);
+            return $carry + ($harga_total_per_item * $qty);
         }, 0);
     }
 
@@ -96,6 +127,13 @@ class extends Component {
         if (empty($this->cart)) {
             session()->flash('error', 'Keranjang order masih kosong.');
             return;
+        }
+
+        // Cek jika ada input yang masih dikosongkan user
+        foreach ($this->cart as $id => $item) {
+            if ($item['qty'] === '' || (int)$item['qty'] <= 0) {
+                $this->cart[$id]['qty'] = 1; // Paksa jadi 1
+            }
         }
 
         $this->validate([
@@ -115,7 +153,7 @@ class extends Component {
                         'total_estimasi'    => 0, 
                         'tanggal_kebutuhan' => $this->tanggal_kebutuhan,
                         'catatan'           => $this->catatan,
-                        'status'            => 'menunggu_lkbb', 
+                        'status'            => 'menunggu_pemasok', 
                         'status_pembiayaan' => 'siap_diajukan' 
                     ]);
 
@@ -123,16 +161,15 @@ class extends Component {
 
                     foreach ($items as $item) {
                         $harga_satuan = $item['harga_modal'] + $item['margin_pemasok'];
-                        $subtotal = $harga_satuan * $item['qty'];
+                        $subtotal = $harga_satuan * (int)$item['qty'];
                         
-                        // SNAPSHOT BARU SESUAI MIGRATION TERAKHIR
                         SupplyOrderDetail::create([
                             'supply_order_id'         => $order->id,
                             'produk_pemasok_id'       => $item['id'], 
                             'nama_produk_snapshot'    => $item['nama'],
                             'harga_modal_snapshot'    => $item['harga_modal'],
                             'margin_pemasok_snapshot' => $item['margin_pemasok'],
-                            'qty'                     => $item['qty'],
+                            'qty'                     => (int)$item['qty'],
                             'subtotal'                => $subtotal
                         ]);
 
@@ -147,7 +184,7 @@ class extends Component {
             $this->reset(['catatan']);
             $this->tanggal_kebutuhan = Carbon::tomorrow()->format('Y-m-d');
             
-            session()->flash('success', 'Pesanan berhasil dibuat! Menunggu approval pendanaan dari LKBB.');
+            session()->flash('success', 'Pesanan berhasil dikirim ke Pemasok untuk konfirmasi ketersediaan stok.');
 
         } catch (\Exception $e) {
             session()->flash('error', 'Terjadi kesalahan sistem: ' . $e->getMessage());
@@ -173,7 +210,6 @@ class extends Component {
             </div>
         </div>
 
-        {{-- INFO BANNER BARU: MENGGANTIKAN TOP-UP & SISA LIMIT --}}
         <div class="mb-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4 shadow-sm flex items-start gap-4">
             <div class="flex items-center justify-center w-10 h-10 bg-emerald-100 rounded-full text-emerald-600 shrink-0 mt-0.5">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
@@ -201,7 +237,6 @@ class extends Component {
                         <div class="p-3">
                             <h3 class="text-xs font-bold text-gray-900 leading-tight line-clamp-2 mb-1 group-hover:text-emerald-700 transition-colors">{{ $item->nama_produk }}</h3>
                             
-                            {{-- MENAMPILKAN HARGA TOTAL (Modal + Margin) --}}
                             <p class="text-sm font-extrabold text-emerald-600">Rp{{ number_format($item->harga_modal + $item->margin_pemasok, 0, ',', '.') }}</p>
                             
                             <div class="mt-2 pt-2 border-t border-gray-100 flex flex-col gap-0.5">
@@ -236,16 +271,23 @@ class extends Component {
                     </div>
                 @else
                     @foreach($cart as $id => $item)
-                        <div class="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                        <div class="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-xl shadow-sm hover:border-emerald-200 transition-colors">
                             <div class="flex-1 pr-3 min-w-0">
                                 <h4 class="text-xs font-bold text-gray-900 truncate">{{ $item['nama'] }}</h4>
-                                {{-- Harga yang tampil di cart adalah Harga Total per item --}}
                                 <p class="text-[10px] font-bold text-emerald-600 mt-0.5">Rp{{ number_format($item['harga_modal'] + $item['margin_pemasok'], 0, ',', '.') }}</p>
                             </div>
-                            <div class="flex items-center gap-2 bg-gray-50 rounded-lg p-1 border border-gray-200 flex-shrink-0">
-                                <button wire:click="decreaseQty({{ $id }})" class="w-6 h-6 flex items-center justify-center bg-white text-gray-600 rounded font-bold hover:bg-gray-100">-</button>
-                                <span class="text-xs font-extrabold w-5 text-center">{{ $item['qty'] }}</span>
-                                <button wire:click="addToCart({{ $id }})" class="w-6 h-6 flex items-center justify-center bg-emerald-100 text-emerald-700 rounded font-bold hover:bg-emerald-200">+</button>
+                            
+                            {{-- UPDATE: INPUT REAL-TIME (x-on:input) --}}
+                            <div class="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-200 flex-shrink-0">
+                                <button wire:click="decreaseQty({{ $id }})" class="w-6 h-6 flex items-center justify-center bg-white text-gray-600 rounded font-bold hover:bg-gray-200 transition-colors border border-gray-100 shadow-sm">-</button>
+                                
+                                <input type="number" 
+                                    value="{{ $item['qty'] }}" 
+                                    x-on:input.debounce.400ms="$wire.updateQty({{ $id }}, $event.target.value)"
+                                    min="1" max="{{ $item['stok_max'] }}"
+                                    class="w-10 h-6 text-xs font-extrabold text-center bg-transparent border-none p-0 focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none text-gray-800" />
+                                
+                                <button wire:click="addToCart({{ $id }})" class="w-6 h-6 flex items-center justify-center bg-emerald-500 text-white rounded font-bold hover:bg-emerald-600 transition-colors shadow-sm">+</button>
                             </div>
                         </div>
                     @endforeach
@@ -276,8 +318,8 @@ class extends Component {
                 <button wire:click="submitOrder" wire:loading.attr="disabled"
                     @if(empty($cart)) disabled @endif
                     class="w-full py-3.5 text-sm font-extrabold text-white rounded-xl shadow-lg transition-all flex items-center justify-center bg-gray-900 hover:bg-black disabled:opacity-50 disabled:bg-gray-400">
-                    <span wire:loading.remove wire:target="submitOrder">AJUKAN PENDANAAN KE LKBB</span>
-                    <span wire:loading wire:target="submitOrder">MEMPROSES PENGAJUAN...</span>
+                    <span wire:loading.remove wire:target="submitOrder">KIRIM PESANAN KE PEMASOK</span>
+                    <span wire:loading wire:target="submitOrder">MEMPROSES PESANAN...</span>
                 </button>
                 
                 @if(session('error'))

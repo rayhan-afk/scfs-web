@@ -16,18 +16,15 @@ class SupplyOrderDetail extends Model
     /**
      * Relasi ke ProdukPemasok (Setiap detail pesanan ini merujuk ke 1 produk)
      */
-   // Hapus fungsi bahanBaku() jika masih ada, ganti jadi ini:
+   // Relasi balik ke induk PO
+    public function supplyOrder()
+    {
+        return $this->belongsTo(SupplyOrder::class, 'supply_order_id');
+    }
+
+    // Relasi ke Produk/Barang Pemasok
     public function produkPemasok()
     {
         return $this->belongsTo(ProdukPemasok::class, 'produk_pemasok_id');
     }
-    
-    /**
-     * Balikan relasi ke SupplyOrder (opsional tapi bagus untuk kedepannya)
-     */
-    public function order()
-    {
-        return $this->belongsTo(SupplyOrder::class, 'supply_order_id');
-    }
-    // --------------------------
 }
