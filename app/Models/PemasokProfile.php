@@ -19,7 +19,7 @@ class PemasokProfile extends Model
         'alamat',
         'info_bank',
         'status_kemitraan',
-        'tagihan_berjalan'
+        'tagihan_berjalan',
     ];
 
     // Relasi balik ke User
