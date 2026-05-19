@@ -16,10 +16,9 @@ class extends Component {
     public string $nominal_tarik = '';
     public bool $potong_tagihan = true; // Default: ON (Potong otomatis)
 
-    // FITUR BARU: Otomatis reset input nominal saat toggle On/Off digeser
     public function updatedPotongTagihan()
     {
-        $this->nominal_tarik = ''; // Reset input jadi kosong
+        $this->nominal_tarik = ''; // Reset input
     }
 
     #[Computed]
@@ -46,7 +45,7 @@ class extends Component {
 
     public function setTarikSemua()
     {
-        if ($this->maksimalTarik > 0) {
+        if ($this->maksimalTarik >= 10000) {
             $this->nominal_tarik = (string) $this->maksimalTarik;
         }
     }
@@ -74,7 +73,7 @@ class extends Component {
                 $saldoSaatIni = $merchant->saldo_token;
                 $hutangSaatIni = $merchant->tagihan_setoran_tunai;
 
-                // Logika Bercabang: Apakah Merchant pilih melunasi atau tidak?
+                // Logika Bercabang
                 if ($this->potong_tagihan && $hutangSaatIni > 0) {
                     $batasMaksimal = $saldoSaatIni - $hutangSaatIni;
                     $potonganLKBB = $hutangSaatIni;
@@ -90,7 +89,7 @@ class extends Component {
                 }
 
                 if (empty($merchant->info_pencairan)) {
-                    throw new \Exception('Nomor Rekening/E-Wallet belum diatur. Silakan perbarui di Pengaturan Profil.');
+                    throw new \Exception('Info Rekening/E-Wallet belum diatur. Silakan perbarui di Pengaturan Profil.');
                 }
 
                 $adaPending = Withdrawal::where('merchant_id', $merchant->user_id)
@@ -99,10 +98,10 @@ class extends Component {
                                 ->exists();
 
                 if ($adaPending) {
-                    throw new \Exception('Anda masih memiliki pengajuan yang sedang diproses oleh LKBB.');
+                    throw new \Exception('Anda masih memiliki 1 pengajuan yang sedang antre diproses oleh LKBB.');
                 }
 
-                // Catat Withdrawal dengan Potongan (Jika ada)
+                // Catat Withdrawal
                 Withdrawal::create([
                     'nomor_pencairan' => 'WD-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -5)),
                     'merchant_id'     => $merchant->user_id,
@@ -113,10 +112,10 @@ class extends Component {
                     'status'          => 'pending',
                 ]);
 
-                // Potong saldo dan lunasin hutang (jika pilih lunas)
+                // PROTEKSI ATOMIK: Pakai decrement, BUKAN paksa jadi 0
                 $merchant->decrement('saldo_token', $kotorDipotong);
                 if ($potonganLKBB > 0) {
-                    $merchant->update(['tagihan_setoran_tunai' => 0]);
+                    $merchant->decrement('tagihan_setoran_tunai', $potonganLKBB);
                 }
             });
 
@@ -132,8 +131,8 @@ class extends Component {
 
 <div class="py-8 px-6 md:px-8 w-full space-y-6 relative">
     <div class="mb-8">
-        <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Pencairan Dana</h2>
-        <p class="text-gray-500 text-sm mt-1">Cairkan pendapatan toko Anda secara aman ke Rekening Bank atau E-Wallet.</p>
+        <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Pencairan Dana (Withdraw)</h2>
+        <p class="text-gray-500 text-sm mt-1">Cairkan pendapatan toko Anda ke Rekening Bank atau E-Wallet yang terdaftar.</p>
     </div>
 
     @if(session('success'))
@@ -164,7 +163,6 @@ class extends Component {
                     <h3 class="text-3xl font-extrabold tracking-tight truncate">Rp {{ number_format($this->maksimalTarik, 0, ',', '.') }}</h3>
                 </div>
 
-                {{-- Tampilkan rincian hanya jika Merchant memilih untuk melunasi hutang --}}
                 @if($potong_tagihan && $this->profile->tagihan_setoran_tunai > 0)
                 <div class="relative z-10 flex justify-between items-center mt-6 pt-4 border-t border-white/20">
                     <div>
@@ -172,7 +170,7 @@ class extends Component {
                         <p class="text-xs font-bold truncate">Rp {{ number_format($this->profile->saldo_token, 0, ',', '.') }}</p>
                     </div>
                     <div class="text-right">
-                        <p class="text-[9px] text-white/70 font-bold uppercase mb-0.5">Potongan Fee LKBB</p>
+                        <p class="text-[9px] text-white/70 font-bold uppercase mb-0.5">Potongan Tagihan</p>
                         <p class="text-xs font-bold text-rose-200 truncate">-Rp {{ number_format($this->profile->tagihan_setoran_tunai, 0, ',', '.') }}</p>
                     </div>
                 </div>
@@ -188,19 +186,27 @@ class extends Component {
 
                 <form wire:submit.prevent="ajukanPencairan" class="space-y-5">
                     
-                    {{-- TOGGLE OPSI PELUNASAN (Hanya muncul jika punya hutang) --}}
+                    {{-- TOGGLE OPSI PELUNASAN --}}
                     @if($this->profile->tagihan_setoran_tunai > 0)
                     <div class="space-y-2 mb-4">
                         <label class="flex items-center justify-between p-4 border {{ $potong_tagihan ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 bg-white' }} rounded-xl cursor-pointer transition-all">
                             <div class="pr-4">
-                                <p class="text-sm font-bold text-gray-900">Lunasi Tagihan LKBB</p>
-                                <p class="text-[10px] text-gray-500 mt-0.5">Sistem akan memotong <strong class="text-rose-500">Rp {{ number_format($this->profile->tagihan_setoran_tunai, 0, ',', '.') }}</strong> dari saldo saat pencairan.</p>
+                                <p class="text-sm font-bold text-gray-900">Pecah Tagihan Tunai</p>
+                                <p class="text-[10px] text-gray-500 mt-0.5">Potong <strong class="text-rose-500">Rp {{ number_format($this->profile->tagihan_setoran_tunai, 0, ',', '.') }}</strong> dari saldo agar hutang laci LUNAS.</p>
                             </div>
                             <div class="relative inline-flex items-center cursor-pointer flex-shrink-0">
                                 <input type="checkbox" wire:model.live="potong_tagihan" class="sr-only peer">
                                 <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                             </div>
                         </label>
+                        
+                        {{-- WARNING JIKA SALDO LEBIH KECIL DARI HUTANG --}}
+                        @if($potong_tagihan && $this->profile->saldo_token < $this->profile->tagihan_setoran_tunai)
+                            <div class="p-2.5 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2">
+                                <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                <p class="text-[9px] text-amber-800 font-bold leading-tight">Saldo digital Anda tidak cukup melunasi semua tagihan. Matikan saklar ini untuk menarik saldo Anda.</p>
+                            </div>
+                        @endif
                     </div>
                     @endif
 
@@ -214,18 +220,21 @@ class extends Component {
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500 font-bold">Rp</span>
                             <input wire:model.live.debounce.500ms="nominal_tarik" type="number" step="1000" placeholder="0" 
-                                class="w-full py-3.5 pl-12 pr-4 text-lg font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition">
+                                {{ $this->maksimalTarik < 10000 ? 'disabled' : '' }}
+                                class="w-full py-3.5 pl-12 pr-4 text-lg font-bold text-gray-900 bg-gray-50 border border-gray-200 rounded-xl focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 transition disabled:opacity-50">
                         </div>
                         @error('nominal_tarik') <span class="text-rose-500 text-[10px] mt-1.5 font-bold block">{{ $message }}</span> @enderror
                     </div>
 
-                    <div class="p-3.5 bg-gray-50 rounded-xl border border-gray-100">
-                        <span class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Transfer Ke:</span>
-                        @if($this->profile->info_pencairan)
-                            <span class="text-xs font-extrabold text-gray-800">{{ $this->profile->info_pencairan }}</span>
-                        @else
-                            <span class="text-xs font-bold text-rose-500">Belum diatur. Buka menu Pengaturan Profil.</span>
-                        @endif
+                    <div class="p-3.5 bg-gray-50 rounded-xl border border-gray-100 flex justify-between items-center">
+                        <div>
+                            <span class="block text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Transfer Ke Tujuan:</span>
+                            @if($this->profile->info_pencairan)
+                                <span class="text-xs font-extrabold text-gray-800">{{ $this->profile->info_pencairan }}</span>
+                            @else
+                                <span class="text-xs font-bold text-rose-500">Belum diatur.</span>
+                            @endif
+                        </div>
                     </div>
 
                     <button type="submit"
@@ -233,7 +242,7 @@ class extends Component {
                         @if($this->maksimalTarik < 10000 || empty($this->profile->info_pencairan)) disabled @endif
                         class="w-full py-3.5 text-sm font-extrabold text-white {{ $potong_tagihan && $this->profile->tagihan_setoran_tunai > 0 ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200' }} rounded-xl transition shadow-lg flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                         <span wire:loading.remove wire:target="ajukanPencairan">Kirim Pengajuan</span>
-                        <span wire:loading wire:target="ajukanPencairan">Mengunci Saldo...</span>
+                        <span wire:loading wire:target="ajukanPencairan">Memproses...</span>
                     </button>
                 </form>
             </div>
@@ -251,8 +260,8 @@ class extends Component {
                         <tr>
                             <th class="px-6 py-4">ID / Waktu</th>
                             <th class="px-6 py-4 text-right">Penarikan Bersih</th>
-                            <th class="px-6 py-4 text-right">Potongan LKBB</th>
-                            <th class="px-6 py-4 text-center">Status</th>
+                            <th class="px-6 py-4 text-right">Potongan Tagihan</th>
+                            <th class="px-6 py-4 text-center">Status LKBB</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -275,13 +284,15 @@ class extends Component {
                                 <td class="px-6 py-4 text-center">
                                     @if($wd->status == 'pending')
                                         <span class="bg-amber-50 text-amber-600 border border-amber-200 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider inline-flex items-center gap-1.5">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Diproses LKBB
+                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Antrean
                                         </span>
                                     @elseif($wd->status == 'disetujui')
-                                        <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">Berhasil Transfer</span>
+                                        <span class="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">Ditransfer</span>
                                     @else
                                         <span class="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider cursor-help" title="{{ $wd->catatan_lkbb }}">Ditolak</span>
-                                        <p class="text-[9px] text-rose-400 mt-1 truncate max-w-[120px] mx-auto">{{ $wd->catatan_lkbb }}</p>
+                                        @if($wd->catatan_lkbb)
+                                            <p class="text-[8px] text-rose-400 mt-1 truncate max-w-[120px] mx-auto">{{ $wd->catatan_lkbb }}</p>
+                                        @endif
                                     @endif
                                 </td>
                             </tr>

@@ -7,34 +7,12 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\MerchantProfile;
 use App\Models\SetoranTunai;
-use App\Models\Transaction;
 
 new 
 #[Layout('layouts.app')] 
 class extends Component {
     
-    public function mount()
-    {
-        // 🛠️ AUTO-HEALING SCRIPT: Sinkronisasi Ulang Data Akuntansi
-        // Sistem menghitung ulang HANYA transaksi yang benar-benar TUNAI
-        $totalFeeTunai = Transaction::where('merchant_id', Auth::id())
-            ->where('type', 'pembayaran_makanan_tunai') // STRICT: Hanya Tunai
-            ->whereIn('status', ['sukses', 'lunas'])
-            ->sum('fee_lkbb');
-
-        // Kurangi dengan yang sudah pernah disetorkan / sedang dijemput
-        $totalSudahDisetor = SetoranTunai::where('merchant_id', Auth::id())
-            ->whereIn('status', ['menunggu_penjemputan', 'selesai'])
-            ->sum('nominal');
-
-        $hutangFisikReal = max(0, $totalFeeTunai - $totalSudahDisetor);
-
-        // Update database merchant secara diam-diam agar datanya akurat kembali
-        $profile = MerchantProfile::where('user_id', Auth::id())->first();
-        if ($profile && $profile->tagihan_setoran_tunai != $hutangFisikReal) {
-            $profile->update(['tagihan_setoran_tunai' => $hutangFisikReal]);
-        }
-    }
+    // Fitur Auto-Healing Dihapus: Akuntansi Atomik dari POS dan Withdraw sudah sangat akurat.
 
     #[Computed]
     public function profile()
@@ -95,7 +73,7 @@ class extends Component {
 
             });
 
-            unset($this->adaPenjemputanAktif); // Refresh computed property
+            unset($this->adaPenjemputanAktif); 
             session()->flash('success', 'Permintaan penjemputan uang berhasil dikirim. Siapkan uang tunai Anda.');
 
         } catch (\Exception $e) {
@@ -104,7 +82,6 @@ class extends Component {
     }
 }; ?>
 
-{{-- PERBAIKAN UI: Hapus max-w-6xl dan mx-auto agar Fluid mepet sidebar --}}
 <div class="py-8 px-6 md:px-8 w-full space-y-6 relative">
     
     <div class="mb-8">
@@ -149,7 +126,7 @@ class extends Component {
 
                 <div class="relative z-10 mt-5 pt-5 border-t border-rose-400/30">
                     <p class="text-[10px] text-rose-100 leading-relaxed">
-                        Ini adalah akumulasi persentase bagi hasil ({{ $this->profile->persentase_bagi_hasil }}%) milik LKBB dari pembeli yang membayar Anda menggunakan <strong>Uang Tunai</strong>.
+                        Ini adalah modal barang dan bagi hasil hak LKBB dari pembeli yang membayar Anda menggunakan <strong>Uang Tunai</strong>.
                     </p>
                 </div>
             </div>
