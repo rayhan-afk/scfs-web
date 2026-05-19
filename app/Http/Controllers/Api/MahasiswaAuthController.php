@@ -9,26 +9,21 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use App\Models\User;
+use App\Models\MahasiswaProfile;
+use App\Models\MerchantProfile;
+use App\Models\Transaction;
 
 class MahasiswaAuthController extends Controller
 {
     /**
-     * 1. LOGIN API (Dari Flutter mengirim Email & Password)
+     * 1. LOGIN API
      */
-    // PERHATIKAN: Parameter berubah dari (Request $request) menjadi (LoginMahasiswaRequest $request)
     public function login(LoginMahasiswaRequest $request)
     {
-        // ❌ BLOK INI SUDAH DIHAPUS KARENA SUDAH DIURUS OLEH SATPAM:
-        // $request->validate([
-        //     'email' => 'required|email',
-        //     'password' => 'required',
-        // ]);
-        
-        // --- MANAJER LANGSUNG BEKERJA (Logika Bisnis) ---
         $user = User::where('email', $request->email)->first();
 
-        // Cek apakah user ada, password benar, dan rolenya mahasiswa
         if (!$user || !Hash::check($request->password, $user->password) || $user->role !== 'mahasiswa') {
             return response()->json([
                 'status' => 'error',
@@ -36,8 +31,7 @@ class MahasiswaAuthController extends Controller
             ], 401);
         }
 
-        // Catat ke tabel riwayat login
-        \Illuminate\Support\Facades\DB::table('login_logs')->insert([
+        DB::table('login_logs')->insert([
             'user_id'    => $user->id,
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
@@ -46,7 +40,6 @@ class MahasiswaAuthController extends Controller
             'updated_at' => now(),
         ]);
 
-        // Buat Token Sanctum
         $token = $user->createToken('flutter-mobile-app')->plainTextToken;
 
         return response()->json([
@@ -64,8 +57,7 @@ class MahasiswaAuthController extends Controller
     }
 
     /**
-     * 2. GET PROFILE API (Untuk nampilin data di layar Home Flutter)
-     * Ini diproteksi, harus pakai Token.
+     * 2. GET PROFILE API
      */
     public function profile(Request $request)
     {
@@ -73,17 +65,15 @@ class MahasiswaAuthController extends Controller
 
         return response()->json([
             'status' => 'success',
-            // Kita serahkan data mentah $user ke Koki Plating (MahasiswaResource)
             'data'   => new MahasiswaResource($user)
         ], 200);
     }
 
     /**
-     * 3. LOGOUT API (Hapus token dari HP & Server)
+     * 3. LOGOUT API
      */
     public function logout(Request $request)
     {
-        // Hapus token yang sedang dipakai
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
@@ -93,72 +83,82 @@ class MahasiswaAuthController extends Controller
     }
 
     /**
-     * 4. GENERATE QR CODE API (Anti-Screenshot / Time-based)
+     * 4. PAY QR (Fitur Scan Mahasiswa ke Layar Kantin)
+     * Ini dipanggil oleh Flutter saat mahasiswa men-scan QR yang muncul di laptop Ibu Kantin.
      */
-    public function generateQr(Request $request)
+    public function payQr(Request $request)
     {
-        $user = $request->user();
-        
-        // Pastikan relasi profil mahasiswa di-load
-        $user->load('mahasiswaProfile');
-        $profile = $user->mahasiswaProfile;
+        $request->validate([
+            'order_id' => 'required|string',
+        ]);
 
-        // Validasi: Apakah akun sudah diverifikasi oleh Admin LKBB?
-        if (!$profile || $profile->status_verifikasi !== 'disetujui') {
+        try {
+            DB::transaction(function () use ($request) {
+                // 1. Kunci data mahasiswa yang sedang login
+                $mahasiswa = $request->user();
+                $profileMhs = MahasiswaProfile::where('user_id', $mahasiswa->id)
+                                ->lockForUpdate()
+                                ->firstOrFail();
+
+                // 2. Cari transaksi PENDING yang dibuat oleh mesin kasir (laptop)
+                $trx = Transaction::where('order_id', $request->order_id)
+                        ->where('status', 'pending')
+                        ->lockForUpdate()
+                        ->first();
+
+                if (!$trx) {
+                    throw new \Exception('Transaksi tidak ditemukan atau kadaluwarsa. Minta Ibu Kantin me-refresh mesin kasir.');
+                }
+
+                // 3. Validasi Saldo Mahasiswa
+                if ($profileMhs->saldo < $trx->total_amount) {
+                    throw new \Exception('Saldo beasiswa Anda (' . number_format($profileMhs->saldo, 0, ',', '.') . ') tidak mencukupi untuk tagihan ini (' . number_format($trx->total_amount, 0, ',', '.') . ').');
+                }
+
+                // 4. Potong Saldo Mahasiswa
+                $profileMhs->decrement('saldo', $trx->total_amount);
+
+                // 5. Tambahkan Saldo ke Dompet Kantin (setelah dipotong fee LKBB)
+                $merchantProfile = MerchantProfile::where('user_id', $trx->merchant_id)
+                                    ->lockForUpdate()
+                                    ->firstOrFail();
+                                    
+                $hakMerchant = $trx->total_amount - $trx->fee_lkbb; 
+                $merchantProfile->increment('saldo_token', $hakMerchant);
+
+                // 6. Ubah status transaksi POS menjadi SUKSES
+                $trx->update([
+                    'user_id' => $mahasiswa->id, 
+                    'status' => 'sukses'
+                ]);
+            });
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Pembayaran Berhasil! Kasir akan segera mengkonfirmasi pesanan Anda.'
+            ], 200);
+
+        } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'Akun belum diverifikasi atau profil tidak ditemukan. Anda belum bisa generate QR.'
-            ], 403);
+                'message' => $e->getMessage()
+            ], 400); 
         }
-
-        // Validasi: Apakah saldo cukup untuk jajan? (Opsional, tapi bagus untuk UX)
-        if ($profile->saldo <= 0) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Saldo Anda Rp 0. Silakan isi ulang / tunggu pencairan beasiswa.'
-            ], 400);
-        }
-
-        // Buat Payload Data
-        $payload = [
-            'user_id' => $user->id,
-            'nim'     => $profile->nim,
-            'exp'     => now()->addMinutes(2)->timestamp // Hanya valid 2 menit dari sekarang
-        ];
-
-        // Enkripsi payload menjadi string rahasia menggunakan APP_KEY Laravel
-        // Hanya server Laravel kita yang bisa membuka gembok enkripsi ini nanti di mesin POS
-        $qrString = \Illuminate\Support\Facades\Crypt::encryptString(json_encode($payload));
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'QR Code berhasil di-generate',
-            'data' => [
-                'qr_string' => $qrString,
-                'valid_for_seconds' => 120, // Beri tahu Flutter untuk bikin timer mundur 2 menit
-                'generated_at' => now()->format('Y-m-d H:i:s')
-            ]
-        ], 200);
     }
 
     /**
-     * 5. GET TRANSACTION HISTORY API (Riwayat Jajan Mahasiswa)
+     * 5. GET TRANSACTION HISTORY API
      */
     public function transactions(Request $request)
     {
-        // 1. Eager Loading & Strict Authorization (Hanya tarik data milik user yang sedang login)
-        $transactions = \App\Models\Transaction::with('merchant.merchantProfile')
+        $transactions = Transaction::with('merchant.merchantProfile')
             ->where('user_id', $request->user()->id)
             ->whereIn('status', ['sukses', 'lunas'])
-            // Pastikan hanya menampilkan transaksi digital (QR), bukan tunai orang lain
             ->where('type', 'pembayaran_makanan') 
             ->latest()
-            ->paginate(15); // Ambil 15 data per halaman untuk Infinite Scroll Flutter
+            ->paginate(15); 
 
-        // 2. Data Transformation (Membuang data sensitif merchant seperti Fee LKBB)
         $formattedData = $transactions->getCollection()->map(function ($trx) {
-            
-            // Mencari nama kantin (Fallback ke nama user jika profil kantin belum lengkap)
             $namaKantin = $trx->merchant->merchantProfile->nama_kantin 
                           ?? $trx->merchant->name 
                           ?? 'Kantin Tidak Diketahui';
@@ -166,15 +166,14 @@ class MahasiswaAuthController extends Controller
             return [
                 'order_id'    => $trx->order_id,
                 'waktu'       => $trx->created_at->format('d M Y, H:i'),
-                'timestamp'   => $trx->created_at->timestamp, // Untuk sorting akurat di sisi Flutter
+                'timestamp'   => $trx->created_at->timestamp, 
                 'nama_kantin' => $namaKantin,
-                'deskripsi'   => str_replace('[QR] ', '', $trx->description), // Bersihkan teks '[QR]'
-                'nominal'     => (int) $trx->total_amount, // Cast ke integer agar di Flutter dibaca sebagai int, bukan string
+                'deskripsi'   => str_replace('[QR] ', '', $trx->description), 
+                'nominal'     => (int) $trx->total_amount, 
                 'status'      => $trx->status,
             ];
         });
 
-        // 3. Return JSON dengan Metadata Pagination
         return response()->json([
             'status' => 'success',
             'message' => 'Data riwayat transaksi berhasil diambil',
@@ -189,18 +188,15 @@ class MahasiswaAuthController extends Controller
     }
 
     /**
-     * 6. UPDATE AVATAR API (Simpan ke kolom ktm_image di mahasiswa_profiles)
+     * 6. UPDATE AVATAR API
      */
     public function updateAvatar(Request $request)
     {
-        // 1. Validasi Input dari Flutter
         $request->validate([
             'avatar' => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
         ]);
 
         $user = $request->user();
-        
-        // KUNCI UTAMA: Kita panggil tabel profil mahasiswanya
         $profile = $user->mahasiswaProfile;
 
         if (!$profile) {
@@ -211,15 +207,11 @@ class MahasiswaAuthController extends Controller
         }
 
         try {
-            // 2. Jika sebelumnya sudah ada gambar di ktm_image, hapus agar storage tidak bengkak
             if ($profile->ktm_image && Storage::disk('public')->exists($profile->ktm_image)) {
                 Storage::disk('public')->delete($profile->ktm_image);
             }
 
-            // 3. Simpan file gambar baru ke folder 'avatars' di public storage
             $path = $request->file('avatar')->store('avatars', 'public');
-
-            // 4. Update kolom 'ktm_image' di tabel 'mahasiswa_profiles'
             $profile->ktm_image = $path;
             $profile->save();
 
@@ -240,19 +232,16 @@ class MahasiswaAuthController extends Controller
     }
 
     /**
-     * 7. UPDATE PROFILE API (Ubah No HP & Alamat)
+     * 7. UPDATE PROFILE API
      */
     public function updateProfile(Request $request)
     {
-        // Validasi input dari Flutter
         $request->validate([
             'no_hp'  => 'required|string|max:20',
             'alamat' => 'required|string',
         ]);
 
         $user = $request->user();
-        
-        // Pastikan tabel profil mahasiswa terhubung
         $profile = $user->mahasiswaProfile;
         
         if (!$profile) {
@@ -262,7 +251,6 @@ class MahasiswaAuthController extends Controller
             ], 404);
         }
 
-        // Update data di database
         $profile->no_hp = $request->no_hp;
         $profile->alamat = $request->alamat;
         $profile->save();

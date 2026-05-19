@@ -17,8 +17,8 @@ Route::post('/login', [MahasiswaAuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile', [MahasiswaAuthController::class, 'profile']);
     Route::post('/logout', [MahasiswaAuthController::class, 'logout']);
-    Route::get('/generate-qr', [MahasiswaAuthController::class, 'generateQr']);
     Route::post('/update-avatar', [MahasiswaAuthController::class, 'updateAvatar']);
     Route::post('/update-profile', [MahasiswaAuthController::class, 'updateProfile']);
     Route::get('/transactions', [MahasiswaAuthController::class, 'transactions']);
+    Route::post('/pay-qr', [MahasiswaAuthController::class, 'payQr']);
 });
