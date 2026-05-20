@@ -86,6 +86,9 @@ class MahasiswaAuthController extends Controller
      * 4. PAY QR (Fitur Scan Mahasiswa ke Layar Kantin)
      * Ini dipanggil oleh Flutter saat mahasiswa men-scan QR yang muncul di laptop Ibu Kantin.
      */
+    /**
+     * 4. PAY QR (Fitur Scan Mahasiswa ke Layar Kantin)
+     */
     public function payQr(Request $request)
     {
         $request->validate([
@@ -112,21 +115,40 @@ class MahasiswaAuthController extends Controller
 
                 // 3. Validasi Saldo Mahasiswa
                 if ($profileMhs->saldo < $trx->total_amount) {
-                    throw new \Exception('Saldo beasiswa Anda (' . number_format($profileMhs->saldo, 0, ',', '.') . ') tidak mencukupi untuk tagihan ini (' . number_format($trx->total_amount, 0, ',', '.') . ').');
+                    throw new \Exception('Saldo beasiswa Anda tidak mencukupi untuk transaksi ini.');
                 }
 
-                // 4. Potong Saldo Mahasiswa
+                // 4. Potong Saldo Mahasiswa (Dipotong full sesuai harga jual menu)
                 $profileMhs->decrement('saldo', $trx->total_amount);
 
-                // 5. Tambahkan Saldo ke Dompet Kantin (setelah dipotong fee LKBB)
+                // =========================================================================
+                // 🔥 LOGIKA BARU: SPLIT PAYMENT SCFS (BAGI HASIL DAN MODAL)
+                // =========================================================================
+                // Hak LKBB     = Harga Pokok (Modal Barang) + Fee LKBB (Bagi hasil keuntungan)
+                // Hak Merchant = Keuntungan Bersih Kantin setelah dipotong modal & fee lkbb
+                $hakLkbb = $trx->total_pokok + $trx->fee_lkbb; 
+                $hakMerchant = ($trx->total_amount - $trx->total_pokok) - $trx->fee_lkbb; 
+
+                // 5. Masukkan keuntungan bersih ke dompet digital kantin
                 $merchantProfile = MerchantProfile::where('user_id', $trx->merchant_id)
                                     ->lockForUpdate()
                                     ->firstOrFail();
-                                    
-                $hakMerchant = $trx->total_amount - $trx->fee_lkbb; 
                 $merchantProfile->increment('saldo_token', $hakMerchant);
 
-                // 6. Ubah status transaksi POS menjadi SUKSES
+                // 6. Masukkan Modal + Bagi Hasil ke Dompet Operasional LKBB
+                $walletOperasional = \App\Models\Wallet::where('type', 'LKBB_OPERATIONAL')->first();
+                if ($walletOperasional) {
+                    $walletOperasional->increment('balance', $hakLkbb);
+                } else {
+                    // Opsional: Buat dompetnya otomatis jika belum pernah dibuat sama sekali
+                    \App\Models\Wallet::create([
+                        'type' => 'LKBB_OPERATIONAL',
+                        'balance' => $hakLkbb
+                    ]);
+                }
+                // =========================================================================
+
+                // 7. Ubah status transaksi POS menjadi SUKSES & catat penanggung jawab bayar
                 $trx->update([
                     'user_id' => $mahasiswa->id, 
                     'status' => 'sukses'
@@ -135,7 +157,7 @@ class MahasiswaAuthController extends Controller
 
             return response()->json([
                 'status' => 'success',
-                'message' => 'Pembayaran Berhasil! Kasir akan segera mengkonfirmasi pesanan Anda.'
+                'message' => 'Pembayaran Berhasil! Silakan ambil makanan Anda.'
             ], 200);
 
         } catch (\Exception $e) {

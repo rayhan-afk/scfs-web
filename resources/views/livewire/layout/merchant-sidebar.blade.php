@@ -13,9 +13,9 @@ new class extends Component
 }; ?>
 
 @php
-    // Logika deteksi menu aktif untuk Merchant
+    // Logika deteksi menu aktif untuk Merchant (DITAMBAHKAN merchant.pesanan-online)
     $isPasokActive = request()->routeIs('merchant.order', 'merchant.penerimaan');
-    $isJualActive = request()->routeIs('merchant.pos', 'merchant.riwayat');
+    $isJualActive = request()->routeIs('merchant.pos', 'merchant.riwayat', 'merchant.pesanan-online');
     $isKasActive = request()->routeIs('merchant.withdraw', 'merchant.setoran');
     $isPengaturanActive = request()->routeIs('merchant.katalog', 'merchant.profile');
 @endphp
@@ -130,6 +130,10 @@ new class extends Component
             <div x-show="jualOpen && sidebarOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mt-2 space-y-1 px-2 border-l-2 border-white/20 ml-4">
                 <a href="{{ route('merchant.pos') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('merchant.pos') ? 'text-[#059669] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-emerald-100 hover:text-white hover:bg-white/10 font-semibold' }}">
                     Mesin Kasir (POS)
+                </a>
+                {{-- MENU BARU DITAMBAHKAN DI SINI --}}
+                <a href="{{ route('merchant.pesanan-online') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('merchant.pesanan-online') ? 'text-[#059669] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-emerald-100 hover:text-white hover:bg-white/10 font-semibold' }}">
+                    Dapur (Pesanan Online)
                 </a>
                 <a href="{{ route('merchant.riwayat') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('merchant.riwayat') ? 'text-[#059669] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-emerald-100 hover:text-white hover:bg-white/10 font-semibold' }}">
                     Riwayat Penjualan

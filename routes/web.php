@@ -10,7 +10,7 @@ use App\Livewire\Pemasok\PesananMasuk;
 use App\Livewire\Pemasok\RiwayatProduksi;
 use App\Livewire\Pemasok\PengirimanLogistik;
 use App\Livewire\Pemasok\TarikDana;
-use App\Livewire\Lkbb\ApprovalPo; // <-- IMPORT CLASS BARU LKBB
+use App\Livewire\Lkbb\ApprovalPo; 
 
 /*
 |--------------------------------------------------------------------------
@@ -86,18 +86,23 @@ Route::middleware(['auth'])->group(function () {
     // LKBB ROUTES
     // ----------------------------------------------------------
     Volt::route('/lkbb/dashboard', 'dashboard.lkbb')->name('lkbb.dashboard');
+    
+    // 🔥 ROUTE BARU: LAPORAN BRANKAS INTI (DETAIL DARI CARD DASHBOARD)
+    Volt::route('/lkbb/brankas/investasi', 'lkbb.brankas.investasi')->name('lkbb.brankas.investasi');
+    Volt::route('/lkbb/brankas/donasi', 'lkbb.brankas.donasi')->name('lkbb.brankas.donasi');
+    Volt::route('/lkbb/brankas/operasional', 'lkbb.brankas.operasional')->name('lkbb.brankas.operasional');
+    Volt::route('/lkbb/brankas/perputaran', 'lkbb.brankas.perputaran')->name('lkbb.brankas.perputaran');
+
     Volt::route('/lkbb/wallets', 'lkbb.wallet-index')->name('lkbb.wallets');
-
     Route::view('/lkbb/products', 'livewire.lkbb.product-index')->name('products.index');
-
     Volt::route('/users', 'lkbb.user-management')->name('users.index');
 
+    // Token
     Volt::route('/lkbb/injeksi-saldo', 'lkbb.keuangan.injeksi-saldo')->name('lkbb.injeksi-saldo');
     Volt::route('/lkbb/riwayat-injeksi', 'lkbb.keuangan.riwayat-injeksi')->name('lkbb.riwayat-injeksi');
 
-    // Supply Chain (ROUTE BARU ZERO RISK)
+    // Supply Chain
     Route::get('/lkbb/approval-scf', ApprovalPo::class)->name('lkbb.scf.approval');
-    // Tambahkan tepat di bawah Route::get('/scf/approval', ...);
     Route::view('/lkbb/scf/riwayat', 'livewire.lkbb.riwayat-po')->name('lkbb.scf.riwayat');
 
     // Approval Master Data
@@ -129,6 +134,10 @@ Route::middleware(['auth'])->group(function () {
     // ----------------------------------------------------------
     Volt::route('/merchant/dashboard', 'dashboard.merchant')->name('merchant.dashboard');
     Volt::route('/merchant/pos', 'merchant.pos-merchant')->name('merchant.pos');
+    
+    // ROUTE BARU: DAPUR PESANAN ONLINE
+    Volt::route('/merchant/pesanan-online', 'merchant.pesanan-online')->name('merchant.pesanan-online');
+    
     Volt::route('/merchant/withdraw', 'merchant.withdraw')->name('merchant.withdraw');
     Volt::route('/merchant/katalog', 'merchant.katalog')->name('merchant.katalog');
     Volt::route('/merchant/profile', 'merchant.profile')->name('merchant.profile');
@@ -136,7 +145,6 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/merchant/riwayat', 'merchant.riwayat')->name('merchant.riwayat');
     Volt::route('/merchant/penerimaan', 'merchant.penerimaan')->name('merchant.penerimaan');
     Volt::route('/merchant/setoran', 'merchant.setoran')->name('merchant.setoran');
-    // Top-up Merchant dihapus karena sekarang menggunakan skema LKBB Financing
 
     // ----------------------------------------------------------
     // PEMASOK ROUTES
@@ -149,8 +157,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/pemasok/pesanan-masuk', PesananMasuk::class)->name('pemasok.pesanan-masuk');
     Route::get('/pemasok/tarik-dana', TarikDana::class)->name('pemasok.tarik-dana');
     Route::get('/pemasok/pengiriman', PengirimanLogistik::class)->name('pemasok.pengiriman');
-    // Pengajuan Dana LKBB (Pemasok) dihapus karena otomatis cair dari Approval PO Merchant
 
-}); // PENUTUP MIDDLEWARE AUTH (Semua rute di atas aman!)
+}); 
 
 require __DIR__.'/auth.php';

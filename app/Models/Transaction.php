@@ -14,7 +14,8 @@ class Transaction extends Model
         'receiver_wallet_id', // <--- Tambahan baru
         'type', 
         'status', 
-        'total_amount', 
+        'total_amount',
+        'total_pokok', 
         'fee_lkbb',     // <--- Tambahan baru
         'description'
     ];

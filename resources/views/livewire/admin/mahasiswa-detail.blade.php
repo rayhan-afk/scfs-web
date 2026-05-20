@@ -25,7 +25,7 @@ class extends Component {
     }
 
     /**
-     * Mengambil riwayat transaksi ASLI dari database untuk mahasiswa ini.
+     * MURNI HANYA RIWAYAT JAJAN (PENGELUARAN KANTIN)
      */
     #[Computed]
     public function riwayatTransaksi()
@@ -37,7 +37,7 @@ class extends Component {
 
         return Transaction::with(['merchant.merchantProfile'])
             ->where('user_id', $this->user->id)
-            ->where('type', 'pembayaran_makanan') // 🟢 TAMBAHKAN BARIS INI (Filter Khusus Jajan)
+            ->where('type', 'pembayaran_makanan') // 🔥 KEMBALI FOKUS HANYA KE TRANSAKSI MAKAN/JAJAN
             ->latest()
             ->get();
     }
@@ -85,11 +85,6 @@ class extends Component {
         $this->closeEditModal();
         session()->flash('message', 'Data profil mahasiswa berhasil diperbarui.');
     }
-
-    // CATATAN ENGINEER:
-    // Fungsi accPengajuan() saya HAPUS secara paksa. 
-    // Persetujuan dana HARUS dilakukan di panel LKBB yang memiliki Pessimistic Locking 
-    // dan pemotongan saldo Donasi. Jangan pernah mem-bypass alur keuangan dari sini!
 
 }; ?>
 
@@ -262,7 +257,7 @@ class extends Component {
         
         <div class="p-0 overflow-x-auto">
             
-            {{-- KONTEN TAB: TRANSAKSI (REAL DATA) --}}
+            {{-- KONTEN TAB: TRANSAKSI (HANYA JAJAN) --}}
             @if($activeTab == 'transaksi')
             <table class="w-full text-left border-collapse">
                 <thead class="bg-white text-gray-400 text-[10px] uppercase font-bold tracking-wider border-b border-gray-100">
@@ -281,23 +276,13 @@ class extends Component {
                             <div class="text-[10px] text-gray-500">{{ $trx->created_at->format('d M Y, H:i') }}</div>
                         </td>
                         <td class="px-6 py-4">
-                            @if($trx->type === 'pembayaran_makanan')
-                                <div class="font-bold text-sm text-gray-900">
-                                    {{ $trx->merchant->merchantProfile->nama_kantin ?? 'Kantin Tidak Diketahui' }}
-                                </div>
-                                <div class="text-[10px] text-gray-500 uppercase tracking-wider flex items-center gap-1 mt-0.5">
-                                    <svg class="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    {{ $trx->description ?? 'Pengeluaran (Jajan)' }}
-                                </div>
-                            @elseif($trx->type === 'penerimaan_bantuan')
-                                <div class="font-bold text-sm text-gray-900">Pencairan Dana LKBB</div>
-                                <div class="text-[10px] text-gray-500 uppercase tracking-wider flex items-center gap-1 mt-0.5">
-                                    <svg class="w-3 h-3 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    Pemasukan (Subsidi)
-                                </div>
-                            @else
-                                <div class="font-bold text-sm text-gray-900">{{ ucwords(str_replace('_', ' ', $trx->type)) }}</div>
-                            @endif
+                            <div class="font-bold text-sm text-gray-900">
+                                {{ $trx->merchant->merchantProfile->nama_kantin ?? 'Kantin Tidak Diketahui' }}
+                            </div>
+                            <div class="text-[10px] text-gray-500 uppercase tracking-wider flex items-center gap-1 mt-0.5">
+                                <svg class="w-3 h-3 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                {{ $trx->description ?? 'Pengeluaran (Jajan)' }}
+                            </div>
                         </td>
                         <td class="px-6 py-4 text-center">
                             @if(in_array($trx->status, ['sukses', 'lunas']))
@@ -306,8 +291,8 @@ class extends Component {
                                 <span class="bg-red-50 text-red-600 text-[10px] px-2.5 py-1 rounded-md font-bold uppercase tracking-wider">Gagal</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 font-extrabold text-sm text-right {{ $trx->type === 'penerimaan_bantuan' ? 'text-emerald-600' : 'text-gray-900' }}">
-                            {{ $trx->type === 'penerimaan_bantuan' ? '+' : '-' }} Rp {{ number_format($trx->total_amount, 0, ',', '.') }}
+                        <td class="px-6 py-4 font-extrabold text-sm text-right text-gray-900">
+                            - Rp {{ number_format($trx->total_amount, 0, ',', '.') }}
                         </td>
                     </tr>
                     @empty
@@ -315,7 +300,7 @@ class extends Component {
                         <td colspan="4" class="px-6 py-16 text-center">
                             <div class="text-4xl text-gray-300 mx-auto mb-3 opacity-50">💸</div>
                             <p class="text-gray-500 text-sm font-medium">Belum ada riwayat transaksi.</p>
-                            <p class="text-gray-400 text-xs mt-1">Transaksi akan muncul otomatis ketika mahasiswa berbelanja.</p>
+                            <p class="text-gray-400 text-xs mt-1">Transaksi akan muncul otomatis ketika mahasiswa berbelanja di kantin.</p>
                         </td>
                     </tr>
                     @endforelse

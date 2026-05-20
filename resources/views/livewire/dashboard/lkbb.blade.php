@@ -15,26 +15,33 @@ class extends Component {
 
     public function with()
     {
+        // Standar status sukses yang baru di sistem kita
+        $statusSukses = ['sukses', 'lunas'];
+
         // ---------------------------------------------------------
         // 1. DATA KARTU (REAL-TIME BALANCE DARI 3 BRANKAS LKBB)
         // ---------------------------------------------------------
         
-        // A. DOMPET INVESTASI (Sumber Modal Ekosistem)
         $walletInvestasi = Wallet::where('type', 'LKBB_INVESTMENT')->first();
         $saldoInvestasi = $walletInvestasi ? $walletInvestasi->balance : 0;
 
-        // B. DOMPET DONASI (Sumber Beasiswa Mahasiswa)
         $walletDonasi = Wallet::where('type', 'LKBB_DONATION')->first();
         $saldoDonasi = $walletDonasi ? $walletDonasi->balance : 0;
 
-        // C. DOMPET OPERASIONAL (Keuntungan Bersih LKBB dari Fee Transaksi)
         $walletOperasional = Wallet::where('type', 'LKBB_OPERATIONAL')->first();
         $saldoOperasional = $walletOperasional ? $walletOperasional->balance : 0;
 
-        // D. TOTAL PERPUTARAN UANG (Volume Ekosistem Bulan Ini)
-        $trxBulanIni = Transaction::where('status', 'lunas') // Asumsi transaksi sukses
+        // D. TOTAL PERPUTARAN UANG (GMV Ekosistem Bulan Ini)
+        $trxBulanIni = Transaction::whereIn('status', $statusSukses) 
             ->whereMonth('created_at', Carbon::now()->month)
+            ->whereYear('created_at', Carbon::now()->year)
             ->sum('total_amount');
+
+        // E. TOTAL LABA BERSIH LKBB BULAN INI (Hanya Fee LKBB)
+        $labaBulanIni = Transaction::whereIn('status', $statusSukses)
+            ->whereMonth('created_at', Carbon::now()->month)
+            ->whereYear('created_at', Carbon::now()->year)
+            ->sum('fee_lkbb');
 
         // ---------------------------------------------------------
         // 2. DATA GRAFIK (Cash Flow & Volume)
@@ -45,7 +52,7 @@ class extends Component {
                 DB::raw('SUM(total_amount) as total'),
                 DB::raw('MONTH(created_at) as month')
             )
-            ->where('status', 'lunas')
+            ->whereIn('status', $statusSukses)
             ->where('created_at', '>=', Carbon::now()->subMonths(6))
             ->groupBy('month')
             ->pluck('total', 'month')
@@ -64,6 +71,7 @@ class extends Component {
                 DB::raw('DATE(created_at) as date'), 
                 DB::raw('COUNT(*) as total_trx')
             )
+            ->whereIn('status', $statusSukses) // FIX: Hanya hitung yang sukses
             ->where('created_at', '>=', Carbon::now()->subDays(7))
             ->groupBy('date')
             ->orderBy('date', 'ASC')
@@ -83,9 +91,9 @@ class extends Component {
         }
 
         // ---------------------------------------------------------
-        // 3. TABEL TRANSAKSI TERBARU
+        // 3. TABEL TRANSAKSI TERBARU (Include Merchant Name)
         // ---------------------------------------------------------
-        $recentTransactions = Transaction::with('user')
+        $recentTransactions = Transaction::with(['user', 'merchant'])
             ->latest()
             ->take(5)
             ->get();
@@ -95,14 +103,13 @@ class extends Component {
             'saldoDonasi' => $saldoDonasi,
             'saldoOperasional' => $saldoOperasional,
             'trxBulanIni' => $trxBulanIni,
+            'labaBulanIni' => $labaBulanIni, // Variabel Baru
             
-            // Grafik
             'chartLabels' => $chartLabels,
             'chartValues' => $chartValues,
             'lineChartLabels' => $lineChartLabels,
             'lineChartValues' => $lineChartValues,
             
-            // Tabel
             'recentTransactions' => $recentTransactions,
         ];
     }
@@ -112,7 +119,6 @@ class extends Component {
     {
         return [
             'bantuan_mahasiswa' => \App\Models\PengajuanBantuan::where('status', 'diajukan')->count(), 
-            // Opsional: Cek jika ada tabel withdrawal
             'withdrawals' => \App\Models\Withdrawal::where('status', 'pending')->count(), 
             'users' => \App\Models\User::where('role', 'merchant')->whereNull('email_verified_at')->count()
         ];
@@ -132,13 +138,13 @@ class extends Component {
         <div class="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-2xl p-6 text-white shadow-lg shadow-blue-200 relative overflow-hidden group">
             <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
             <div class="relative z-10">
-                <p class="text-blue-100 text-sm font-medium mb-1">Dompet Investasi (Modal)</p>
+                <p class="text-blue-100 text-sm font-medium mb-1">Dompet Investasi (Induk)</p>
                 <h3 class="text-3xl font-bold">
                     Rp {{ number_format($saldoInvestasi, 0, ',', '.') }}
                 </h3>
                 <div class="mt-4 flex items-center gap-2 text-xs bg-blue-800/50 w-fit px-2 py-1 rounded-lg backdrop-blur-sm">
                     <svg class="w-3 h-3 text-blue-300" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zM9 11H7v-2h2V7h2v2h2v2h-2v2H9v-2z"></path></svg>
-                    <span>Dana Siap Suntik</span>
+                    <span>Dana Awal Ekosistem</span>
                 </div>
             </div>
         </div>
@@ -157,36 +163,39 @@ class extends Component {
             </div>
         </div>
 
+        {{-- UPDATE: GANTI LABEL AGAR LEBIH AKURAT --}}
         <div class="bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl p-6 text-white shadow-lg shadow-green-200 relative overflow-hidden group">
             <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10 transition-transform group-hover:scale-110"></div>
             <div class="relative z-10">
-                <p class="text-green-100 text-sm font-medium mb-1">Dompet Operasional (Laba)</p>
+                <p class="text-green-100 text-sm font-medium mb-1">Dompet Operasional (Sirkulasi)</p>
                 <h3 class="text-3xl font-bold">
                     Rp {{ number_format($saldoOperasional, 0, ',', '.') }}
                 </h3>
                 <div class="mt-4 flex items-center gap-2 text-xs bg-green-800/30 w-fit px-2 py-1 rounded-lg backdrop-blur-sm">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg>
-                    <span>Dari Potongan Admin</span>
+                    <span>Menampung Modal + Fee</span>
                 </div>
             </div>
         </div>
 
+        {{-- UPDATE: TAMBAH INSIGHT FEE LKBB BULAN INI --}}
         <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm relative overflow-hidden">
              <div class="absolute top-4 right-4 p-2 bg-purple-100 rounded-lg text-purple-600">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
             </div>
-            <p class="text-gray-500 text-sm font-medium mb-1">Perputaran Bulan Ini</p>
-            <h3 class="text-2xl font-bold text-gray-800">
+            <p class="text-gray-500 text-sm font-medium mb-1">Perputaran Volume (Bulan Ini)</p>
+            <h3 class="text-2xl font-bold text-gray-800 truncate">
                 Rp {{ number_format($trxBulanIni, 0, ',', '.') }}
             </h3>
-            <div class="mt-4 flex items-center gap-1 text-xs text-purple-600 font-medium">
-                <span>Total ekosistem (Sukses)</span>
+            <div class="mt-4 flex flex-col gap-1 text-xs font-medium">
+                <span class="text-gray-500">Estimasi Laba LKBB:</span>
+                <span class="text-emerald-600 font-bold bg-emerald-50 px-2 py-1 rounded w-fit">+ Rp {{ number_format($labaBulanIni, 0, ',', '.') }}</span>
             </div>
         </div>
     </div>
 
+    {{-- ALERTS --}}
     <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-    
         @if($this->pendingAlerts['bantuan_mahasiswa'] > 0)
         <div class="bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-lg shadow-sm flex items-start justify-between">
             <div class="flex items-center">
@@ -214,12 +223,13 @@ class extends Component {
         @endif
     </div>
 
+    {{-- CHARTS --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm" wire:ignore>
             <div class="flex justify-between items-start mb-6">
                 <div>
                     <h3 class="font-bold text-gray-800 text-lg">Grafik Perputaran Ekosistem</h3>
-                    <p class="text-xs text-gray-400">Total volume uang berputar per bulan</p>
+                    <p class="text-xs text-gray-400">Total volume uang sukses per bulan</p>
                 </div>
             </div>
             <div class="relative h-64 w-full">
@@ -231,7 +241,7 @@ class extends Component {
             <div class="flex justify-between items-start mb-6">
                 <div>
                     <h3 class="font-bold text-gray-800 text-lg">Frekuensi Transaksi Harian</h3>
-                    <p class="text-xs text-gray-400">Jumlah aktivitas di aplikasi</p>
+                    <p class="text-xs text-gray-400">Jumlah aktivitas sukses di aplikasi</p>
                 </div>
             </div>
             <div class="relative h-64 w-full">
@@ -240,6 +250,7 @@ class extends Component {
         </div>
     </div>
 
+    {{-- RECENT TRANSACTIONS --}}
     <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm mb-8">
          <div class="flex justify-between items-center mb-6">
             <h3 class="font-bold text-gray-800 text-lg">Catatan Transaksi Terbaru</h3>
@@ -249,40 +260,61 @@ class extends Component {
             <table class="w-full text-left border-collapse">
                 <thead>
                     <tr class="text-xs text-gray-400 border-b border-gray-100 uppercase tracking-wider">
-                        <th class="py-3 px-4 font-semibold">Tipe Transaksi</th>
-                        <th class="py-3 px-4 font-semibold">User Pelaku</th>
+                        <th class="py-3 px-4 font-semibold">Merchant (Kantin)</th>
+                        <th class="py-3 px-4 font-semibold">Tipe Pembayaran</th>
                         <th class="py-3 px-4 font-semibold">Tanggal</th>
-                        <th class="py-3 px-4 font-semibold">Nominal</th>
-                        <th class="py-3 px-4 font-semibold">Status</th>
+                        <th class="py-3 px-4 font-semibold text-right">Nominal GMV</th>
+                        <th class="py-3 px-4 font-semibold text-right">Fee LKBB</th>
+                        <th class="py-3 px-4 font-semibold text-center">Status</th>
                     </tr>
                 </thead>
                 <tbody class="text-sm text-gray-600 divide-y divide-gray-50">
                     @forelse($recentTransactions as $trx)
                     <tr class="hover:bg-gray-50 transition group">
-                        <td class="py-4 px-4 font-bold text-gray-700 uppercase text-xs">
-                            {{ $trx->type }}
-                        </td>
+                        
+                        {{-- Nama Merchant --}}
                         <td class="py-4 px-4">
-                            <div class="font-medium text-gray-800">{{ optional($trx->user)->name ?? 'Sistem / Guest' }}</div>
+                            <div class="font-bold text-gray-800">{{ optional($trx->merchant)->name ?? 'Kantin Tidak Diketahui' }}</div>
+                            <div class="text-[10px] text-gray-500 mt-0.5">Pembeli: {{ optional($trx->user)->name ?? 'Umum/Guest' }}</div>
                         </td>
-                        <td class="py-4 px-4 text-gray-500">{{ $trx->created_at->format('d M Y - H:i') }}</td>
-                        <td class="py-4 px-4 font-bold text-gray-800">Rp {{ number_format($trx->total_amount, 0, ',', '.') }}</td>
+
+                        {{-- Tipe Transaksi Dipercantik --}}
                         <td class="py-4 px-4">
+                            @if($trx->type === 'pembayaran_makanan_tunai')
+                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-amber-50 text-amber-700 text-[10px] font-bold uppercase border border-amber-200">
+                                    💵 Laci Tunai
+                                </span>
+                            @elseif($trx->type === 'pembayaran_makanan')
+                                <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-blue-50 text-blue-700 text-[10px] font-bold uppercase border border-blue-200">
+                                    💳 QR Beasiswa
+                                </span>
+                            @else
+                                <span class="text-xs font-bold text-gray-500 uppercase">{{ str_replace('_', ' ', $trx->type) }}</span>
+                            @endif
+                        </td>
+
+                        <td class="py-4 px-4 text-xs font-medium text-gray-500">{{ $trx->created_at->format('d M Y, H:i') }}</td>
+                        
+                        <td class="py-4 px-4 font-bold text-gray-900 text-right">Rp {{ number_format($trx->total_amount, 0, ',', '.') }}</td>
+                        
+                        <td class="py-4 px-4 font-bold text-emerald-600 text-right">+Rp {{ number_format($trx->fee_lkbb, 0, ',', '.') }}</td>
+
+                        <td class="py-4 px-4 text-center">
                             @php
                                 $statusClass = match($trx->status) {
-                                    'lunas', 'success', 'paid' => 'bg-green-50 text-green-600 border border-green-100',
+                                    'sukses', 'lunas', 'paid' => 'bg-green-50 text-green-600 border border-green-100',
                                     'pending' => 'bg-yellow-50 text-yellow-600 border border-yellow-100',
                                     'failed' => 'bg-red-50 text-red-600 border border-red-100',
                                     default => 'bg-gray-50 text-gray-600 border border-gray-100'
                                 };
                             @endphp
-                            <span class="{{ $statusClass }} px-3 py-1 rounded-full text-xs font-bold capitalize">
+                            <span class="{{ $statusClass }} px-3 py-1 rounded text-[10px] font-extrabold uppercase tracking-wider">
                                 {{ $trx->status }}
                             </span>
                         </td>
                     </tr>
                     @empty
-                    <tr><td colspan="5" class="text-center py-8 text-gray-400">Belum ada transaksi di sistem.</td></tr>
+                    <tr><td colspan="6" class="text-center py-8 text-gray-400">Belum ada transaksi di sistem.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -301,7 +333,7 @@ class extends Component {
                 data: {
                     labels: @json($chartLabels),
                     datasets: [{
-                        label: 'Volume Berputar (Rp)',
+                        label: 'Volume Sukses (Rp)',
                         data: @json($chartValues),
                         backgroundColor: '#6366F1', // Indigo color
                         borderRadius: 4,
@@ -332,7 +364,7 @@ class extends Component {
                 data: {
                     labels: @json($lineChartLabels),
                     datasets: [{
-                        label: 'Jumlah Transaksi',
+                        label: 'Transaksi Sukses',
                         data: @json($lineChartValues),
                         borderColor: '#10B981',
                         backgroundColor: gradient,

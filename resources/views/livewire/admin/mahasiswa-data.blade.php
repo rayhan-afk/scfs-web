@@ -36,7 +36,11 @@ class extends Component {
             $status = strtolower(str_replace(' ', '_', $this->activeTab));
             $query->whereHas('mahasiswaProfile', function($q) use ($status) {
                 if ($status == 'belum_diajukan') {
-                    $q->whereNull('status_bantuan')->orWhere('status_bantuan', 'belum_diajukan');
+                    // MENGAMBIL YANG BENAR-BENAR NULL ATAU STRING 'belum_diajukan'
+                    $q->where(function($sub) {
+                        $sub->whereNull('status_bantuan')
+                            ->orWhere('status_bantuan', 'belum_diajukan');
+                    });
                 } else {
                     $q->where('status_bantuan', $status);
                 }

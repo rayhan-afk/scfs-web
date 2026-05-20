@@ -125,7 +125,7 @@ class extends Component {
                     $deskripsiTransaksi[] = "{$item['qty']}x {$realProduct->nama_produk}";
                 }
                 
-                $persentaseLKBB = $merchant->persentase_bagi_hasil ?? 0;
+                $persentaseLKBB = $merchant->persentase_fee_merchant ?? 0;
                 $feeLKBB = ($dbTotalProfit * $persentaseLKBB) / 100;
                 $tagihanKeLKBB = $dbTotalPokok + $feeLKBB; 
 
@@ -137,6 +137,7 @@ class extends Component {
                     'merchant_id' => $merchant->user_id,
                     'type'        => 'pembayaran_makanan_tunai',
                     'total_amount'=> $dbTotalAmount,
+                    'total_pokok' => $dbTotalPokok,
                     'fee_lkbb'    => $feeLKBB,
                     'status'      => 'sukses',
                     'description' => '[UMUM] ' . implode(', ', $deskripsiTransaksi)
@@ -180,7 +181,7 @@ class extends Component {
                     $deskripsiTransaksi[] = "{$item['qty']}x {$realProduct->nama_produk}";
                 }
                 
-                $persentaseLKBB = $merchant->persentase_bagi_hasil ?? 0;
+                $persentaseLKBB = $merchant->persentase_fee_merchant ?? 0;
                 $feeLKBB = ($dbTotalProfit * $persentaseLKBB) / 100;
                 
                 $this->pendingOrderId = 'DIG-' . strtoupper(uniqid());
@@ -191,6 +192,7 @@ class extends Component {
                     'merchant_id' => $merchant->user_id,
                     'type'        => 'pembayaran_makanan', 
                     'total_amount'=> $dbTotalAmount,
+                    'total_pokok' => $dbTotalPokok,
                     'fee_lkbb'    => $feeLKBB,
                     'status'      => 'pending',
                     'description' => '[QR] ' . implode(', ', $deskripsiTransaksi)

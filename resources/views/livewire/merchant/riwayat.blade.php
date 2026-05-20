@@ -15,7 +15,7 @@ class extends Component {
     use WithPagination;
 
     public $search = '';
-    public $dateRange = 'all'; 
+    public $dateRange = 'today'; // Default ke hari ini agar laporannya fokus ke uang harian
     public $typeFilter = 'semua'; 
 
     public function updatedSearch() { $this->resetPage(); }
@@ -57,21 +57,44 @@ class extends Component {
     }
 
     /**
-     * UPDATE: Pemisahan Agregasi Fee Digital vs Fee Tunai
+     * UPDATE LOGIKA KEUANGAN (MENGIKUTI KONSEP TOTAL POKOK + FEE LKBB)
      */
     #[Computed]
     public function summary()
     {
-        $queryDigital = (clone $this->baseQuery)->where('type', 'pembayaran_makanan');
-        $queryTunai = (clone $this->baseQuery)->where('type', 'pembayaran_makanan_tunai');
+        $allTx = (clone $this->baseQuery)->get();
+        $tunaiTx = $allTx->where('type', 'pembayaran_makanan_tunai');
+        $digitalTx = $allTx->where('type', 'pembayaran_makanan');
+
+        // Total Volume Jualan
+        $totalVolume = $allTx->sum('total_amount');
         
+        // 1. Hak Merchant (Laba Bersih Kantin) = (Total Jual - Harga Pokok LKBB) - Fee LKBB
+        $hakMerchantDigital = $digitalTx->sum(function ($trx) {
+            return ($trx->total_amount - $trx->total_pokok) - $trx->fee_lkbb;
+        });
+        $hakMerchantTunai = $tunaiTx->sum(function ($trx) {
+            return ($trx->total_amount - $trx->total_pokok) - $trx->fee_lkbb;
+        });
+        $totalHakMerchant = $hakMerchantDigital + $hakMerchantTunai;
+
+        // 2. Hak LKBB (Pengembalian Modal + Keuntungan LKBB) = Harga Pokok + Fee LKBB
+        $hakLkbbDigital = $digitalTx->sum(function ($trx) {
+            return $trx->total_pokok + $trx->fee_lkbb;
+        });
+        $hakLkbbTunai = $tunaiTx->sum(function ($trx) {
+            return $trx->total_pokok + $trx->fee_lkbb;
+        });
+
+        // 3. Uang Fisik di Laci Kantin
+        $uangFisikLaci = $tunaiTx->sum('total_amount');
+
         return [
-            'total_volume'   => (clone $this->baseQuery)->sum('total_amount'),
-            'total_transaksi'=> (clone $this->baseQuery)->count(),
-            
-            // DIPISAH!
-            'fee_digital_lunas' => $queryDigital->sum('fee_lkbb'),
-            'fee_tunai_hutang'  => $queryTunai->sum('fee_lkbb'),
+            'total_transaksi'     => $allTx->count(),
+            'total_volume'        => $totalVolume,
+            'laba_bersih_kantin'  => $totalHakMerchant,
+            'uang_fisik_di_laci'  => $uangFisikLaci,
+            'setoran_wajib_lkbb'  => $hakLkbbTunai, // Uang fisik LKBB yang kebawa Kantin
         ];
     }
 }; ?>
@@ -80,65 +103,53 @@ class extends Component {
     
     <div class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-            <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Riwayat Penjualan</h2>
-            <p class="text-gray-500 text-sm mt-1">Pantau seluruh aliran kas masuk dari mesin POS Kantin Anda.</p>
+            <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Laporan Keuangan Kantin</h2>
+            <p class="text-gray-500 text-sm mt-1">Pantau transparansi laba bersih dan uang setoran modal titipan LKBB Anda.</p>
         </div>
         
-        <button class="px-4 py-2.5 bg-emerald-600 border border-emerald-200 text-white font-bold text-sm rounded-xl transition shadow-sm flex items-center gap-2 hover:bg-emerald-100 hover:text-emerald-700 group">
-            <svg class="w-4 h-4 text-white group-hover:text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <button class="px-4 py-2.5 bg-[#059669] border border-emerald-200 text-white font-bold text-sm rounded-xl transition shadow-sm flex items-center gap-2 hover:bg-emerald-700 group">
+            <svg class="w-4 h-4 text-emerald-100 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
             </svg>
-            Cetak Laporan
+            Unduh Laporan Excel
         </button>
     </div>
 
-    {{-- UPDATE: METRIC CARDS SEKARANG ADA 4 KOTAK UNTUK TRANSPARANSI --}}
+    {{-- KARTU RINGKASAN BARU (LEBIH RELEVAN) --}}
     <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 mb-6">
         
-        {{-- Total Volume --}}
-        <div class="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm flex items-center gap-4">
-            <div class="p-3 bg-emerald-50 text-emerald-600 rounded-xl">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-            <div>
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Volume Jualan</p>
-                <h3 class="text-xl font-extrabold text-gray-900 mt-0.5">Rp {{ number_format($this->summary['total_volume'], 0, ',', '.') }}</h3>
-            </div>
+        {{-- Total Jualan Keseluruhan --}}
+        <div class="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm flex flex-col justify-center relative overflow-hidden">
+             <div class="absolute right-0 top-0 opacity-5 w-24 h-24">
+                 <svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+             </div>
+             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Transaksi Masuk</p>
+             <h3 class="text-2xl font-extrabold text-gray-900">Rp {{ number_format($this->summary['total_volume'], 0, ',', '.') }}</h3>
+             <p class="text-[10px] text-gray-500 font-medium mt-1">Dari <strong>{{ number_format($this->summary['total_transaksi'], 0, ',', '.') }}</strong> Struk/Pesanan</p>
         </div>
 
-        {{-- Transaksi Sukses --}}
-        <div class="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm flex items-center gap-4">
-            <div class="p-3 bg-gray-50 text-gray-600 rounded-xl">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-            </div>
-            <div>
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Struk</p>
-                <h3 class="text-xl font-extrabold text-gray-900 mt-0.5">{{ number_format($this->summary['total_transaksi'], 0, ',', '.') }} <span class="text-sm font-medium text-gray-500">Struk</span></h3>
-            </div>
+        {{-- Laba Bersih Kantin --}}
+        <div class="bg-gradient-to-br from-[#059669] to-teal-700 rounded-2xl p-5 text-white shadow-lg shadow-emerald-200/50 flex flex-col justify-center">
+             <p class="text-[10px] font-bold text-emerald-100 uppercase tracking-wider mb-1">Laba Bersih Kantin</p>
+             <h3 class="text-2xl font-black">Rp {{ number_format($this->summary['laba_bersih_kantin'], 0, ',', '.') }}</h3>
+             <p class="text-[10px] text-emerald-50 mt-1 font-medium italic">Hak murni kantin (Modal & Fee sdh dipotong)</p>
         </div>
 
-        {{-- Fee Digital (Tercoret) --}}
-        <div class="bg-white rounded-2xl p-5 border border-blue-200 shadow-sm flex items-center gap-4">
-            <div class="p-3 bg-blue-50 text-blue-600 rounded-xl">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-            </div>
-            <div>
-                <p class="text-[10px] font-bold text-blue-500 uppercase tracking-wider">Fee Digital (Otomatis)</p>
-                <h3 class="text-xl font-extrabold text-gray-900 mt-0.5">- Rp {{ number_format($this->summary['fee_digital_lunas'], 0, ',', '.') }}</h3>
-                <p class="text-[9px] text-gray-400 italic leading-none mt-1">Sudah dipotong lunas</p>
-            </div>
+        {{-- Uang Tunai di Laci --}}
+        <div class="bg-white rounded-2xl p-5 border border-sky-200 shadow-sm flex flex-col justify-center bg-sky-50/20">
+             <p class="text-[10px] font-bold text-sky-600 uppercase tracking-wider mb-1">Uang Fisik (Laci Kasir)</p>
+             <h3 class="text-2xl font-extrabold text-gray-900">Rp {{ number_format($this->summary['uang_fisik_di_laci'], 0, ',', '.') }}</h3>
+             <p class="text-[10px] text-sky-600 font-bold mt-1 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                Hasil dari pembeli umum
+             </p>
         </div>
 
-        {{-- Fee Tunai (Hutang Fisik) --}}
-        <div class="bg-rose-50 rounded-2xl p-5 border border-rose-200 shadow-sm flex items-center gap-4">
-            <div class="p-3 bg-white text-rose-600 rounded-xl shadow-sm">
-                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-            <div>
-                <p class="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Hutang Kasir (Tunai)</p>
-                <h3 class="text-xl font-extrabold text-rose-700 mt-0.5">- Rp {{ number_format($this->summary['fee_tunai_hutang'], 0, ',', '.') }}</h3>
-                <p class="text-[9px] text-rose-500 italic leading-none mt-1">Wajib disetor fisik</p>
-            </div>
+        {{-- Setoran Wajib LKBB --}}
+        <div class="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-5 text-white shadow-lg shadow-amber-200/50 flex flex-col justify-center relative overflow-hidden group">
+             <p class="text-[10px] font-bold text-amber-100 uppercase tracking-wider mb-1">Setoran Wajib ke LKBB</p>
+             <h3 class="text-2xl font-black">Rp {{ number_format($this->summary['setoran_wajib_lkbb'], 0, ',', '.') }}</h3>
+             <p class="text-[10px] text-amber-50 mt-1 font-bold italic">Pengembalian Modal Barang + Fee (Tunai)</p>
         </div>
     </div>
 
@@ -155,9 +166,9 @@ class extends Component {
 
         <div class="flex flex-col sm:flex-row gap-3">
             <select wire:model.live="typeFilter" class="py-2.5 pl-4 pr-10 text-sm font-bold text-gray-700 bg-gray-50 border-transparent rounded-xl focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100 cursor-pointer">
-                <option value="semua">Semua Tipe Kasir</option>
-                <option value="digital">💳 Beasiswa (Digital)</option>
-                <option value="tunai">💵 Umum (Tunai)</option>
+                <option value="semua">Semua Jalur Kasir</option>
+                <option value="digital">💳 Beasiswa Mahasiswa</option>
+                <option value="tunai">💵 Umum (Tunai Laci)</option>
             </select>
 
             <select wire:model.live="dateRange" class="py-2.5 pl-4 pr-10 text-sm font-bold text-gray-700 bg-gray-50 border-transparent rounded-xl focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100 cursor-pointer">
@@ -169,69 +180,78 @@ class extends Component {
         </div>
     </div>
 
-    {{-- TABEL DATA TRANSAKSI --}}
+    {{-- TABEL DATA TRANSAKSI (DENGAN RINCIAN SPLIT) --}}
     <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse min-w-max">
                 <thead class="bg-gray-50/80 text-gray-400 text-[10px] uppercase font-extrabold tracking-wider border-b border-gray-100">
                     <tr>
-                        <th class="px-6 py-4">Waktu & Order ID</th>
-                        <th class="px-6 py-4">Deskripsi Pesanan</th>
-                        <th class="px-6 py-4">Tipe Pembayaran</th>
-                        <th class="px-6 py-4 text-right">Volume Transaksi</th>
-                        <th class="px-6 py-4 text-right">Status Potongan Fee</th>
+                        <th class="px-5 py-4">Waktu & ID</th>
+                        <th class="px-5 py-4">Menu Terjual</th>
+                        <th class="px-5 py-4 text-center">Harga Jual</th>
+                        <th class="px-5 py-4 text-center">Modal Barang (HPP)</th>
+                        <th class="px-5 py-4 text-right">Laba Kantin</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse($this->transactions as $trx)
+                        @php
+                            // Perhitungan baris ini
+                            $hakLKBB = $trx->total_pokok + $trx->fee_lkbb;
+                            $labaKantin = $trx->total_amount - $hakLKBB;
+                        @endphp
                         <tr class="hover:bg-gray-50/50 transition-colors group">
-                            <td class="px-6 py-4">
+                            {{-- KOLOM 1: Waktu & ID --}}
+                            <td class="px-5 py-4">
                                 <div class="text-xs font-bold text-gray-900 font-mono">{{ $trx->order_id }}</div>
                                 <div class="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
                                     <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    {{ $trx->created_at->format('d M Y, H:i') }}
+                                    {{ $trx->created_at->format('d M y, H:i') }}
                                 </div>
+                                @if($trx->type === 'pembayaran_makanan_tunai')
+                                    <span class="inline-block mt-2 px-2 py-0.5 rounded bg-amber-50 text-amber-700 text-[8px] font-extrabold uppercase border border-amber-200">💵 Laci Tunai</span>
+                                @else
+                                    <span class="inline-block mt-2 px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-[8px] font-extrabold uppercase border border-blue-200">💳 QR Beasiswa</span>
+                                @endif
                             </td>
                             
-                            <td class="px-6 py-4 max-w-xs">
+                            {{-- KOLOM 2: Deskripsi Menu --}}
+                            <td class="px-5 py-4 max-w-[200px]">
                                 <div class="text-xs font-medium text-gray-700 line-clamp-2 leading-relaxed">
                                     {{ str_replace(['[QR] ', '[TUNAI] '], '', $trx->description) }}
                                 </div>
                             </td>
                             
-                            <td class="px-6 py-4">
-                                @if($trx->type === 'pembayaran_makanan_tunai')
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 text-[10px] font-extrabold uppercase tracking-wider border border-amber-200">
-                                        💵 Tunai
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 text-[10px] font-extrabold uppercase tracking-wider border border-blue-200">
-                                        💳 Beasiswa
-                                    </span>
-                                @endif
+                            {{-- KOLOM 3: Harga Jual (Uang Masuk) --}}
+                            <td class="px-5 py-4 text-center">
+                                <div class="text-sm font-extrabold text-gray-900">Rp{{ number_format($trx->total_amount, 0, ',', '.') }}</div>
                             </td>
                             
-                            <td class="px-6 py-4 text-right">
-                                <div class="text-sm font-extrabold text-gray-900">Rp {{ number_format($trx->total_amount, 0, ',', '.') }}</div>
-                            </td>
-                            
-                            <td class="px-6 py-4 text-right">
-                                <div class="text-xs font-bold text-rose-500 bg-rose-50 inline-block px-2 py-0.5 rounded border border-rose-100">
-                                    -Rp {{ number_format($trx->fee_lkbb, 0, ',', '.') }}
+                            {{-- KOLOM 4: Potongan Modal & Fee (Hak LKBB) --}}
+                            <td class="px-5 py-4 text-center">
+                                <div class="text-xs font-bold text-rose-600 bg-rose-50 inline-block px-2.5 py-1 rounded-md border border-rose-100">
+                                    -Rp {{ number_format($hakLKBB, 0, ',', '.') }}
                                 </div>
                                 @if($trx->type === 'pembayaran_makanan_tunai')
-                                    <div class="text-[9px] text-rose-500 mt-1 font-bold">Wajib disetor fisik</div>
+                                    <div class="text-[8px] text-rose-500 mt-1 font-bold">Jadi hutang setoran</div>
                                 @else
-                                    <div class="text-[9px] text-blue-500 mt-1 font-bold">Lunas (Dipotong dari Digital)</div>
+                                    <div class="text-[8px] text-emerald-600 mt-1 font-bold">Dipotong Otomatis</div>
                                 @endif
+                            </td>
+
+                            {{-- KOLOM 5: Laba Bersih Kantin --}}
+                            <td class="px-5 py-4 text-right">
+                                <div class="text-sm font-extrabold text-emerald-600 bg-emerald-50 border border-emerald-100 inline-block px-3 py-1.5 rounded-lg shadow-sm">
+                                    + Rp {{ number_format($labaKantin, 0, ',', '.') }}
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
                             <td colspan="5" class="px-6 py-20 text-center">
                                 <div class="text-5xl mb-4 opacity-30 flex justify-center">🧾</div>
-                                <h3 class="text-sm font-bold text-gray-600">Tidak ada data transaksi ditemukan.</h3>
-                                <p class="text-xs text-gray-400 mt-1">Ubah filter tanggal atau pencarian Anda.</p>
+                                <h3 class="text-sm font-bold text-gray-600">Belum ada penjualan hari ini.</h3>
+                                <p class="text-xs text-gray-400 mt-1">Ubah filter tanggal untuk melihat hari lainnya.</p>
                             </td>
                         </tr>
                     @endforelse

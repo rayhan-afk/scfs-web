@@ -16,12 +16,12 @@ new class extends Component
     // Logika untuk mendeteksi menu mana yang sedang aktif
     $isTokenActive = request()->routeIs('lkbb.injeksi-saldo', 'lkbb.riwayat-injeksi');
     $isApprovalActive = request()->routeIs('approval.*', 'supply-chain.approval');
-    $isMasterDompetActive = request()->is('keuangan/mahasiswa*', 'keuangan/merchant*', 'keuangan/pemasok*') || request()->routeIs('saldo.bantuan');
-    
-    // PERUBAHAN DISINI: Hanya deteksi route lkbb.scf.approval
-    $isOperasionalActive = request()->routeIs('lkbb.scf.approval');
-    
+    $isOperasionalActive = request()->routeIs('lkbb.scf.approval', 'lkbb.scf.riwayat');
     $isSetoranActive = request()->routeIs('keuangan.penagihan', 'keuangan.riwayat-fee');
+    
+    // DETEKSI AKTIF UNTUK DROPDOWN BRANKAS INTI BARU
+    $isBrankasIntiActive = request()->routeIs('lkbb.brankas.*') || request()->is('lkbb/brankas/*');
+    
     $isKeuanganActive = request()->is('keuangan/pencairan*') || request()->routeIs('lkbb.wallets', 'lkbb.withdraw.merchant.approval', 'lkbb.withdraw.pemasok.approval');
 @endphp
 
@@ -71,15 +71,46 @@ new class extends Component
             :class="sidebarOpen ? '' : 'justify-center'" 
             title="Dashboard">
 
-            <svg class="w-6 h-6 flex-shrink-0 transition-colors
-                {{ request()->routeIs('lkbb.dashboard') 
-                    ? 'text-[#4338CA]' 
-                    : 'text-indigo-300 group-hover:text-white' }}"
-                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="w-6 h-6 flex-shrink-0 transition-colors {{ request()->routeIs('lkbb.dashboard') ? 'text-[#4338CA]' : 'text-indigo-300 group-hover:text-white' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6z M14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z M4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z M14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
             </svg>
             <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">Dashboard</span>
         </a>
+
+        {{-- ========================================================================= --}}
+        {{-- MENU BARU: LAPORAN BRANKAS INTI (DIBUKA DEFAULT & TANPA EMOJI)            --}}
+        {{-- ========================================================================= --}}
+        <div x-data="{ brankasOpen: true }" class="mt-1">
+            <button 
+                @click="if(!sidebarOpen) sidebarOpen = true; brankasOpen = !brankasOpen"
+                class="w-full flex items-center justify-between px-3 py-3 text-[15px] font-bold rounded-xl transition-all duration-200 group
+                {{ $isBrankasIntiActive ? 'bg-white/20 text-white' : 'text-indigo-100 hover:bg-white/10 hover:text-white' }}"
+                :class="sidebarOpen ? '' : 'justify-center'" title="Laporan Brankas">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 flex-shrink-0 transition-colors {{ $isBrankasIntiActive ? 'text-white' : 'text-indigo-300 group-hover:text-white' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <span x-show="sidebarOpen" class="ml-3 whitespace-nowrap">Laporan Brankas Inti</span>
+                </div>
+                <svg x-show="sidebarOpen" :class="{'rotate-180': brankasOpen}" class="w-4 h-4 transition-transform duration-300 {{ $isBrankasIntiActive ? 'text-white' : 'text-indigo-300' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+            <div x-show="brankasOpen && sidebarOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mt-2 space-y-1 px-2 border-l-2 border-white/20 ml-4">
+                <a href="{{ route('lkbb.brankas.investasi') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.brankas.investasi') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
+                    Log Alokasi Modal (Investasi)
+                </a>
+                <a href="{{ route('lkbb.brankas.donasi') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.brankas.donasi') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
+                    Log Beasiswa (Donasi)
+                </a>
+                <a href="{{ route('lkbb.brankas.operasional') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.brankas.operasional') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
+                    Log Sirkulasi (Operasional)
+                </a>
+                <a href="{{ route('lkbb.brankas.perputaran') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.brankas.perputaran') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
+                    Audit Volume & Perputaran
+                </a>
+            </div>
+        </div>
 
         <div x-data="{ tokenOpen: true }" class="mt-1">
             <button 
@@ -139,41 +170,9 @@ new class extends Component
         </div>
 
         <div x-show="sidebarOpen" x-transition class="px-4 mb-1 mt-6 text-xs font-bold text-indigo-300 uppercase tracking-widest whitespace-nowrap border-t border-white/10 pt-4">
-            Data Saldo
-        </div>
-
-        <div x-data="{ masterDompetOpen: true }" class="mt-1">
-            <button 
-                @click="if(!sidebarOpen) sidebarOpen = true; masterDompetOpen = !masterDompetOpen"
-                class="w-full flex items-center justify-between px-3 py-3 text-[15px] font-bold rounded-xl transition-all duration-200 group
-                {{ $isMasterDompetActive ? 'bg-white/20 text-white' : 'text-indigo-100 hover:bg-white/10 hover:text-white' }}"
-                :class="sidebarOpen ? '' : 'justify-center'" title="Master Dompet">
-                <div class="flex items-center">
-                    <svg class="w-6 h-6 flex-shrink-0 transition-colors {{ $isMasterDompetActive ? 'text-white' : 'text-indigo-300 group-hover:text-white' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                    </svg>
-                    <span x-show="sidebarOpen" class="ml-3 whitespace-nowrap">Master Dompet</span>
-                </div>
-                <svg x-show="sidebarOpen" :class="{'rotate-180': masterDompetOpen}" class="w-4 h-4 transition-transform duration-300 {{ $isMasterDompetActive ? 'text-white' : 'text-indigo-300' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            <div x-show="masterDompetOpen && sidebarOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mt-2 space-y-1 px-2 border-l-2 border-white/20 ml-4">
-                <a href="{{ route('saldo.bantuan') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('saldo.bantuan') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
-                    Dompet Mahasiswa
-                </a>
-                <a href="{{ route('keuangan.merchant') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('keuangan.merchant') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
-                    Dompet Merchant
-                </a>
-                <a href="{{ route('keuangan.pemasok') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('keuangan.pemasok') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
-                    Dompet Pemasok
-                </a>
-            </div>
-        </div>
-
-        <div x-show="sidebarOpen" x-transition class="px-4 mb-1 mt-6 text-xs font-bold text-indigo-300 uppercase tracking-widest whitespace-nowrap border-t border-white/10 pt-4">
             Operasional
         </div>
 
-        {{-- PERUBAHAN DISINI: Menu Rantai Pasok yang sudah dibersihkan --}}
         <div x-data="{ operasionalOpen: true }" class="mt-1">
             <button @click="if(!sidebarOpen) sidebarOpen = true; operasionalOpen = !operasionalOpen" 
                     class="w-full flex items-center justify-between px-3 py-3 text-[15px] font-bold rounded-xl transition-all duration-200 group {{ $isOperasionalActive ? 'bg-white/20 text-white' : 'text-indigo-100 hover:bg-white/10 hover:text-white' }}"
@@ -186,16 +185,12 @@ new class extends Component
             </button>
 
             <div x-show="operasionalOpen && sidebarOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mt-2 space-y-1 px-2 border-l-2 border-white/20 ml-4">
-                
-                {{-- Hanya menyisakan menu Approval PO Pemasok --}}
                 <a href="{{ route('lkbb.scf.approval') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.scf.approval') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
                     Approval PO Pemasok
                 </a>
-
                 <a href="{{ route('lkbb.scf.riwayat') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.scf.riwayat') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
                     Riwayat Pendanaan PO
                 </a>
-                
             </div>
         </div>
 
@@ -262,7 +257,7 @@ new class extends Component
         <div class="h-6"></div>
     </nav>
 
-    {{-- User Profile & Logout (PASTI MUNCUL) --}}
+    {{-- User Profile & Logout --}}
     <div class="p-4 border-t border-white/10 bg-black/20 shrink-0">
         <div class="flex items-center gap-3 mb-4 px-1" :class="sidebarOpen ? '' : 'justify-center'">
             <div class="h-10 w-10 flex-shrink-0 rounded-full bg-white flex items-center justify-center text-[#4338CA] font-extrabold text-base shadow-md border-2 border-transparent relative">
