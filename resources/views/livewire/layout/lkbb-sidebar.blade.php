@@ -22,7 +22,7 @@ new class extends Component
     // DETEKSI AKTIF UNTUK DROPDOWN BRANKAS INTI BARU
     $isBrankasIntiActive = request()->routeIs('lkbb.brankas.*') || request()->is('lkbb/brankas/*');
     
-    $isKeuanganActive = request()->is('keuangan/pencairan*') || request()->routeIs('lkbb.wallets', 'lkbb.withdraw.merchant.approval', 'lkbb.withdraw.pemasok.approval');
+    $isKeuanganActive = request()->is('keuangan/pencairan*') || request()->routeIs('lkbb.withdraw.merchant.approval', 'lkbb.withdraw.pemasok.approval');
 @endphp
 
 <aside 
@@ -239,9 +239,6 @@ new class extends Component
             </button>
 
             <div x-show="keuanganOpen && sidebarOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mt-2 space-y-1 px-2 border-l-2 border-white/20 ml-4">
-                <a href="{{ route('lkbb.wallets') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.wallets') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
-                    Saldo & Wallet Utama
-                </a>
                 <a href="{{ route('lkbb.withdraw.merchant.approval') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.withdraw.merchant.approval') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
                     Approval WD Merchant
                 </a>

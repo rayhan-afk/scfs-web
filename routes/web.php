@@ -93,7 +93,6 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/lkbb/brankas/operasional', 'lkbb.brankas.operasional')->name('lkbb.brankas.operasional');
     Volt::route('/lkbb/brankas/perputaran', 'lkbb.brankas.perputaran')->name('lkbb.brankas.perputaran');
 
-    Volt::route('/lkbb/wallets', 'lkbb.wallet-index')->name('lkbb.wallets');
     Route::view('/lkbb/products', 'livewire.lkbb.product-index')->name('products.index');
     Volt::route('/users', 'lkbb.user-management')->name('users.index');
 
