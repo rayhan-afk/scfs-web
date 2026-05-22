@@ -1,3 +1,4 @@
+
 <div class="max-w-4xl mx-auto py-6 space-y-6">
     
     @if (session()->has('message'))
@@ -46,22 +47,22 @@
 
             <form wire:submit.prevent="simpanInformasi" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Nama Perusahaan/Grosir</label>
+                    <label class="block text-sm font-medium text-gray-700">Nama Pemilik (Sesuai KTP)</label>
                     @if($isEditing)
-                        <input type="text" wire:model="nama_usaha" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        @error('nama_usaha') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                        <input type="text" wire:model="nama_pemilik" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                        @error('nama_pemilik') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                     @else
-                        <p class="mt-1 text-gray-900 bg-gray-50 p-2 rounded-md border border-transparent">{{ $nama_usaha ?: '-' }}</p>
+                        <p class="mt-1 text-gray-900 bg-gray-50 p-2 rounded-md border border-transparent">{{ $nama_pemilik ?: '-' }}</p>
                     @endif
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700">Nomor HP / WhatsApp Aktif</label>
+                    <label class="block text-sm font-medium text-gray-700">NIK</label>
                     @if($isEditing)
-                        <input type="text" wire:model="no_hp" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        @error('no_hp') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                        <input type="text" wire:model="nik" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                        @error('nik') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                     @else
-                        <p class="mt-1 text-gray-900 bg-gray-50 p-2 rounded-md border border-transparent">{{ $no_hp ?: '-' }}</p>
+                        <p class="mt-1 text-gray-900 bg-gray-50 p-2 rounded-md border border-transparent">{{ $nik ?: '-' }}</p>
                     @endif
                 </div>
 

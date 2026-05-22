@@ -9,16 +9,10 @@ use App\Models\SupplierProfile;
 new #[Layout('layouts.lkbb')] class extends Component {
     use WithPagination;
 
-    public $selectedSupplier = null;
+    // Cukup simpan ID-nya saja agar aman dari bug fungsi re-render Livewire
+    public $selectedSupplierId = null; 
     public bool $showModal = false;
-    
-    // Form States
     public string $catatan_penolakan = ''; 
-
-    // Toast Notification States
-    public bool $showToast = false;
-    public string $toastType = '';
-    public string $toastMessage = '';
 
     #[Computed]
     public function pendingSuppliers()
@@ -29,9 +23,17 @@ new #[Layout('layouts.lkbb')] class extends Component {
             ->paginate(10);
     }
 
+    // Ambil data secara dinamis berdasarkan ID yang aktif
+    #[Computed]
+    public function selectedSupplier()
+    {
+        if (!$this->selectedSupplierId) return null;
+        return SupplierProfile::with('user')->find($this->selectedSupplierId);
+    }
+
     public function openModal($id)
     {
-        $this->selectedSupplier = SupplierProfile::with('user')->findOrFail($id);
+        $this->selectedSupplierId = $id;
         $this->catatan_penolakan = ''; 
         $this->showModal = true;
     }
@@ -39,64 +41,45 @@ new #[Layout('layouts.lkbb')] class extends Component {
     public function closeModal()
     {
         $this->showModal = false;
-        $this->selectedSupplier = null;
+        $this->selectedSupplierId = null;
         $this->resetValidation();
-    }
-
-    public function dismissToast()
-    {
-        $this->showToast = false;
-        $this->toastType = '';
-        $this->toastMessage = '';
     }
 
     public function approveSupplier()
     {
-        if (!$this->selectedSupplier || $this->selectedSupplier->status_verifikasi !== 'menunggu_review') {
-            $this->toastType = 'error';
-            $this->toastMessage = 'Aksi tidak valid atau status pemasok sudah berubah.';
-            $this->showToast = true;
-            return $this->closeModal();
+        $supplier = $this->selectedSupplier; // Panggil lewat computed
+        if (!$supplier || $supplier->status_verifikasi !== 'menunggu_review') {
+            $this->closeModal();
+            $this->dispatch('show-toast', type: 'error', message: 'Aksi tidak valid atau status pemasok sudah berubah.');
+            return;
         }
 
-        $namaUsaha = $this->selectedSupplier->nama_usaha;
-
-        $this->selectedSupplier->update([
-            'status_verifikasi' => 'disetujui',
-        ]);
+        $namaUsaha = $supplier->nama_usaha;
+        $supplier->update(['status_verifikasi' => 'disetujui']);
         
         $this->closeModal();
-
-        $this->toastType = 'success';
-        $this->toastMessage = "Pemasok {$namaUsaha} berhasil disetujui dan diaktifkan!";
-        $this->showToast = true;
+        $this->dispatch('show-toast', type: 'success', message: "Pemasok {$namaUsaha} berhasil disetujui dan diaktifkan!");
     }
 
     public function rejectSupplier()
     {
-        $this->validate([
-            'catatan_penolakan' => 'required|string|min:5'
-        ]);
+        $this->validate(['catatan_penolakan' => 'required|string|min:5']);
 
-        if (!$this->selectedSupplier || $this->selectedSupplier->status_verifikasi !== 'menunggu_review') {
-            $this->toastType = 'error';
-            $this->toastMessage = 'Aksi tidak valid.';
-            $this->showToast = true;
-            return $this->closeModal();
+        $supplier = $this->selectedSupplier; // Panggil lewat computed
+        if (!$supplier || $supplier->status_verifikasi !== 'menunggu_review') {
+            $this->closeModal();
+            $this->dispatch('show-toast', type: 'error', message: 'Aksi tidak valid.');
+            return;
         }
 
-        $namaUsaha = $this->selectedSupplier->nama_usaha;
-
-        $this->selectedSupplier->update([
+        $namaUsaha = $supplier->nama_usaha;
+        $supplier->update([
             'status_verifikasi' => 'ditolak',
             'catatan_penolakan' => $this->catatan_penolakan
         ]);
         
         $this->closeModal();
-
-        $this->toastType = 'error';
-        $this->toastMessage = "Pendaftaran {$namaUsaha} berhasil ditolak.";
-        $this->showToast = true;
+        $this->dispatch('show-toast', type: 'error', message: "Pendaftaran {$namaUsaha} berhasil ditolak.");
     }
 }; ?>
 
@@ -141,6 +124,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
     {{-- ===== TOAST NOTIFICATION ===== --}}
     <div
         x-show="showToast"
+        x-cloak
         x-transition:enter="transition ease-out duration-400"
         x-transition:enter-start="opacity-0 translate-y-6 scale-95"
         x-transition:enter-end="opacity-100 translate-y-0 scale-100"
@@ -148,7 +132,6 @@ new #[Layout('layouts.lkbb')] class extends Component {
         x-transition:leave-start="opacity-100 translate-y-0 scale-100"
         x-transition:leave-end="opacity-0 translate-y-6 scale-95"
         class="fixed bottom-6 right-6 z-[9999] w-full max-w-sm"
-        style="display: none;"
     >
         {{-- SUCCESS --}}
         <div x-show="toastType === 'success'" class="flex items-start gap-4 bg-white border border-green-100 rounded-2xl shadow-2xl shadow-green-100/60 p-5 relative overflow-hidden">
@@ -159,7 +142,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
                 </svg>
             </div>
             <div class="flex-1 pt-0.5 min-w-0">
-                <p class="text-sm font-black text-gray-900">Pemasok Disetujui!</p>
+                <p class="text-sm font-black text-gray-900">Berhasil!</p>
                 <p class="text-xs text-gray-500 mt-1 leading-relaxed" x-text="toastMessage"></p>
                 <div class="mt-3 h-1 bg-green-100 rounded-full overflow-hidden">
                     <div x-show="showToast && toastType === 'success'"
@@ -183,7 +166,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
                 </svg>
             </div>
             <div class="flex-1 pt-0.5 min-w-0">
-                <p class="text-sm font-black text-gray-900">Pendaftaran Ditolak</p>
+                <p class="text-sm font-black text-gray-900">Pemberitahuan</p>
                 <p class="text-xs text-gray-500 mt-1 leading-relaxed" x-text="toastMessage"></p>
                 <div class="mt-3 h-1 bg-red-100 rounded-full overflow-hidden">
                     <div x-show="showToast && toastType === 'error'"
@@ -198,10 +181,10 @@ new #[Layout('layouts.lkbb')] class extends Component {
     </div>
     {{-- ===== END TOAST ===== --}}
 
-
     {{-- ===== CUSTOM CONFIRM DIALOG ===== --}}
     <div
         x-show="showConfirm"
+        x-cloak
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0"
         x-transition:enter-end="opacity-100"
@@ -209,7 +192,6 @@ new #[Layout('layouts.lkbb')] class extends Component {
         x-transition:leave-start="opacity-100"
         x-transition:leave-end="opacity-0"
         class="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm"
-        style="display: none;"
     >
         <div
             x-show="showConfirm"
@@ -262,7 +244,6 @@ new #[Layout('layouts.lkbb')] class extends Component {
         </div>
     </div>
     {{-- ===== END CONFIRM DIALOG ===== --}}
-
 
     <div class="flex justify-between items-center mb-6">
         <div>
@@ -318,130 +299,157 @@ new #[Layout('layouts.lkbb')] class extends Component {
     </div>
 
     {{-- Modal Review --}}
-    @if($showModal && $selectedSupplier)
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
-            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-5xl flex flex-col max-h-[90vh] overflow-hidden">
+@if($showModal && $this->selectedSupplier)
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl mx-auto flex flex-col max-h-[90vh] overflow-hidden">
+            
+            {{-- Modal Header --}}
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900">Verifikasi Dokumen Pemasok / Grosir</h3>
+                    <p class="text-[11px] text-gray-500 uppercase tracking-wider font-bold mt-1">ID PENGAJUAN: SC-SUPP-{{ str_pad($this->selectedSupplier->id, 4, '0', STR_PAD_LEFT) }}</p>
+                </div>
+                <button wire:click="closeModal" class="text-gray-400 hover:text-gray-600 transition p-1.5 rounded-lg hover:bg-gray-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+           {{-- Modal Body --}}
+<div class="px-6 py-4 overflow-y-auto flex-1 bg-white">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        
+        {{-- Kolom Kiri: Data Teks --}}
+        <div class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <span class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Nama Usaha / Grosir</span>
+                    <span class="block text-sm font-bold text-gray-900">{{ $this->selectedSupplier->nama_usaha ?? '-' }}</span>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <span class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Nama Pemilik</span>
+                    <span class="block text-sm font-bold text-gray-900">{{ $this->selectedSupplier->nama_pemilik ?? '-' }}</span>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <span class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">NIK</span>
+                    <span class="block text-sm font-bold text-gray-900">{{ $this->selectedSupplier->nik ?? '-' }}</span>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <span class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">No WhatsApp</span>
+                    <span class="block text-sm font-bold text-gray-900">{{ $this->selectedSupplier->no_hp ?? '-' }}</span>
+                </div>
                 
-                <div class="px-8 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <div>
-                        <h3 class="text-xl font-black text-gray-900">Verifikasi Data Pemasok</h3>
-                        <p class="text-[10px] text-blue-600 uppercase tracking-widest font-black mt-1">ID REG: SC-SUPP-{{ str_pad($selectedSupplier->id, 4, '0', STR_PAD_LEFT) }}</p>
-                    </div>
-                    <button wire:click="closeModal" class="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
+                {{-- Alamat --}}
+                <div class="col-span-2 bg-gray-50 p-3 rounded-xl border border-gray-100">
+                    <span class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Alamat Gudang</span>
+                    <span class="block text-sm font-bold text-gray-900">{{ $this->selectedSupplier->alamat_gudang ?? '-' }}</span>
                 </div>
-
-                <div class="p-8 overflow-y-auto flex-1 bg-white">
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                        
-                        {{-- Sisi Kiri: Informasi --}}
-                        <div class="space-y-6">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div class="col-span-2 bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Alamat Gudang / Kantor</span>
-                                    <span class="text-sm font-bold text-gray-800">{{ $selectedSupplier->alamat_gudang }}</span>
-                                </div>
-                                <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
-                                    <span class="text-[10px] font-bold text-blue-400 uppercase tracking-widest block mb-1">Info Rekening</span>
-                                    <span class="text-sm font-black text-blue-800">{{ $selectedSupplier->info_rekening ?? '-' }}</span>
-                                </div>
-                                <div class="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                                    <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">NIK Pemilik</span>
-                                    <span class="text-sm font-bold text-gray-800">{{ $selectedSupplier->nik }}</span>
-                                </div>
-                            </div>
-
-                            <div class="bg-red-50 p-5 rounded-2xl border border-red-100">
-                                <label class="block text-[10px] font-bold text-red-700 uppercase tracking-widest mb-3">Catatan Penolakan (Wajib jika ditolak)</label>
-                                <textarea wire:model="catatan_penolakan" class="w-full text-sm rounded-xl border-red-200 focus:ring-red-500 bg-white" rows="3" placeholder="Sebutkan kekurangan data pemasok..."></textarea>
-                                @error('catatan_penolakan') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-
-                        {{-- Sisi Kanan: Foto --}}
-                        <div class="grid grid-cols-1 gap-4">
-                            <div class="group relative">
-                                <span class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">Foto KTP Pemilik</span>
-                                <div class="rounded-2xl overflow-hidden border-2 border-gray-100">
-                                    @if($selectedSupplier->foto_ktp)
-                                        <img src="{{ asset('storage/' . $selectedSupplier->foto_ktp) }}" class="w-full h-48 object-cover">
-                                    @else
-                                        <div class="h-48 bg-gray-50 flex items-center justify-center text-xs text-gray-400 italic">Tidak ada foto KTP</div>
-                                    @endif
-                                </div>
-                            </div>
-                            <div class="group relative">
-                                <span class="text-[10px] font-bold text-gray-400 uppercase mb-2 block">Foto Depan Gudang/Usaha</span>
-                                <div class="rounded-2xl overflow-hidden border-2 border-gray-100">
-                                    @if($selectedSupplier->foto_usaha)
-                                        <img src="{{ asset('storage/' . $selectedSupplier->foto_usaha) }}" class="w-full h-48 object-cover">
-                                    @else
-                                        <div class="h-48 bg-gray-50 flex items-center justify-center text-xs text-gray-400 italic">Tidak ada foto usaha</div>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-                {{-- Footer dengan tombol yang memicu custom confirm --}}
-                <div class="px-8 py-6 border-t border-gray-100 flex justify-between items-center bg-gray-50/50">
-                    <button wire:click="closeModal" class="px-6 py-3 text-sm font-bold text-gray-500 hover:text-gray-700 transition">Tutup</button>
-                    <div class="flex gap-4">
-                        {{-- Tombol Tolak → custom confirm merah --}}
-                        <button
-                            @click="openConfirm(
-                                'reject',
-                                'Tolak Pendaftaran Pemasok?',
-                                'Tindakan ini akan menolak pendaftaran pemasok. Pastikan catatan penolakan sudah diisi.',
-                                () => $wire.rejectSupplier()
-                            )"
-                            class="px-6 py-3 text-sm font-bold text-red-600 bg-white border border-red-200 rounded-2xl hover:bg-red-50 transition"
-                        >
-                            Tolak Pendaftaran
-                        </button>
-
-                        {{-- Tombol Setujui → custom confirm biru --}}
-                        <button
-                            @click="openConfirm(
-                                'approve',
-                                'Setujui Pendaftaran Pemasok?',
-                                'Pemasok akan langsung aktif dan dapat menggunakan sistem setelah disetujui.',
-                                () => $wire.approveSupplier()
-                            )"
-                            class="px-8 py-3 text-sm font-bold text-white bg-[#2463EB] rounded-2xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition flex items-center gap-2"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                            Setujui Pemasok
-                        </button>
+                
+                {{-- Info Rekening --}}
+                <div class="col-span-2 bg-blue-50/50 p-3 rounded-xl border border-blue-100">
+                    <span class="block text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1">Info Rekening</span>
+                    <div class="flex flex-col">
+                        @if($this->selectedSupplier->info_rekening)
+                            @php
+                                // Bongkar string JSON dari database menjadi array PHP
+                                  $rekening = is_array($this->selectedSupplier->info_rekening)
+                                    ? $this->selectedSupplier->info_rekening
+                                    : json_decode($this->selectedSupplier->info_rekening, true);
+                            @endphp
+                            
+                            <span class="text-sm font-bold text-blue-900">
+                                {{ $rekening['nama_bank'] ?? 'Bank Tidak Diisi' }}
+                            </span>
+                            <span class="text-[11px] text-blue-600 font-mono mt-0.5">
+                                {{ $rekening['nomor_rekening'] ?? '-' }} 
+                                @if(isset($rekening['nama_rekening'])) (a.n. {{ $rekening['nama_rekening'] }}) @endif
+                            </span>
+                        @else
+                            <span class="text-sm font-medium text-gray-400">Belum mengisi info rekening</span>
+                        @endif
                     </div>
                 </div>
             </div>
+
+            <hr class="border-gray-100">
+
+            {{-- Form Tolak --}}
+            <div class="bg-red-50 p-4 rounded-xl border border-red-100">
+                <label class="block text-[10px] font-bold text-red-700 uppercase tracking-wider mb-2">Alasan Penolakan (Jika Ingin Ditolak)</label>
+                <textarea wire:model="catatan_penolakan" class="w-full text-sm rounded-lg border-red-200 focus:border-red-500 focus:ring-red-500 bg-white" rows="3" placeholder="Cth: Foto KTP terpotong/buram..."></textarea>
+                @error('catatan_penolakan') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+            </div>
         </div>
 
-        {{-- Script untuk trigger toast setelah Livewire selesai --}}
-        <script>
-            document.addEventListener('livewire:initialized', () => {
-                Livewire.on('show-toast', (event) => {
-                    window.dispatchEvent(new CustomEvent('show-toast', { detail: event }));
-                });
-            });
-        </script>
-    @endif
+        {{-- Kolom Kanan: Foto Viewer --}}
+        <div class="space-y-4">
+            <div class="border border-gray-100 rounded-xl p-3 bg-white shadow-sm">
+                <span class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 text-center">Dokumen KTP</span>
+                @if($this->selectedSupplier->foto_ktp)
+                    <a href="{{ asset('storage/' . $this->selectedSupplier->foto_ktp) }}" target="_blank" class="block bg-gray-50 border border-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition">
+                        <img src="{{ asset('storage/' . $this->selectedSupplier->foto_ktp) }}" class="w-full h-40 object-cover object-center">
+                    </a>
+                    <p class="text-[10px] text-center text-gray-400 mt-2">Klik gambar untuk memperbesar</p>
+                @else
+                    <div class="w-full h-40 bg-gray-50 border border-gray-200 border-dashed rounded-lg flex flex-col items-center justify-center text-gray-400">
+                        <svg class="w-8 h-8 mb-1 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <span class="text-xs">File KTP tidak ditemukan</span>
+                    </div>
+                @endif
+            </div>
 
-    {{-- Livewire hook untuk toast setelah approveSupplier/rejectSupplier --}}
-    @if($showToast)
-        <script>
-            window.dispatchEvent(new CustomEvent('show-toast', {
-                detail: {
-                    type: @js($toastType),
-                    message: @js($toastMessage)
-                }
-            }));
-        </script>
-        {{ $this->dismissToast() }}
-    @endif
+            <div class="border border-gray-100 rounded-xl p-3 bg-white shadow-sm">
+                <span class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 text-center">Foto Depan Gudang/Usaha</span>
+                @if($this->selectedSupplier->foto_usaha)
+                    <a href="{{ asset('storage/' . $this->selectedSupplier->foto_usaha) }}" target="_blank" class="block bg-gray-50 border border-gray-200 rounded-lg overflow-hidden hover:opacity-90 transition">
+                        <img src="{{ asset('storage/' . $this->selectedSupplier->foto_usaha) }}" class="w-full h-40 object-cover object-center">
+                    </a>
+                    <p class="text-[10px] text-center text-gray-400 mt-2">Klik gambar untuk memperbesar</p>
+                @else
+                    <div class="w-full h-40 bg-gray-50 border border-gray-200 border-dashed rounded-lg flex flex-col items-center justify-center text-gray-400">
+                        <svg class="w-8 h-8 mb-1 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <span class="text-xs">File Foto tidak ditemukan</span>
+                    </div>
+                @endif
+            </div>
+        </div>
 
+    </div>
 </div>
+            {{-- Modal Footer --}}
+            <div class="px-6 py-4 border-t border-gray-100 flex justify-between items-center bg-gray-50">
+                <button wire:click="closeModal" class="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition focus:ring-4 focus:ring-gray-100">
+                    Kembali
+                </button>
+                <div class="flex gap-3">
+                    <button 
+                        @click="openConfirm(
+                            'reject',
+                            'Tolak Pendaftaran Pemasok?',
+                            'Tindakan ini akan menolak pendaftaran pemasok. Pastikan catatan penolakan sudah diisi.',
+                            () => $wire.rejectSupplier()
+                        )"
+                        class="px-5 py-2.5 text-sm font-bold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-xl transition focus:ring-4 focus:ring-red-100">
+                        Tolak Pengajuan
+                    </button>
+                    <button 
+                        @click="openConfirm(
+                            'approve',
+                            'Setujui Pendaftaran Pemasok?',
+                            'Pemasok akan langsung aktif dan dapat menggunakan sistem setelah disetujui.',
+                            () => $wire.approveSupplier()
+                        )"
+                        class="px-6 py-2.5 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl shadow-sm transition focus:ring-4 focus:ring-green-100 flex items-center gap-2">
+                        
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+
+                        Setujui & Aktifkan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
+</div>
+

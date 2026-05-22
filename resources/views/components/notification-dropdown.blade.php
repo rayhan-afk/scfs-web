@@ -62,7 +62,7 @@
             @forelse(auth()->user()->notifications->take(10) as $notification)
 
                 <div
-                    onclick="window.location='{{ $notification->data['url'] }}'"
+                     onclick="window.location='{{ $notification->data['url'] ?? '#' }}'"
                     class="px-5 py-4 border-b border-gray-50 hover:bg-blue-50 transition cursor-pointer {{ is_null($notification->read_at) ? 'bg-blue-50/40' : 'bg-white' }}"
                 >
 
@@ -77,12 +77,12 @@
                             <div class="flex justify-between items-start gap-3">
 
                                 <div>
-                                    <h4 class="text-sm font-bold text-gray-800">
-                                        {{ $notification->data['title'] }}
+                                   <h4 class="text-sm font-bold text-gray-800">
+                                        {{ $notification->data['title'] ?? 'Notifikasi Sistem' }}
                                     </h4>
 
                                     <p class="text-xs text-gray-500 mt-1 leading-relaxed">
-                                        {{ $notification->data['message'] }}
+                                        {{ $notification->data['message'] ?? 'Aktivitas baru tersedia.' }}
                                     </p>
                                 </div>
 

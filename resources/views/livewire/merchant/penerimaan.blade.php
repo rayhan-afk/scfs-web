@@ -224,14 +224,24 @@ class extends Component {
                         </div>
 
                     @elseif($order->status === 'selesai')
-                        <div class="w-full bg-emerald-50 p-4 rounded-xl border border-emerald-200 flex items-center gap-3">
-                            <div class="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0">
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+                        <div class="w-full flex flex-col gap-3">
+                            <div class="w-full bg-emerald-50 p-4 rounded-xl border border-emerald-200 flex items-center gap-3 shadow-sm">
+                                <div class="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+                                </div>
+                                <div class="text-left">
+                                    <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Selesai</p>
+                                    <p class="text-[10px] text-emerald-600 font-bold">Barang telah diterima.</p>
+                                </div>
                             </div>
-                            <div class="text-left">
-                                <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Selesai</p>
-                                <p class="text-[10px] text-emerald-600 font-bold">Stok telah masuk etalase.</p>
-                            </div>
+                            
+                            <a href="{{ route('merchant.form-return', $order->id) }}" 
+                               class="w-full bg-white border-2 border-rose-100 text-rose-600 font-bold py-2.5 rounded-xl hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 transition-all text-sm flex items-center justify-center gap-2 shadow-sm">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                Ajukan Komplain / Return
+                            </a>
                         </div>
                     @endif
                 </div>

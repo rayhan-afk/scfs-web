@@ -3,7 +3,7 @@
 namespace App\Livewire\Pemasok;
 
 use Livewire\Component;
-use Livewire\WithFileUploads; // TAMBAH INI UNTUK UPLOAD FILE
+use Livewire\WithFileUploads; 
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -11,15 +11,17 @@ use App\Models\SupplierProfile;
 
 class ProfilePemasok extends Component
 {
-    use WithFileUploads; // Wajib untuk handle file upload
+    use WithFileUploads; 
 
     // Navigasi Tab & UI State
     public $activeTab = 'informasi';
     public $isEditing = false;
     public $showRekeningModal = false;
 
-    // Data Form Informasi
+    // Data Form Informasi (PERBAIKAN: Menambahkan nama_pemilik dan nik)
     public $nama_usaha;
+    public $nama_pemilik;
+    public $nik;
     public $no_hp;
     public $alamat_gudang;
 
@@ -42,6 +44,7 @@ class ProfilePemasok extends Component
     public $current_password;
     public $password;
     public $password_confirmation;
+
     public function mount()
     {
         $user = Auth::user();
@@ -49,6 +52,8 @@ class ProfilePemasok extends Component
 
         if ($profil) {
             $this->nama_usaha = $profil->nama_usaha ?? '';
+            $this->nama_pemilik = $profil->nama_pemilik ?? ''; // PERBAIKAN: Load dari DB
+            $this->nik = $profil->nik ?? '';                   // PERBAIKAN: Load dari DB
             $this->no_hp = $profil->no_hp ?? '';
             $this->alamat_gudang = $profil->alamat_gudang ?? '';
             $this->info_rekening = $profil->info_rekening ?? '';
@@ -73,59 +78,65 @@ class ProfilePemasok extends Component
     public function simpanInformasi()
     {
         $this->validate([
-            'nama_usaha' => 'required|string|max:255',
-            'no_hp' => 'required|string|max:20',
+            'nama_usaha'    => 'required|string|max:255',
+            'nama_pemilik'  => 'required|string|max:255',
+            'nik'           => 'required|string|max:20',
+            'no_hp'         => 'required|string|max:20',
             'alamat_gudang' => 'required|string',
         ]);
 
         $user = Auth::user();
+
         SupplierProfile::updateOrCreate(
             ['user_id' => $user->id],
             [
-                'nama_usaha' => $this->nama_usaha,
-                'no_hp' => $this->no_hp,
-                'alamat_gudang' => $this->alamat_gudang,
+                'nama_usaha'        => $this->nama_usaha,
+                'nama_pemilik'      => $this->nama_pemilik,
+                'nik'               => $this->nik,
+                'no_hp'             => $this->no_hp,
+                'alamat_gudang'     => $this->alamat_gudang,
+                'status_verifikasi' => 'menunggu_review', // ← INI yang bikin muncul di admin!
             ]
         );
 
-        session()->flash('message', 'Informasi Usaha berhasil diperbarui!');
-        return redirect()->route('pemasok.profil'); 
+        $this->isEditing = false;
+        session()->flash('message', 'Informasi usaha berhasil diperbarui.');
     }
 
     public function simpanDokumen()
     {
         $this->validate([
-            'foto_ktp_baru' => 'nullable|image|max:2048', // Maksimum 2MB
+            'foto_ktp_baru' => 'nullable|image|max:2048', 
             'foto_usaha_baru' => 'nullable|image|max:2048',
         ]);
 
         $user = Auth::user();
         $profil = SupplierProfile::where('user_id', $user->id)->first();
-        $updateData = [];
+        
+        // PENTING: Pastikan status ikut ter-update menjadi menunggu review saat upload ulang dokumen
+        $updateData = [
+            'status_verifikasi' => 'menunggu_review' 
+        ];
 
         // Jika ada KTP baru di-upload
         if ($this->foto_ktp_baru) {
-            // (Pilihan) Boleh padam fail lama jika mahu jimat storage
-            // if ($this->foto_ktp_lama) Storage::disk('public')->delete($this->foto_ktp_lama);
-            
             $pathKtp = $this->foto_ktp_baru->store('suppliers/ktp', 'public');
             $updateData['foto_ktp'] = $pathKtp;
-            $this->foto_ktp_lama = $pathKtp; // Kemaskini preview
+            $this->foto_ktp_lama = $pathKtp; 
         }
 
         // Jika ada Foto Usaha baru di-upload
         if ($this->foto_usaha_baru) {
             $pathUsaha = $this->foto_usaha_baru->store('suppliers/usaha', 'public');
             $updateData['foto_usaha'] = $pathUsaha;
-            $this->foto_usaha_lama = $pathUsaha; // Kemaskini preview
+            $this->foto_usaha_lama = $pathUsaha; 
         }
 
-        if (!empty($updateData)) {
+        if ($profil) {
             $profil->update($updateData);
-            session()->flash('message', 'Dokumen terbaru berhasil disimpan!');
+            session()->flash('message', 'Dokumen terbaru berhasil disimpan untuk direview Admin!');
         }
 
-        // Reset input file
         $this->reset(['foto_ktp_baru', 'foto_usaha_baru']);
     }
 
@@ -139,32 +150,36 @@ class ProfilePemasok extends Component
 
         $user = Auth::user();
 
-        // Semak password
         if (!Hash::check($this->password_konfirmasi, $user->password)) {
             $this->addError('password_konfirmasi', 'Kata sandi anda salah.');
             return;
         }
 
-        // Gabungkan bank dan nombor
-        $rekening_gabungan = $this->nama_bank_baru . ' - ' . $this->nomor_rekening_baru;
+        $rekening_array = [
+            'nama_bank' => $this->nama_bank_baru,
+            'nomor_rekening' => $this->nomor_rekening_baru,
+        ];
 
         SupplierProfile::updateOrCreate(
             ['user_id' => $user->id],
-            ['info_rekening' => $rekening_gabungan]
+            [
+                'info_rekening' => $rekening_array,
+                'status_verifikasi' => 'menunggu_review' // Set status review
+            ]
         );
 
-        $this->info_rekening = $rekening_gabungan;
+        $this->info_rekening = $rekening_array;
         $this->showRekeningModal = false;
         $this->reset(['password_konfirmasi', 'nama_bank_baru', 'nomor_rekening_baru']);
         
-        session()->flash('message', 'Akaun pencairan dana berhasil diganti');
+        session()->flash('message', 'Akun pencairan dana berhasil diganti dan diajukan kembali.');
     }
+
     public function updatePassword()
     {
-        // Validasi input password
         $this->validate([
-            'current_password' => ['required', 'current_password'], // Memastikan password lama benar
-            'password' => ['required', 'min:8', 'confirmed'],       // Password baru min 8 karakter & cocok dengan konfirmasi
+            'current_password' => ['required', 'current_password'], 
+            'password' => ['required', 'min:8', 'confirmed'], 
         ], [
             'current_password.current_password' => 'Kata sandi saat ini tidak cocok.',
             'password.confirmed' => 'Konfirmasi kata sandi baru tidak cocok.',
@@ -172,15 +187,11 @@ class ProfilePemasok extends Component
         ]);
 
         $user = Auth::user();
-        
-        // Update password di tabel users (bukan SupplierProfile)
         $user->update([
             'password' => Hash::make($this->password),
         ]);
 
-        // Kosongkan form setelah berhasil
         $this->reset(['current_password', 'password', 'password_confirmation']);
-        
         session()->flash('message', 'Kata sandi akun berhasil diperbarui!');
     }
 

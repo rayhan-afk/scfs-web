@@ -191,6 +191,12 @@ new class extends Component
                 <a href="{{ route('lkbb.scf.riwayat') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.scf.riwayat') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
                     Riwayat Pendanaan PO
                 </a>
+
+                <a href="{{ route('lkbb.monitoring-return') }}" 
+                class="flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors duration-200 {{ request()->routeIs('lkbb.monitoring-return') ? 'bg-purple-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
+                    <span class="font-medium">Monitoring Return</span>
+                </a>
+                
             </div>
         </div>
 
