@@ -40,7 +40,11 @@ class FormReturn extends Component
         PengajuanReturn::create([
             'supply_order_id' => $order->id,
             'merchant_id' => Auth::id(),
-            'supplier_id' => $order->supplier_id, // Diambil otomatis dari relasi order
+            
+            // GANTI supplier_id DI BAWAH INI SESUAI NAMA KOLOM DI TABEL SUPPLY_ORDERS KAMU
+            // Contoh: jika namanya pemasok_id, maka gunakan $order->pemasok_id
+            'supplier_id' => $order->pemasok_id, 
+            
             'alasan' => $this->alasan,
             'deskripsi_masalah' => $this->deskripsi_masalah,
             'foto_bukti' => $pathFoto,
