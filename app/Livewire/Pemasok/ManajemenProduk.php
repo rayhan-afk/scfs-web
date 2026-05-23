@@ -24,7 +24,7 @@ class ManajemenProduk extends Component
     public $isEdit = false;
 
     // Data Form Produk (SUDAH DIUBAH: Modal & Margin)
-    public $produk_id, $sku, $nama_produk, $harga_modal, $margin_pemasok, $stok_sekarang, $batas_minimum_stok, $deskripsi, $foto_produk, $foto_produk_lama;
+    public $produk_id, $sku, $nama_produk, $harga_modal, $margin_persen, $stok_sekarang, $batas_minimum_stok, $deskripsi, $foto_produk, $foto_produk_lama;
 
     // Data Form Opname
     public $stok_fisik, $keterangan_opname;
@@ -79,7 +79,7 @@ class ManajemenProduk extends Component
     {
        // Reset data termasuk modal & margin
         $this->reset([
-            'nama_produk', 'harga_modal', 'margin_pemasok', 'stok_sekarang', 
+            'nama_produk', 'harga_modal', 'margin_persen', 'stok_sekarang', 
             'batas_minimum_stok', 'deskripsi', 'foto_produk', 
             'foto_produk_lama', 'satuan'
         ]);
@@ -96,12 +96,15 @@ class ManajemenProduk extends Component
         $this->validate([
             'sku' => 'required|unique:produk_pemasoks,sku,' . $this->produk_id,
             'nama_produk' => 'required|min:3',
-            'harga_modal' => 'required|numeric|min:0',
-            'margin_pemasok' => 'required|numeric|min:0',
+            'harga_modal' => 'required|integer|min:0',
+            'margin_persen' => 'required|numeric|in:5,10,15,20,25,30',
             'stok_sekarang' => 'required|integer',
             'batas_minimum_stok' => 'required|integer',
             'satuan' => 'required|string|max:20',
             'foto_produk' => $this->isEdit ? 'nullable|image|max:1024' : 'required|image|max:1024',
+        ], [], [
+            'harga_modal' => 'harga modal',
+            'margin_persen' => 'margin',
         ]);
 
         $data = [
@@ -109,7 +112,7 @@ class ManajemenProduk extends Component
             'sku' => $this->sku,
             'nama_produk' => $this->nama_produk,
             'harga_modal' => $this->harga_modal,
-            'margin_pemasok' => $this->margin_pemasok,
+            'margin_persen' => $this->margin_persen,
             'stok_sekarang' => $this->stok_sekarang,
             'batas_minimum_stok' => $this->batas_minimum_stok,
             'deskripsi' => $this->deskripsi,
@@ -176,8 +179,8 @@ class ManajemenProduk extends Component
         $this->nama_produk = $produk->nama_produk;
         
         // Panggil data Harga Modal dan Margin dari DB
-        $this->harga_modal = $produk->harga_modal;
-        $this->margin_pemasok = $produk->margin_pemasok;
+        $this->harga_modal = (int) $produk->harga_modal;
+        $this->margin_persen = (int) $produk->margin_persen;
         
         $this->stok_sekarang = $produk->stok_sekarang;
         $this->batas_minimum_stok = $produk->batas_minimum_stok;
@@ -191,7 +194,7 @@ class ManajemenProduk extends Component
     private function resetForm()
     {
         $this->reset([
-            'produk_id', 'sku', 'nama_produk', 'harga_modal', 'margin_pemasok', 
+            'produk_id', 'sku', 'nama_produk', 'harga_modal', 'margin_persen', 
             'stok_sekarang', 'batas_minimum_stok', 'deskripsi', 'foto_produk', 'isEdit'
         ]);
     }

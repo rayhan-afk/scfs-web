@@ -59,8 +59,8 @@ class extends Component {
                 'id'             => $produk->id,
                 'pemasok_id'     => $produk->user_id,
                 'nama'           => $produk->nama_produk,
-                'harga_modal'    => (float)$produk->harga_modal,
-                'margin_pemasok' => (float)$produk->margin_pemasok,
+                'harga_modal'    => (int)$produk->harga_modal,
+                'margin_persen'  => (float)$produk->margin_persen,
                 'qty'            => 1,
                 'stok_max'       => $produk->stok_sekarang
             ];
@@ -117,7 +117,8 @@ class extends Component {
         return array_reduce($this->cart, function ($carry, $item) {
             // Tangani jika qty sedang dikosongkan sementara oleh user
             $qty = (int) ($item['qty'] === '' ? 0 : $item['qty']);
-            $harga_total_per_item = $item['harga_modal'] + $item['margin_pemasok'];
+            $margin_rupiah = round($item['harga_modal'] * $item['margin_persen'] / 100);
+            $harga_total_per_item = $item['harga_modal'] + $margin_rupiah;
             return $carry + ($harga_total_per_item * $qty);
         }, 0);
     }
@@ -160,7 +161,8 @@ class extends Component {
                     $realTotal = 0;
 
                     foreach ($items as $item) {
-                        $harga_satuan = $item['harga_modal'] + $item['margin_pemasok'];
+                        $margin_rupiah = (int) round($item['harga_modal'] * $item['margin_persen'] / 100);
+                        $harga_satuan = $item['harga_modal'] + $margin_rupiah;
                         $subtotal = $harga_satuan * (int)$item['qty'];
                         
                         SupplyOrderDetail::create([
@@ -168,7 +170,7 @@ class extends Component {
                             'produk_pemasok_id'       => $item['id'], 
                             'nama_produk_snapshot'    => $item['nama'],
                             'harga_modal_snapshot'    => $item['harga_modal'],
-                            'margin_pemasok_snapshot' => $item['margin_pemasok'],
+                            'margin_pemasok_snapshot' => $margin_rupiah,
                             'qty'                     => (int)$item['qty'],
                             'subtotal'                => $subtotal
                         ]);
@@ -237,7 +239,7 @@ class extends Component {
                         <div class="p-3">
                             <h3 class="text-xs font-bold text-gray-900 leading-tight line-clamp-2 mb-1 group-hover:text-emerald-700 transition-colors">{{ $item->nama_produk }}</h3>
                             
-                            <p class="text-sm font-extrabold text-emerald-600">Rp{{ number_format($item->harga_modal + $item->margin_pemasok, 0, ',', '.') }}</p>
+                            <p class="text-sm font-extrabold text-emerald-600">Rp{{ number_format($item->harga_modal + round($item->harga_modal * $item->margin_persen / 100), 0, ',', '.') }}</p>
                             
                             <div class="mt-2 pt-2 border-t border-gray-100 flex flex-col gap-0.5">
                                 <span class="text-[10px] font-medium text-gray-600 flex items-center gap-1">
@@ -274,7 +276,7 @@ class extends Component {
                         <div class="flex justify-between items-center p-3 bg-white border border-gray-100 rounded-xl shadow-sm hover:border-emerald-200 transition-colors">
                             <div class="flex-1 pr-3 min-w-0">
                                 <h4 class="text-xs font-bold text-gray-900 truncate">{{ $item['nama'] }}</h4>
-                                <p class="text-[10px] font-bold text-emerald-600 mt-0.5">Rp{{ number_format($item['harga_modal'] + $item['margin_pemasok'], 0, ',', '.') }}</p>
+                                <p class="text-[10px] font-bold text-emerald-600 mt-0.5">Rp{{ number_format($item['harga_modal'] + round($item['harga_modal'] * $item['margin_persen'] / 100), 0, ',', '.') }}</p>
                             </div>
                             
                             {{-- UPDATE: INPUT REAL-TIME (x-on:input) --}}

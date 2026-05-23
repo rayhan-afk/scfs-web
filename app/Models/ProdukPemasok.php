@@ -17,13 +17,18 @@ class ProdukPemasok extends Model
         'sku',
         'nama_produk',
         'deskripsi',
-        'harga_modal',      // <-- PENGGANTI GROSIR
-        'margin_pemasok',   // <-- PENGGANTI GROSIR
+        'harga_modal',      // rupiah bulat per unit (didanai LKBB)
+        'margin_persen',    // persentase keuntungan pemasok dari harga_modal
         'stok_sekarang',
         'batas_minimum_stok',
         'foto_produk',
         'status',
         'satuan',
+    ];
+
+    protected $casts = [
+        'harga_modal'   => 'integer',
+        'margin_persen' => 'float',
     ];
 
     // Relasi: Produk ini milik seorang Pemasok (User)

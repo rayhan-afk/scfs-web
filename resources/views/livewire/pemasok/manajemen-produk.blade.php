@@ -77,18 +77,29 @@
                             </div>
                         </td>
                         <td class="px-6 py-4">
+                            @php
+                                $t_modal = (int) ($p->harga_modal ?? 0);
+                                $t_persen = (float) ($p->margin_persen ?? 0);
+                                $t_marginRp = (int) round($t_modal * $t_persen / 100);
+                                $t_jualUnit = $t_modal + $t_marginRp;
+                                $t_totalModal = $t_modal * (int) ($p->stok_sekarang ?? 0);
+                            @endphp
                             <div class="flex flex-col gap-1">
                                 <div class="flex items-center justify-between text-sm">
-                                    <span class="text-gray-500 text-xs">Modal:</span>
-                                    <span class="font-bold text-gray-700">Rp {{ number_format($p->harga_modal ?? 0, 0, ',', '.') }}</span>
+                                    <span class="text-gray-500 text-xs">Modal/unit:</span>
+                                    <span class="font-bold text-gray-700">Rp {{ number_format($t_modal, 0, ',', '.') }}</span>
                                 </div>
                                 <div class="flex items-center justify-between text-sm">
                                     <span class="text-gray-500 text-xs">Margin:</span>
-                                    <span class="font-bold text-green-600">+ Rp {{ number_format($p->margin_pemasok ?? 0, 0, ',', '.') }}</span>
+                                    <span class="font-bold text-green-600">{{ rtrim(rtrim(number_format($t_persen, 2, '.', ''), '0'), '.') }}%</span>
+                                </div>
+                                <div class="flex items-center justify-between text-sm">
+                                    <span class="text-gray-500 text-xs">Jual/unit:</span>
+                                    <span class="font-bold text-gray-700">Rp {{ number_format($t_jualUnit, 0, ',', '.') }}</span>
                                 </div>
                                 <div class="border-t border-gray-100 mt-1 pt-1 flex items-center justify-between">
-                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Total PO</span>
-                                    <span class="font-black text-gray-900 text-sm">Rp {{ number_format(($p->harga_modal ?? 0) + ($p->margin_pemasok ?? 0), 0, ',', '.') }}</span>
+                                    <span class="text-[10px] font-bold text-gray-400 uppercase">Total Modal</span>
+                                    <span class="font-black text-gray-900 text-sm">Rp {{ number_format($t_totalModal, 0, ',', '.') }}</span>
                                 </div>
                             </div>
                         </td>
@@ -178,13 +189,13 @@
                         
                         {{-- Input Harga Modal dengan Alpine --}}
                         <div class="col-span-1" x-data="{
-                                uang: @entangle('harga_modal'),
+                                uang: @entangle('harga_modal').live,
                                 formatRupiah(value) {
                                     if(!value) return '';
-                                    return value.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+                                    return value.toString().split(/[.,]/)[0].replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
                                 }
                             }">
-                            <label class="block text-xs font-bold text-gray-600 uppercase tracking-widest mb-1.5">Harga Modal</label>
+                            <label class="block text-xs font-bold text-gray-600 uppercase tracking-widest mb-1.5">Harga Modal / Unit</label>
                             <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rp</span>
                                 <input type="text"
@@ -193,35 +204,54 @@
                                        class="w-full rounded-xl border-gray-200 focus:ring-blue-500 text-sm pl-9 font-bold" placeholder="0">
                             </div>
                             @error('harga_modal') <span class="text-red-500 text-xs font-semibold">{{ $message }}</span> @enderror
-                            <p class="text-[9px] text-gray-500 mt-1">Biaya produksi yang didanai LKBB.</p>
+                            <p class="text-[9px] text-gray-500 mt-1">Biaya produksi per unit, didanai LKBB.</p>
                         </div>
 
-                        {{-- Input Margin Pemasok dengan Alpine --}}
-                        <div class="col-span-1" x-data="{
-                                uang: @entangle('margin_pemasok'),
-                                formatRupiah(value) {
-                                    if(!value) return '';
-                                    return value.toString().replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                                }
-                            }">
+                        {{-- Input Margin Pemasok (dropdown persen) --}}
+                        <div class="col-span-1">
                             <label class="block text-xs font-bold text-green-600 uppercase tracking-widest mb-1.5">Margin / Untung</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-green-600 font-bold text-sm">Rp</span>
-                                <input type="text"
-                                       x-bind:value="formatRupiah(uang)"
-                                       x-on:input="uang = $event.target.value.replace(/\D/g, '')"
-                                       class="w-full rounded-xl border-green-200 focus:ring-green-500 text-sm pl-9 font-bold" placeholder="0">
-                            </div>
-                            @error('margin_pemasok') <span class="text-red-500 text-xs font-semibold">{{ $message }}</span> @enderror
-                            <p class="text-[9px] text-green-600 mt-1">Keuntungan bersih Anda.</p>
+                            <select wire:model.live="margin_persen"
+                                    class="w-full rounded-xl border-green-200 focus:ring-green-500 text-sm font-bold bg-white">
+                                <option value="">Pilih margin…</option>
+                                <option value="5">5%</option>
+                                <option value="10">10%</option>
+                                <option value="15">15%</option>
+                                <option value="20">20%</option>
+                                <option value="25">25%</option>
+                                <option value="30">30%</option>
+                            </select>
+                            @error('margin_persen') <span class="text-red-500 text-xs font-semibold">{{ $message }}</span> @enderror
+                            <p class="text-[9px] text-green-600 mt-1">Persentase keuntungan dari harga modal.</p>
                         </div>
 
+                    </div>
+
+                    {{-- Ringkasan harga: harga jual per unit & total modal --}}
+                    @php
+                        $m_modal = (int) ($harga_modal ?: 0);
+                        $m_persen = (float) ($margin_persen ?: 0);
+                        $m_stok = (int) ($stok_sekarang ?: 0);
+                        $m_marginRp = (int) round($m_modal * $m_persen / 100);
+                        $m_jualUnit = $m_modal + $m_marginRp;
+                        $m_totalModal = $m_modal * $m_stok;
+                    @endphp
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-gray-50 rounded-xl border border-gray-100 p-3">
+                            <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Harga Jual / Unit</p>
+                            <p class="text-sm font-black text-gray-800 mt-0.5">Rp {{ number_format($m_jualUnit, 0, ',', '.') }}</p>
+                            <p class="text-[9px] text-gray-400 mt-0.5">Modal + margin {{ rtrim(rtrim(number_format($m_persen, 2, '.', ''), '0'), '.') }}%</p>
+                        </div>
+                        <div class="bg-gray-50 rounded-xl border border-gray-100 p-3">
+                            <p class="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Total Modal</p>
+                            <p class="text-sm font-black text-gray-800 mt-0.5">Rp {{ number_format($m_totalModal, 0, ',', '.') }}</p>
+                            <p class="text-[9px] text-gray-400 mt-0.5">Modal × {{ $m_stok }} stok</p>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-gray-600 uppercase tracking-widest mb-1.5">Stok Awal</label>
-                            <input type="number" wire:model="stok_sekarang" class="w-full rounded-xl border-gray-200 focus:ring-blue-500 text-sm" placeholder="0">
+                            <input type="number" wire:model.live="stok_sekarang" class="w-full rounded-xl border-gray-200 focus:ring-blue-500 text-sm" placeholder="0">
                             @error('stok_sekarang') <span class="text-red-500 text-xs font-semibold">{{ $message }}</span> @enderror
                         </div>
 
