@@ -170,7 +170,7 @@
                         </div>
                         <div class="flex-1 text-sm">
                             <p class="font-black text-teal-900 leading-tight">
-                                {{ $pemasokProfile->nama_bank ?? '' }} - {{ $pemasokProfile->nomor_rekening ?? 'Rekening belum diatur' }}
+                                {{ $pemasokProfile->nama_bank ?? '' }} - {{ $pemasokProfile->no_rekening ?? 'Rekening belum diatur' }}
                             </p>
                             <p class="text-[11px] text-teal-600 mt-1 font-medium italic">*Dana ditransfer langsung oleh LKBB.</p>
                         </div>

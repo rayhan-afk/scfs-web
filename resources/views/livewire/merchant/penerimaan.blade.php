@@ -39,7 +39,10 @@ class extends Component {
     public function supplyOrders()
     {
         // Eager loading ditambah 'pemasok.pemasokProfile' agar Merchant tahu siapa yang kirim
-        $query = SupplyOrder::with(['details', 'pemasok.pemasokProfile']) 
+        $query = SupplyOrder::with(['details', 'pemasok.pemasokProfile'])
+            ->withExists(['returns as has_active_return' => function ($q) {
+                $q->whereIn('status', ['pending_supplier_review', 'approved', 'escalated_lkbb']);
+            }])
             ->where('merchant_id', Auth::id());
 
         // Pencarian berdasarkan Nomor Order
@@ -222,24 +225,48 @@ class extends Component {
                                 BARANG TELAH DITERIMA
                             </button>
 
-                            <a href="{{ route('merchant.form-return', $order->id) }}" 
-                               class="w-full bg-white border border-rose-200 text-rose-600 font-bold py-2.5 rounded-2xl hover:bg-rose-50 hover:border-rose-300 transition-all text-xs flex items-center justify-center gap-2 shadow-sm">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                                Fisik Bermasalah? Ajukan Return
-                            </a>
+                            @if($order->has_active_return)
+                                <a href="{{ route('merchant.form-return', $order->id) }}"
+                                   class="w-full bg-amber-50 border border-amber-200 text-amber-700 font-bold py-2.5 rounded-2xl hover:bg-amber-100 transition-all text-xs flex items-center justify-center gap-2 shadow-sm">
+                                    ⏳ Sudah Ada Return Aktif — Lihat Status
+                                </a>
+                            @else
+                                <a href="{{ route('merchant.form-return', $order->id) }}"
+                                   class="w-full bg-white border border-rose-200 text-rose-600 font-bold py-2.5 rounded-2xl hover:bg-rose-50 hover:border-rose-300 transition-all text-xs flex items-center justify-center gap-2 shadow-sm">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    Fisik Bermasalah? Ajukan Return
+                                </a>
+                            @endif
                         </div>
 
                     @elseif($order->status === 'selesai')
-                        <div class="w-full bg-emerald-50 p-4 rounded-xl border border-emerald-200 flex items-center gap-3">
-                            <div class="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0">
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+                        <div class="w-full flex flex-col gap-2">
+                            <div class="w-full bg-emerald-50 p-4 rounded-xl border border-emerald-200 flex items-center gap-3">
+                                <div class="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+                                </div>
+                                <div class="text-left">
+                                    <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Selesai</p>
+                                    <p class="text-[10px] text-emerald-600 font-bold">Stok telah masuk etalase.</p>
+                                </div>
                             </div>
-                            <div class="text-left">
-                                <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Selesai</p>
-                                <p class="text-[10px] text-emerald-600 font-bold">Stok telah masuk etalase.</p>
-                            </div>
+
+                            {{-- Window return 24 jam masih bisa diajukan setelah terima --}}
+                            @if($order->updated_at && $order->updated_at->diffInHours(now()) < 24)
+                                @if($order->has_active_return)
+                                    <a href="{{ route('merchant.form-return', $order->id) }}"
+                                       class="w-full bg-amber-50 border border-amber-200 text-amber-700 font-bold py-2 rounded-xl hover:bg-amber-100 text-[11px] text-center">
+                                        ⏳ Return Aktif — Lihat Status
+                                    </a>
+                                @else
+                                    <a href="{{ route('merchant.form-return', $order->id) }}"
+                                       class="w-full bg-white border border-rose-200 text-rose-600 font-bold py-2 rounded-xl hover:bg-rose-50 text-[11px] text-center">
+                                        ⚠ Masalah Setelah Cek Lebih Detail? Ajukan Return
+                                    </a>
+                                @endif
+                            @endif
                         </div>
                     @endif
                 </div>

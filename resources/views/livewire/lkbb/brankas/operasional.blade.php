@@ -89,7 +89,7 @@ class extends Component {
             <h1 class="text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
                 <span class="text-emerald-500">🟢</span> Log Sirkulasi (Operasional)
             </h1>
-            <p class="text-gray-500 text-sm mt-1">Audit aliran masuk pengembalian Modal Kantin (HPP) dan Potongan Fee LKBB.</p>
+            <p class="text-gray-500 text-sm mt-1">Audit aliran masuk pengembalian Modal Kantin (HPP) dan Potongan Profit LKBB.</p>
         </div>
         
         <button class="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold text-sm rounded-xl transition shadow-sm flex items-center gap-2 hover:bg-gray-50 group">
@@ -121,7 +121,7 @@ class extends Component {
 
         {{-- Card 3: Fee Laba LKBB --}}
         <div class="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm flex flex-col justify-center border-l-4 border-l-purple-500">
-             <p class="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider mb-1">Total Keuntungan (Fee)</p>
+             <p class="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider mb-1">Total Keuntungan (Profit)</p>
              <h3 class="text-xl font-black text-gray-900">Rp {{ number_format($this->ringkasan['total_laba_kotor'], 0, ',', '.') }}</h3>
              <p class="text-[10px] text-purple-600 font-bold mt-1">Potongan bagi hasil dari kantin</p>
         </div>
@@ -159,7 +159,7 @@ class extends Component {
                         <th class="px-5 py-4">Waktu & Ref</th>
                         <th class="px-5 py-4">Sumber Kantin</th>
                         <th class="px-5 py-4 text-right">Modal (HPP)</th>
-                        <th class="px-5 py-4 text-right">Keuntungan (Fee)</th>
+                        <th class="px-5 py-4 text-right">Keuntungan (Profit)</th>
                         <th class="px-5 py-4 text-right">Total Masuk Brankas</th>
                     </tr>
                 </thead>

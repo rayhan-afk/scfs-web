@@ -132,7 +132,7 @@ class extends Component {
         <div class="bg-gradient-to-br from-[#059669] to-teal-700 rounded-2xl p-5 text-white shadow-lg shadow-emerald-200/50 flex flex-col justify-center">
              <p class="text-[10px] font-bold text-emerald-100 uppercase tracking-wider mb-1">Laba Bersih Kantin</p>
              <h3 class="text-2xl font-black">Rp {{ number_format($this->summary['laba_bersih_kantin'], 0, ',', '.') }}</h3>
-             <p class="text-[10px] text-emerald-50 mt-1 font-medium italic">Hak murni kantin (Modal & Fee sdh dipotong)</p>
+             <p class="text-[10px] text-emerald-50 mt-1 font-medium italic">Hak murni kantin (Modal & Profit sdh dipotong)</p>
         </div>
 
         {{-- Uang Tunai di Laci --}}
@@ -149,7 +149,7 @@ class extends Component {
         <div class="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-5 text-white shadow-lg shadow-amber-200/50 flex flex-col justify-center relative overflow-hidden group">
              <p class="text-[10px] font-bold text-amber-100 uppercase tracking-wider mb-1">Setoran Wajib ke LKBB</p>
              <h3 class="text-2xl font-black">Rp {{ number_format($this->summary['setoran_wajib_lkbb'], 0, ',', '.') }}</h3>
-             <p class="text-[10px] text-amber-50 mt-1 font-bold italic">Pengembalian Modal Barang + Fee (Tunai)</p>
+             <p class="text-[10px] text-amber-50 mt-1 font-bold italic">Pengembalian Modal Barang + Profit (Tunai)</p>
         </div>
     </div>
 

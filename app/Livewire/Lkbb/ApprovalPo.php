@@ -4,9 +4,12 @@ namespace App\Livewire\Lkbb;
 
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\Attributes\Computed;
 use App\Models\SupplyOrder;
 use App\Models\Wallet;
 use App\Models\Transaction;
+use App\Services\Lkbb\PoValidationService;
+use App\Notifications\PoNeedsRevision;
 use Illuminate\Support\Facades\DB;
 
 class ApprovalPo extends Component
@@ -17,6 +20,55 @@ class ApprovalPo extends Component
     public $selectedOrder = null;
     public $showModal = false;
     public $alasanPenolakan = '';
+
+    /**
+     * 5 kriteria otomatis (di-set dari PoValidationService).
+     * 1 kriteria manual: 'no_tunggakan' (di-toggle approver LKBB).
+     */
+    public array $validationChecklist = [
+        'merchant_verified' => false,
+        'supplier_verified' => false,
+        'rekening_valid'    => false,
+        'no_tunggakan'      => false,
+        'po_complete'       => false,
+    ];
+
+    /** Reason string per-kriteria saat hasil evaluasi otomatis = false. */
+    public array $validationReasons = [];
+
+    /** Daftar key kriteria yang di-evaluasi otomatis (read-only di UI). */
+    public const AUTO_KEYS = [
+        'merchant_verified',
+        'supplier_verified',
+        'rekening_valid',
+        'po_complete',
+    ];
+
+    #[Computed]
+    public function isChecklistComplete(): bool
+    {
+        return ! in_array(false, $this->validationChecklist, true);
+    }
+
+    private function resetChecklist(): void
+    {
+        foreach ($this->validationChecklist as $k => $_) {
+            $this->validationChecklist[$k] = false;
+        }
+        $this->validationReasons = [];
+    }
+
+    private function autoEvaluateChecklist(): void
+    {
+        if (! $this->selectedOrder) return;
+
+        $result = app(PoValidationService::class)->evaluate($this->selectedOrder);
+
+        foreach (self::AUTO_KEYS as $key) {
+            $this->validationChecklist[$key]  = $result[$key]['passed'] ?? false;
+            $this->validationReasons[$key]    = $result[$key]['reason'] ?? null;
+        }
+    }
 
     public function render()
     {
@@ -44,8 +96,15 @@ class ApprovalPo extends Component
 
     public function bukaModal($id)
     {
-        $this->selectedOrder = SupplyOrder::with(['merchant.merchantProfile', 'pemasok.pemasokProfile', 'details'])->findOrFail($id);
+        $this->selectedOrder = SupplyOrder::with([
+            'merchant.merchantProfile',
+            'pemasok.pemasokProfile',
+            'details',
+        ])->findOrFail($id);
+
         $this->alasanPenolakan = '';
+        $this->resetChecklist();
+        $this->autoEvaluateChecklist();
         $this->showModal = true;
     }
 
@@ -53,11 +112,21 @@ class ApprovalPo extends Component
     {
         $this->showModal = false;
         $this->selectedOrder = null;
+        $this->resetChecklist();
     }
 
     public function setujuiPendanaan()
     {
         if (!$this->selectedOrder) return;
+
+        // Re-evaluasi kriteria otomatis untuk cegah tampering client-side
+        // pada checklist read-only sebelum approval di-eksekusi.
+        $this->autoEvaluateChecklist();
+
+        if (in_array(false, $this->validationChecklist, true)) {
+            session()->flash('error', 'Validasi pendanaan belum lengkap. Pastikan seluruh kriteria terpenuhi sebelum mencairkan dana.');
+            return;
+        }
 
         try {
             DB::transaction(function () {
@@ -112,20 +181,63 @@ class ApprovalPo extends Component
         }
     }
 
-    public function tolakPendanaan()
+    /**
+     * Minta Revisi: PO tetap hidup, merchant bisa perbaiki masalah lalu
+     * mengajukan ulang ke status menunggu_lkbb. Tidak memotong saldo brankas.
+     */
+    public function mintaRevisi()
     {
         $this->validate([
-            'alasanPenolakan' => 'required|min:5'
+            'alasanPenolakan' => 'required|min:5',
         ]);
 
-        if ($this->selectedOrder) {
-            $this->selectedOrder->update([
-                'status' => 'ditolak',
-                'catatan' => 'Ditolak LKBB: ' . $this->alasanPenolakan
-            ]);
-
-            session()->flash('error', "Pengajuan PO telah ditolak dan dibatalkan.");
-            $this->tutupModal();
+        if (!$this->selectedOrder || $this->selectedOrder->status !== 'menunggu_lkbb') {
+            session()->flash('error', 'Aksi tidak valid: status PO sudah berubah.');
+            return;
         }
+
+        $catatan = 'Revisi LKBB ('.now()->format('d M Y H:i').'): '.$this->alasanPenolakan;
+
+        $this->selectedOrder->update([
+            'status'  => 'revisi',
+            'catatan' => $this->selectedOrder->catatan
+                ? $this->selectedOrder->catatan."\n".$catatan
+                : $catatan,
+        ]);
+
+        $merchant = $this->selectedOrder->merchant;
+        if ($merchant) {
+            $merchant->notify(new PoNeedsRevision(
+                $this->selectedOrder->nomor_order,
+                $this->alasanPenolakan
+            ));
+        }
+
+        session()->flash('success', "PO {$this->selectedOrder->nomor_order} diminta revisi. Merchant akan diberitahu.");
+        $this->tutupModal();
+    }
+
+    /**
+     * Tolak Final: PO ditutup permanen, tidak bisa diajukan ulang.
+     * Pakai ini hanya untuk kasus pelanggaran berat / fraud / data tidak valid total.
+     */
+    public function tolakFinal()
+    {
+        $this->validate([
+            'alasanPenolakan' => 'required|min:5',
+        ]);
+
+        if (!$this->selectedOrder || $this->selectedOrder->status !== 'menunggu_lkbb') {
+            session()->flash('error', 'Aksi tidak valid: status PO sudah berubah.');
+            return;
+        }
+
+        $this->selectedOrder->update([
+            'status'  => 'ditolak',
+            'catatan' => 'Ditolak final LKBB: ' . $this->alasanPenolakan,
+        ]);
+
+        session()->flash('error', "Pengajuan PO {$this->selectedOrder->nomor_order} telah ditolak final dan dibatalkan.");
+        $this->tutupModal();
     }
 }

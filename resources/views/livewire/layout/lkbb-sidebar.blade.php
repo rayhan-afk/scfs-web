@@ -192,9 +192,8 @@ new class extends Component
                     Riwayat Pendanaan PO
                 </a>
 
-                <a href="{{ route('lkbb.monitoring-return') }}" 
-                class="flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors duration-200 {{ request()->routeIs('lkbb.monitoring-return') ? 'bg-purple-700 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white' }}">
-                    <span class="font-medium">Monitoring Return</span>
+                <a href="{{ route('lkbb.monitoring-return') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.monitoring-return') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
+                    Monitoring Return
                 </a>
                 
             </div>
@@ -224,7 +223,7 @@ new class extends Component
                     Penagihan Tunai
                 </a>
                 <a href="{{ route('keuangan.riwayat-fee') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('keuangan.riwayat-fee') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
-                    Riwayat & Audit Fee
+                    Riwayat & Audit Profit
                 </a>
             </div>
         </div>

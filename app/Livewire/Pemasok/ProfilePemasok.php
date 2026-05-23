@@ -3,200 +3,162 @@
 namespace App\Livewire\Pemasok;
 
 use Livewire\Component;
-use Livewire\WithFileUploads; 
+use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use App\Models\SupplierProfile;
+use Illuminate\Validation\ValidationException;
+use App\Models\PemasokProfile;
 
 class ProfilePemasok extends Component
 {
-    use WithFileUploads; 
+    use WithFileUploads;
 
-    // Navigasi Tab & UI State
-    public $activeTab = 'informasi';
-    public $isEditing = false;
-    public $showRekeningModal = false;
-
-    // Data Form Informasi (PERBAIKAN: Menambahkan nama_pemilik dan nik)
-    public $nama_usaha;
-    public $nama_pemilik;
+    // Profil & usaha
+    public $nama_perusahaan;
+    public $nama_pic;
     public $nik;
     public $no_hp;
-    public $alamat_gudang;
+    public $alamat;
 
-    // Data Form Rekening
-    public $info_rekening;
-    public $password_konfirmasi;
-    
-    // Pecahan untuk Modal Ubah Rekening
-    public $nama_bank_baru;
-    public $nomor_rekening_baru;
-    public $daftar_bank = ['BCA', 'BNI', 'BRI', 'Mandiri', 'BSI', 'CIMB Niaga', 'Permata'];
+    // Rekening (flat, sejajar MerchantProfile)
+    public $nama_bank = 'BCA';
+    public $bank_lainnya = '';
+    public $no_rekening = '';
+    public $atas_nama_rekening = '';
 
-    // Data Form Dokumen
-    public $foto_ktp_lama;
-    public $foto_usaha_lama;
+    // Dokumen
+    public $existing_ktp;
+    public $existing_gudang;
     public $foto_ktp_baru;
-    public $foto_usaha_baru;
+    public $foto_gudang_baru;
 
-    // Data Form Keamanan
-    public $current_password;
-    public $password;
-    public $password_confirmation;
+    // Keamanan (step-up auth) — gabung pola Merchant: ubah profil + rekening butuh password
+    public $password_konfirmasi = '';
+
+    // Ganti password (form terpisah)
+    public $current_password = '';
+    public $new_password = '';
+    public $new_password_confirmation = '';
+
+    public array $daftarBank = ['BCA', 'BNI', 'BRI', 'Mandiri', 'BJB', 'GoPay', 'OVO', 'Lainnya'];
 
     public function mount()
     {
-        $user = Auth::user();
-        $profil = SupplierProfile::where('user_id', $user->id)->first();
+        $profile = PemasokProfile::where('user_id', Auth::id())->firstOrFail();
 
-        if ($profil) {
-            $this->nama_usaha = $profil->nama_usaha ?? '';
-            $this->nama_pemilik = $profil->nama_pemilik ?? ''; // PERBAIKAN: Load dari DB
-            $this->nik = $profil->nik ?? '';                   // PERBAIKAN: Load dari DB
-            $this->no_hp = $profil->no_hp ?? '';
-            $this->alamat_gudang = $profil->alamat_gudang ?? '';
-            $this->info_rekening = $profil->info_rekening ?? '';
-            
-            // Muat gambar lama
-            $this->foto_ktp_lama = $profil->foto_ktp ?? null;
-            $this->foto_usaha_lama = $profil->foto_usaha ?? null;
+        $this->nama_perusahaan    = $profile->nama_perusahaan;
+        $this->nama_pic           = $profile->nama_pic;
+        $this->nik                = $profile->nik;
+        $this->no_hp              = $profile->no_hp;
+        $this->alamat             = $profile->alamat;
+        $this->atas_nama_rekening = $profile->atas_nama_rekening;
+
+        $standardBanks = ['BCA', 'BNI', 'BRI', 'Mandiri', 'BJB', 'GoPay', 'OVO'];
+        if (in_array($profile->nama_bank, $standardBanks)) {
+            $this->nama_bank = $profile->nama_bank;
+        } elseif (!empty($profile->nama_bank)) {
+            $this->nama_bank = 'Lainnya';
+            $this->bank_lainnya = $profile->nama_bank;
         }
+        $this->no_rekening = $profile->no_rekening;
+
+        $this->existing_ktp    = $profile->foto_ktp;
+        $this->existing_gudang = $profile->foto_gudang;
     }
 
-    public function switchTab($tab)
-    {
-        $this->activeTab = $tab;
-        $this->isEditing = false; 
-    }
-
-    public function toggleEdit()
-    {
-        $this->isEditing = !$this->isEditing;
-    }
-
-    public function simpanInformasi()
+    public function simpanProfil()
     {
         $this->validate([
-            'nama_usaha'    => 'required|string|max:255',
-            'nama_pemilik'  => 'required|string|max:255',
-            'nik'           => 'required|string|max:20',
-            'no_hp'         => 'required|string|max:20',
-            'alamat_gudang' => 'required|string',
-        ]);
-
-        $user = Auth::user();
-
-        SupplierProfile::updateOrCreate(
-            ['user_id' => $user->id],
-            [
-                'nama_usaha'        => $this->nama_usaha,
-                'nama_pemilik'      => $this->nama_pemilik,
-                'nik'               => $this->nik,
-                'no_hp'             => $this->no_hp,
-                'alamat_gudang'     => $this->alamat_gudang,
-                'status_verifikasi' => 'menunggu_review', // ← INI yang bikin muncul di admin!
-            ]
-        );
-
-        $this->isEditing = false;
-        session()->flash('message', 'Informasi usaha berhasil diperbarui.');
-    }
-
-    public function simpanDokumen()
-    {
-        $this->validate([
-            'foto_ktp_baru' => 'nullable|image|max:2048', 
-            'foto_usaha_baru' => 'nullable|image|max:2048',
-        ]);
-
-        $user = Auth::user();
-        $profil = SupplierProfile::where('user_id', $user->id)->first();
-        
-        // PENTING: Pastikan status ikut ter-update menjadi menunggu review saat upload ulang dokumen
-        $updateData = [
-            'status_verifikasi' => 'menunggu_review' 
-        ];
-
-        // Jika ada KTP baru di-upload
-        if ($this->foto_ktp_baru) {
-            $pathKtp = $this->foto_ktp_baru->store('suppliers/ktp', 'public');
-            $updateData['foto_ktp'] = $pathKtp;
-            $this->foto_ktp_lama = $pathKtp; 
-        }
-
-        // Jika ada Foto Usaha baru di-upload
-        if ($this->foto_usaha_baru) {
-            $pathUsaha = $this->foto_usaha_baru->store('suppliers/usaha', 'public');
-            $updateData['foto_usaha'] = $pathUsaha;
-            $this->foto_usaha_lama = $pathUsaha; 
-        }
-
-        if ($profil) {
-            $profil->update($updateData);
-            session()->flash('message', 'Dokumen terbaru berhasil disimpan untuk direview Admin!');
-        }
-
-        $this->reset(['foto_ktp_baru', 'foto_usaha_baru']);
-    }
-
-    public function ubahRekening()
-    {
-        $this->validate([
-            'password_konfirmasi' => 'required',
-            'nama_bank_baru' => 'required',
-            'nomor_rekening_baru' => 'required|numeric',
+            'nama_perusahaan'    => 'required|string|max:255',
+            'nama_pic'           => 'required|string|max:255',
+            'nik'                => 'required|digits:16',
+            'no_hp'              => 'required|string|max:20|regex:/^[0-9\-\+]+$/',
+            'alamat'             => 'required|string|max:500',
+            'nama_bank'          => 'required|string',
+            'bank_lainnya'       => 'required_if:nama_bank,Lainnya|nullable|string|max:50',
+            'no_rekening'        => 'required|numeric|digits_between:8,20',
+            'atas_nama_rekening' => 'nullable|string|max:100',
+            'foto_ktp_baru'      => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'foto_gudang_baru'   => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'password_konfirmasi'=> 'required|string',
+        ], [
+            'password_konfirmasi.required' => 'Password wajib diisi untuk keamanan perubahan profil/rekening.',
+            'bank_lainnya.required_if' => 'Wajib isi nama bank jika memilih "Lainnya".',
+            'no_rekening.numeric' => 'Nomor rekening hanya boleh berisi angka.',
         ]);
 
         $user = Auth::user();
 
         if (!Hash::check($this->password_konfirmasi, $user->password)) {
-            $this->addError('password_konfirmasi', 'Kata sandi anda salah.');
-            return;
+            throw ValidationException::withMessages([
+                'password_konfirmasi' => 'Password yang Anda masukkan salah. Perubahan dibatalkan.',
+            ]);
         }
 
-        $rekening_array = [
-            'nama_bank' => $this->nama_bank_baru,
-            'nomor_rekening' => $this->nomor_rekening_baru,
+        $profile = PemasokProfile::where('user_id', $user->id)->first();
+
+        $bankFinal = $this->nama_bank === 'Lainnya' ? $this->bank_lainnya : $this->nama_bank;
+
+        $updateData = [
+            'nama_perusahaan'    => $this->nama_perusahaan,
+            'nama_pic'           => $this->nama_pic,
+            'nik'                => $this->nik,
+            'no_hp'              => $this->no_hp,
+            'alamat'             => $this->alamat,
+            'nama_bank'          => $bankFinal,
+            'no_rekening'        => $this->no_rekening,
+            'atas_nama_rekening' => $this->atas_nama_rekening,
         ];
 
-        SupplierProfile::updateOrCreate(
-            ['user_id' => $user->id],
-            [
-                'info_rekening' => $rekening_array,
-                'status_verifikasi' => 'menunggu_review' // Set status review
-            ]
-        );
+        if ($this->foto_ktp_baru) {
+            if ($profile->foto_ktp && Storage::disk('public')->exists($profile->foto_ktp)) {
+                Storage::disk('public')->delete($profile->foto_ktp);
+            }
+            $updateData['foto_ktp'] = $this->foto_ktp_baru->store('pemasok/ktp', 'public');
+            $this->existing_ktp = $updateData['foto_ktp'];
+        }
+        if ($this->foto_gudang_baru) {
+            if ($profile->foto_gudang && Storage::disk('public')->exists($profile->foto_gudang)) {
+                Storage::disk('public')->delete($profile->foto_gudang);
+            }
+            $updateData['foto_gudang'] = $this->foto_gudang_baru->store('pemasok/gudang', 'public');
+            $this->existing_gudang = $updateData['foto_gudang'];
+        }
 
-        $this->info_rekening = $rekening_array;
-        $this->showRekeningModal = false;
-        $this->reset(['password_konfirmasi', 'nama_bank_baru', 'nomor_rekening_baru']);
-        
-        session()->flash('message', 'Akun pencairan dana berhasil diganti dan diajukan kembali.');
+        $profile->update($updateData);
+        $user->update(['name' => $this->nama_pic]);
+
+        $this->reset(['foto_ktp_baru', 'foto_gudang_baru', 'password_konfirmasi']);
+        session()->flash('success_profil', 'Data profil dan rekening berhasil diamankan & disimpan.');
     }
 
     public function updatePassword()
     {
         $this->validate([
-            'current_password' => ['required', 'current_password'], 
-            'password' => ['required', 'min:8', 'confirmed'], 
+            'current_password' => 'required|string',
+            'new_password'     => 'required|string|min:8|confirmed',
         ], [
-            'current_password.current_password' => 'Kata sandi saat ini tidak cocok.',
-            'password.confirmed' => 'Konfirmasi kata sandi baru tidak cocok.',
-            'password.min' => 'Kata sandi baru minimal harus 8 karakter.'
+            'new_password.min' => 'Password baru minimal 8 karakter.',
+            'new_password.confirmed' => 'Konfirmasi password baru tidak cocok.',
         ]);
 
         $user = Auth::user();
-        $user->update([
-            'password' => Hash::make($this->password),
-        ]);
 
-        $this->reset(['current_password', 'password', 'password_confirmation']);
-        session()->flash('message', 'Kata sandi akun berhasil diperbarui!');
+        if (!Hash::check($this->current_password, $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => 'Password saat ini salah.',
+            ]);
+        }
+
+        $user->update(['password' => Hash::make($this->new_password)]);
+
+        $this->reset(['current_password', 'new_password', 'new_password_confirmation']);
+        session()->flash('success_password', 'Password akun berhasil diperbarui!');
     }
 
     public function render()
     {
-        return view('livewire.pemasok.profile-pemasok')->layout('layouts.app'); 
+        return view('livewire.pemasok.profile-pemasok')->layout('layouts.app');
     }
 }

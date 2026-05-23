@@ -115,12 +115,20 @@ new class extends Component
             <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">Pengiriman Logistik</span>
         </a>
 
-        <a href="{{ route('pemasok.manajemen-return') }}" 
-            class="flex items-center space-x-3 px-4 py-2.5 rounded-lg transition-colors duration-200 {{ request()->routeIs('pemasok.manajemen-return') ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900' }}">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.25 15M22 22v-5h-5.25" />
-                </svg>
-                <span class="font-medium">Manajemen Return</span>
+        {{-- Manajemen Return --}}
+        {{-- Manajemen Return --}}
+        <a href="{{ route('pemasok.manajemen-return') }}" wire:navigate
+            class="flex items-center px-3 py-3 text-[15px] font-bold rounded-xl transition-all duration-200 group whitespace-nowrap
+            {{ request()->routeIs('pemasok.manajemen-return') 
+                ? 'bg-white text-[#EA580C] shadow-lg' 
+                : 'text-orange-100 hover:bg-white/10 hover:text-white' }}"
+            :class="sidebarOpen ? '' : 'justify-center'" title="Manajemen Return">
+            
+            <svg class="w-6 h-6 flex-shrink-0 transition-colors {{ request()->routeIs('pemasok.manajemen-return') ? 'text-[#EA580C]' : 'text-orange-300 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
+            </svg>
+            
+            <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">Manajemen Return</span>
         </a>
 
         <div x-show="sidebarOpen" x-transition class="px-4 mb-1 mt-6 text-xs font-bold text-orange-300 uppercase tracking-widest whitespace-nowrap border-t border-white/10 pt-4">

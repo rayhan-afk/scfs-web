@@ -1,280 +1,218 @@
+<div class="py-8 px-6 md:px-8 w-full space-y-8 relative">
 
-<div class="max-w-4xl mx-auto py-6 space-y-6">
-    
-    @if (session()->has('message'))
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative">
-            {{ session('message') }}
-        </div>
-    @endif
-
-    <div class="bg-white p-6 rounded-lg shadow-sm flex items-center justify-between">
-        <div class="flex items-center space-x-4">
-            <div class="h-16 w-16 bg-blue-600 rounded-full flex items-center justify-center text-white text-2xl font-bold uppercase">
-                {{ substr($nama_usaha, 0, 1) ?: 'P' }}
-            </div>
-            <div>
-                <h2 class="text-2xl font-bold text-gray-800">{{ $nama_usaha ?: 'Nama Usaha Belum Diatur' }}</h2>
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Terverifikasi
-                </span>
-            </div>
-        </div>
+    <div class="mb-2">
+        <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Pengaturan Profil & Keamanan</h2>
+        <p class="text-gray-500 text-sm mt-1">Kelola informasi usaha, rekening pencairan, dan amankan akun pemasok Anda.</p>
     </div>
 
-    <div class="border-b border-gray-200">
-        <nav class="-mb-px flex space-x-8">
-            <button wire:click="switchTab('informasi')" class="{{ $activeTab === 'informasi' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                Informasi Usaha
-            </button>
-            <button wire:click="switchTab('dokumen')" class="{{ $activeTab === 'dokumen' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                Dokumen & Rekening
-            </button>
-            <button wire:click="switchTab('keamanan')" class="{{ $activeTab === 'keamanan' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
-                Keamanan Akun
-            </button>
-        </nav>
-    </div>
+    {{-- BAGIAN 1: FORM PROFIL & REKENING --}}
+    <form wire:submit.prevent="simpanProfil" class="space-y-6">
 
-    <div class="bg-white p-6 rounded-lg shadow-sm">
-        
-        @if($activeTab === 'informasi')
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold text-gray-800">Detail Perusahaan</h3>
-                <button wire:click="toggleEdit" class="text-sm bg-white border border-orange-200 text-orange-600 font-bold px-4 py-2 rounded-lg hover:bg-orange-600 hover:text-white transition-colors shadow-sm">
-                    {{ $isEditing ? 'Batal Edit' : 'Edit Profil' }}
-                </button>
+        @if(session('success_profil'))
+            <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-3 rounded-xl flex items-center gap-3 shadow-sm">
+                <svg class="w-5 h-5 flex-shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="font-medium">{{ session('success_profil') }}</span>
             </div>
-
-            <form wire:submit.prevent="simpanInformasi" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Nama Pemilik (Sesuai KTP)</label>
-                    @if($isEditing)
-                        <input type="text" wire:model="nama_pemilik" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                        @error('nama_pemilik') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                    @else
-                        <p class="mt-1 text-gray-900 bg-gray-50 p-2 rounded-md border border-transparent">{{ $nama_pemilik ?: '-' }}</p>
-                    @endif
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">NIK</label>
-                    @if($isEditing)
-                        <input type="text" wire:model="nik" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                        @error('nik') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                    @else
-                        <p class="mt-1 text-gray-900 bg-gray-50 p-2 rounded-md border border-transparent">{{ $nik ?: '-' }}</p>
-                    @endif
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Alamat Gudang Utama</label>
-                    @if($isEditing)
-                        <textarea wire:model="alamat_gudang" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
-                        @error('alamat_gudang') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                    @else
-                        <p class="mt-1 text-gray-900 bg-gray-50 p-2 rounded-md border border-transparent min-h-[40px]">{{ $alamat_gudang ?: '-' }}</p>
-                    @endif
-                </div>
-
-                @if($isEditing)
-                    <div class="flex justify-end pt-4 border-t border-gray-100">
-                        <button type="submit" class="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors">Simpan Perubahan</button>
-                    </div>
-                @endif
-            </form>
         @endif
 
-        @if($activeTab === 'dokumen')
-            <div class="space-y-8">
-                
-                {{-- BAHAGIAN 1: REKENING PENCAIRAN --}}
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-800 mb-3">Rekening Pencairan</h3>
-                    <div class="flex items-center justify-between bg-blue-50/50 p-5 rounded-xl border border-blue-100">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 xl:gap-8">
+
+            {{-- KOLOM KIRI: REKENING + INFO USAHA + INFO PIC --}}
+            <div class="lg:col-span-2 space-y-6">
+
+                {{-- Card 1: Rekening (Sensitif) --}}
+                <div class="bg-white rounded-2xl border border-rose-200 shadow-sm overflow-hidden relative">
+                    <div class="absolute top-0 right-0 w-16 h-16 bg-rose-50 rounded-bl-full -mr-8 -mt-8 z-0"></div>
+                    <div class="px-6 py-4 border-b border-rose-100 bg-rose-50/30 flex items-center gap-2 relative z-10">
+                        <svg class="w-5 h-5 text-rose-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                        <h3 class="font-bold text-rose-900 text-sm">Informasi Pencairan Dana (Sensitif)</h3>
+                    </div>
+                    <div class="p-6 space-y-4 relative z-10">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-extrabold text-gray-500 uppercase tracking-wider mb-2">Bank</label>
+                                <select wire:model.live="nama_bank" class="w-full py-3 px-4 text-sm font-bold text-gray-900 bg-white border border-rose-200 rounded-xl focus:border-rose-500 focus:ring-4 focus:ring-rose-100 transition">
+                                    @foreach($daftarBank as $bank)
+                                        <option value="{{ $bank }}">{{ $bank === 'Lainnya' ? 'Bank Lainnya...' : $bank }}</option>
+                                    @endforeach
+                                </select>
+                                @error('nama_bank') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
+                                @if($nama_bank === 'Lainnya')
+                                    <input wire:model="bank_lainnya" type="text" placeholder="Ketik nama bank..." class="mt-2 w-full py-3 px-4 text-sm font-bold text-gray-900 bg-white border border-rose-200 rounded-xl focus:border-rose-500 focus:ring-4 focus:ring-rose-100 transition">
+                                    @error('bank_lainnya') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
+                                @endif
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-extrabold text-gray-500 uppercase tracking-wider mb-2">Nomor Rekening</label>
+                                <input wire:model="no_rekening" type="text" maxlength="20" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,20)" placeholder="1234567890" class="w-full py-3 px-4 text-sm font-bold font-mono text-gray-900 bg-white border border-rose-200 rounded-xl focus:border-rose-500 focus:ring-4 focus:ring-rose-100 transition">
+                                @error('no_rekening') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-extrabold text-gray-500 uppercase tracking-wider mb-2">Atas Nama (Opsional)</label>
+                                <input wire:model="atas_nama_rekening" type="text" maxlength="100" placeholder="Pemilik rekening" class="w-full py-3 px-4 text-sm font-bold text-gray-900 bg-white border border-rose-200 rounded-xl focus:border-rose-500 focus:ring-4 focus:ring-rose-100 transition">
+                                @error('atas_nama_rekening') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-gray-400 italic">*Dana suplai akan ditransfer ke rekening ini. Pastikan data benar.</p>
+                    </div>
+                </div>
+
+                {{-- Card 2: Info Usaha --}}
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                        <h3 class="font-bold text-gray-900 text-sm">Informasi Perusahaan / Gudang</h3>
+                    </div>
+                    <div class="p-6 space-y-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama Perusahaan / Usaha</label>
+                                <input wire:model="nama_perusahaan" type="text" class="w-full py-2.5 px-4 text-sm border border-gray-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition">
+                                @error('nama_perusahaan') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Alamat Gudang / Tempat Usaha</label>
+                                <input wire:model="alamat" type="text" class="w-full py-2.5 px-4 text-sm border border-gray-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition">
+                                @error('alamat') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Card 3: Info PIC --}}
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        <h3 class="font-bold text-gray-900 text-sm">Informasi Pemilik / PIC</h3>
+                    </div>
+                    <div class="p-6 space-y-5">
                         <div>
-                            <p class="text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-1">Nomor Akun Aktif</p>
-                            <p class="text-xl font-black text-gray-900 tracking-wider">
-                                @if($info_rekening && strlen($info_rekening) > 6)
-                                    {{ substr($info_rekening, 0, strpos($info_rekening, '-')) }} - 
-                                    {{ str_repeat('*', 4) . substr($info_rekening, -4) }}
-                                @else
-                                    {{ $info_rekening ?: 'Belum diatur' }}
-                                @endif
-                            </p>
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama PIC (Sesuai KTP)</label>
+                            <input wire:model="nama_pic" type="text" class="w-full py-2.5 px-4 text-sm border border-gray-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition">
+                            @error('nama_pic') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
                         </div>
-                        <button wire:click="$set('showRekeningModal', true)" class="text-sm bg-white border border-orange-200 text-orange-600 font-bold px-4 py-2 rounded-lg hover:bg-orange-600 hover:text-white transition-colors shadow-sm">
-                            Ubah Rekening
-                        </button>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nomor Induk Kependudukan (NIK)</label>
+                                <input wire:model.defer="nik" type="text" maxlength="16" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/\D/g,'').slice(0,16)" class="w-full py-2.5 px-4 text-sm font-mono border border-gray-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition">
+                                @error('nik') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nomor WhatsApp Aktif</label>
+                                <input wire:model="no_hp" type="text" maxlength="20" class="w-full py-2.5 px-4 text-sm font-mono border border-gray-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition">
+                                @error('no_hp') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <hr class="border-gray-100">
-
-                {{-- BAHAGIAN 2: DOKUMEN LEGALITAS --}}
-                <form wire:submit.prevent="simpanDokumen">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Dokumen Pemasok</h3>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        
-                        {{-- Upload KTP --}}
-                        <div class="border border-gray-200 rounded-xl p-5 relative">
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Foto KTP Pemilik</label>
-                            
-                            <div class="w-full h-40 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden mb-3 relative">
-                                @if($foto_ktp_baru)
-                                    <img src="{{ $foto_ktp_baru->temporaryUrl() }}" class="object-cover w-full h-full">
-                                    <span class="absolute top-2 right-2 bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold">Baru</span>
-                                @elseif($foto_ktp_lama)
-                                    <img src="{{ asset('storage/' . $foto_ktp_lama) }}" class="object-cover w-full h-full">
-                                @else
-                                    <span class="text-gray-400 text-sm">Tidak Ada File KTP</span>
-                                @endif
-                            </div>
-
-                            <input type="file" wire:model="foto_ktp_baru" id="upload-ktp" class="hidden" accept="image/*">
-                            <label for="upload-ktp" class="w-full block text-center cursor-pointer bg-gray-100 px-4 py-2 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-200 transition">
-                                Ganti KTP
-                            </label>
-                            <div wire:loading wire:target="foto_ktp_baru" class="text-[10px] text-blue-500 mt-1 text-center w-full">Sedang memuat...</div>
-                            @error('foto_ktp_baru') <span class="text-red-500 text-[10px]">{{ $message }}</span> @enderror
-                        </div>
-
-                        {{-- Upload Foto Gudang/Usaha --}}
-                        <div class="border border-gray-200 rounded-xl p-5 relative">
-                            <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Foto Gudang / Usaha</label>
-                            
-                            <div class="w-full h-40 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden mb-3 relative">
-                                @if($foto_usaha_baru)
-                                    <img src="{{ $foto_usaha_baru->temporaryUrl() }}" class="object-cover w-full h-full">
-                                    <span class="absolute top-2 right-2 bg-green-500 text-white text-[10px] px-2 py-1 rounded font-bold">Baru</span>
-                                @elseif($foto_usaha_lama)
-                                    <img src="{{ asset('storage/' . $foto_usaha_lama) }}" class="object-cover w-full h-full">
-                                @else
-                                    <span class="text-gray-400 text-sm">Tidak Ada File Foto Usaha</span>
-                                @endif
-                            </div>
-
-                            <input type="file" wire:model="foto_usaha_baru" id="upload-usaha" class="hidden" accept="image/*">
-                            <label for="upload-usaha" class="w-full block text-center cursor-pointer bg-gray-100 px-4 py-2 rounded-lg text-xs font-bold text-gray-600 hover:bg-gray-200 transition">
-                                Ganti Foto Usaha
-                            </label>
-                            <div wire:loading wire:target="foto_usaha_baru" class="text-[10px] text-blue-500 mt-1 text-center w-full">Sedang memuat...</div>
-                            @error('foto_usaha_baru') <span class="text-red-500 text-[10px]">{{ $message }}</span> @enderror
-                        </div>
-                    </div>
-
-                    @if($foto_ktp_baru || $foto_usaha_baru)
-                    <div class="mt-6 flex justify-end">
-                        <button type="submit" class="bg-blue-600 text-white font-bold px-6 py-2.5 rounded-lg hover:bg-blue-700 transition shadow-lg shadow-blue-200">
-                            Simpan Dokumen Terbaru
-                        </button>
-                    </div>
-                    @endif
-                </form>
             </div>
-        @endif
 
-       @if($activeTab === 'keamanan')
-            <div class="space-y-6 max-w-xl">
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-800 mb-1">Perbarui Kata Sandi</h3>
-                    <p class="text-sm text-gray-500 mb-6 border-b border-gray-100 pb-4">
-                        Pastikan akun Anda menggunakan kata sandi acak yang panjang agar tetap aman.
+            {{-- KOLOM KANAN: AUTH GATE + DOKUMEN --}}
+            <div class="lg:col-span-1 space-y-6">
+
+                {{-- Action Panel (SECURITY GATE) --}}
+                <div class="bg-gray-900 rounded-2xl shadow-xl p-6 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-gray-800 rounded-bl-full -mr-10 -mt-10 pointer-events-none"></div>
+                    <h3 class="text-xs font-bold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+                        Otorisasi Keamanan
+                    </h3>
+
+                    <div class="mb-5">
+                        <label class="block text-[10px] font-bold text-gray-400 mb-1.5">Masukkan Password Akun Anda</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                            </span>
+                            <input wire:model="password_konfirmasi" type="password" placeholder="••••••••" class="w-full py-2.5 pl-9 pr-4 text-sm text-gray-900 bg-white border-0 rounded-xl focus:ring-4 focus:ring-emerald-500/50 transition">
+                        </div>
+                        @error('password_konfirmasi') <span class="text-rose-400 text-[10px] mt-1.5 font-bold block">{{ $message }}</span> @enderror
+                    </div>
+
+                    <button type="submit" wire:loading.attr="disabled" class="w-full py-3.5 text-sm font-extrabold text-white bg-emerald-600 rounded-xl hover:bg-emerald-500 transition shadow-lg shadow-emerald-900/50 flex justify-center items-center gap-2 focus:ring-4 focus:ring-emerald-500/50 disabled:opacity-50">
+                        <span wire:loading.remove wire:target="simpanProfil">Simpan Perubahan</span>
+                        <span wire:loading wire:target="simpanProfil">Memverifikasi...</span>
+                    </button>
+                    <p class="text-[9px] text-gray-500 mt-4 text-center leading-relaxed">
+                        Verifikasi password diperlukan untuk mencegah pihak tidak bertanggung jawab mengubah data sensitif.
                     </p>
                 </div>
 
-                <form wire:submit.prevent="updatePassword" class="space-y-5">
-                    
-                    {{-- Password Lama --}}
-                    <div>
-                        <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">
-                            Kata Sandi Saat Ini
-                        </label>
-                        <input type="password" wire:model="current_password" class="w-full rounded-xl border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 py-2.5 text-sm" placeholder="Masukkan kata sandi lama...">
-                        @error('current_password') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
-                    </div>
-
-                    {{-- Password Baru --}}
-                    <div>
-                        <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">
-                            Kata Sandi Baru
-                        </label>
-                        <input type="password" wire:model="password" class="w-full rounded-xl border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 py-2.5 text-sm" placeholder="Minimal 8 karakter...">
-                        @error('password') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
-                    </div>
-
-                    {{-- Konfirmasi Password Baru --}}
-                    <div>
-                        <label class="block text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">
-                            Konfirmasi Kata Sandi Baru
-                        </label>
-                        <input type="password" wire:model="password_confirmation" class="w-full rounded-xl border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 py-2.5 text-sm" placeholder="Ketik ulang kata sandi baru...">
-                    </div>
-
-                    <div class="pt-4 flex items-center gap-4">
-                        <button type="submit" class="bg-orange-600 text-white font-bold px-6 py-2.5 rounded-xl hover:bg-orange-900 transition-colors shadow-lg shadow-orange-200">
-                            Simpan Kata Sandi
-                        </button>
-                        
-                        {{-- Indikator Loading saat proses simpan --}}
-                        <div wire:loading wire:target="updatePassword" class="text-sm text-orange-500 flex items-center gap-2">
-                            <svg class="animate-spin h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            Menyimpan...
+                {{-- Dokumen KTP --}}
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 class="text-xs font-bold text-gray-900 mb-3">Dokumen KTP</h3>
+                    @if($existing_ktp)
+                        <div class="mb-3 rounded-xl overflow-hidden border border-gray-100 shadow-sm relative group">
+                            <img src="{{ asset('storage/' . $existing_ktp) }}" alt="KTP" class="w-full h-32 object-cover">
                         </div>
-                    </div>
-                </form>
-            </div>
-        @endif
-    </div>
-
-    @if($showRekeningModal)
-        <div class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 transition-opacity">
-            <div class="bg-white p-6 rounded-2xl shadow-2xl max-w-md w-full m-4">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold text-gray-900">Ubah Akaun Pencairan</h3>
-                    <button wire:click="$set('showRekeningModal', false)" class="text-gray-400 hover:text-gray-600">✕</button>
+                    @endif
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Unggah KTP Baru (Opsional)</label>
+                    <input wire:model="foto_ktp_baru" type="file" accept="image/jpeg,image/png,image/jpg" class="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer">
+                    <div wire:loading wire:target="foto_ktp_baru" class="text-[10px] font-bold text-emerald-600 mt-2 animate-pulse">Mengunggah...</div>
+                    @error('foto_ktp_baru') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
                 </div>
-                
-                <p class="text-sm text-gray-500 mb-6 bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-yellow-800">
-                    🔒 Demi keselamatan dana anda, silahkan masukkan passwoard akun anda
-                </p>
-                
-                <form wire:submit.prevent="ubahRekening">
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Passwoard Anda</label>
-                            <input type="password" wire:model="password_konfirmasi" class="w-full rounded-xl border-gray-300 focus:ring-blue-500 py-3 text-sm" placeholder="Masukkan kata laluan...">
-                            @error('password_konfirmasi') <span class="text-red-500 text-xs mt-1 block font-medium">{{ $message }}</span> @enderror
+
+                {{-- Dokumen Gudang --}}
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                    <h3 class="text-xs font-bold text-gray-900 mb-3">Foto Gudang / Usaha</h3>
+                    @if($existing_gudang)
+                        <div class="mb-3 rounded-xl overflow-hidden border border-gray-100 shadow-sm relative group">
+                            <img src="{{ asset('storage/' . $existing_gudang) }}" alt="Gudang" class="w-full h-32 object-cover">
                         </div>
+                    @endif
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Unggah Foto Baru (Opsional)</label>
+                    <input wire:model="foto_gudang_baru" type="file" accept="image/jpeg,image/png,image/jpg" class="w-full text-xs text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer">
+                    <div wire:loading wire:target="foto_gudang_baru" class="text-[10px] font-bold text-emerald-600 mt-2 animate-pulse">Mengunggah...</div>
+                    @error('foto_gudang_baru') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
+                </div>
 
-                        <hr class="border-gray-100 my-2">
-
-                        <div class="grid grid-cols-3 gap-3">
-                            <div class="col-span-1">
-                                <label class="block text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-1">Bank</label>
-                                <select wire:model="nama_bank_baru" class="w-full rounded-xl border-orange-100 bg-orange-50/30 py-3 text-sm focus:ring-orange-500">
-                                    <option value="">Pilih</option>
-                                    @foreach($daftar_bank as $bank)
-                                        <option value="{{ $bank }}">{{ $bank }}</option>
-                                    @endforeach
-                                </select>
-                                @error('nama_bank_baru') <span class="text-red-500 text-[10px] block mt-1">{{ $message }}</span> @enderror
-                            </div>
-
-                            <div class="col-span-2">
-                                <label class="block text-[10px] font-bold text-orange-600 uppercase tracking-widest mb-1">Nomor Akun Rekening</label>
-                                <input type="number" wire:model="nomor_rekening_baru" placeholder="Cth: 8830xxxx" class="w-full rounded-xl border-orange-100 bg-orange-50/30 py-3 text-sm focus:ring-orange-500">
-                                @error('nomor_rekening_baru') <span class="text-red-500 text-[10px] block mt-1">{{ $message }}</span> @enderror
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end space-x-3 mt-8">
-                        <button type="button" wire:click="$set('showRekeningModal', false)" class="px-5 py-2.5 text-gray-700 bg-gray-100 rounded-xl font-bold hover:bg-gray-200 transition-colors">Batal</button>
-                        <button type="submit" class="px-5 py-2.5 text-white bg-orange-600 rounded-xl font-bold hover:bg-orange-700 transition-colors shadow-lg shadow-orange-200">Simpan Akun</button>
-                    </div>
-                </form>
             </div>
         </div>
-    @endif
+    </form>
+
+    <hr class="border-gray-200 my-8">
+
+    {{-- BAGIAN 2: GANTI PASSWORD --}}
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden xl:w-2/3">
+        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-2">
+            <svg class="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
+            <h3 class="font-bold text-gray-900 text-sm">Ganti Password Akun</h3>
+        </div>
+
+        <form wire:submit.prevent="updatePassword" class="p-6 space-y-5">
+            @if(session('success_password'))
+                <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3 py-2 rounded-lg flex items-center gap-2 mb-4">
+                    <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    <span class="font-bold">{{ session('success_password') }}</span>
+                </div>
+            @endif
+
+            <div>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Password Saat Ini</label>
+                <input wire:model="current_password" type="password" class="w-full py-2.5 px-4 text-sm border border-gray-300 rounded-xl focus:border-gray-500 focus:ring-2 focus:ring-gray-200 transition">
+                @error('current_password') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Password Baru</label>
+                    <input wire:model="new_password" type="password" class="w-full py-2.5 px-4 text-sm border border-gray-300 rounded-xl focus:border-gray-500 focus:ring-2 focus:ring-gray-200 transition">
+                    @error('new_password') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Konfirmasi Password Baru</label>
+                    <input wire:model="new_password_confirmation" type="password" class="w-full py-2.5 px-4 text-sm border border-gray-300 rounded-xl focus:border-gray-500 focus:ring-2 focus:ring-gray-200 transition">
+                </div>
+            </div>
+
+            <div class="pt-2">
+                <button type="submit" wire:loading.attr="disabled" class="px-6 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition shadow-sm focus:ring-4 focus:ring-gray-100 disabled:opacity-50">
+                    <span wire:loading.remove wire:target="updatePassword">Update Password</span>
+                    <span wire:loading wire:target="updatePassword">Memproses...</span>
+                </button>
+            </div>
+        </form>
+    </div>
+
 </div>

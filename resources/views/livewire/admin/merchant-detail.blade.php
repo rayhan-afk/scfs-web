@@ -240,7 +240,7 @@ class extends Component {
             @if($activeTab == 'katalog')
             <div class="p-6 bg-blue-50/30 border-b border-gray-100 flex items-center gap-3">
                 <svg class="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <p class="text-xs text-blue-800 font-medium">Tabel ini digunakan Admin untuk memantau indikasi kecurangan margin profit. Jika Harga Modal disamakan dengan Harga Jual, Fee LKBB akan menjadi Rp 0.</p>
+                <p class="text-xs text-blue-800 font-medium">Tabel ini digunakan Admin untuk memantau indikasi kecurangan margin profit. Jika Harga Modal disamakan dengan Harga Jual, Profit LKBB akan menjadi Rp 0.</p>
             </div>
             <table class="w-full text-left border-collapse">
                 <thead class="bg-gray-50 text-gray-400 text-[10px] uppercase font-bold tracking-wider border-b border-gray-200">

@@ -14,7 +14,7 @@ new class extends Component
 
 @php
     // Logika deteksi menu aktif untuk Merchant (DITAMBAHKAN merchant.pesanan-online)
-    $isPasokActive = request()->routeIs('merchant.order', 'merchant.penerimaan');
+    $isPasokActive = request()->routeIs('merchant.order', 'merchant.penerimaan', 'merchant.riwayat-po');
     $isJualActive = request()->routeIs('merchant.pos', 'merchant.riwayat', 'merchant.pesanan-online');
     $isKasActive = request()->routeIs('merchant.withdraw', 'merchant.setoran');
     $isPengaturanActive = request()->routeIs('merchant.katalog', 'merchant.profile');
@@ -104,6 +104,9 @@ new class extends Component
                 </a>
                 <a href="{{ route('merchant.penerimaan') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('merchant.penerimaan') ? 'text-[#059669] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-emerald-100 hover:text-white hover:bg-white/10 font-semibold' }}">
                     Penerimaan Barang
+                </a>
+                <a href="{{ route('merchant.riwayat-po') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('merchant.riwayat-po') ? 'text-[#059669] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-emerald-100 hover:text-white hover:bg-white/10 font-semibold' }}">
+                    Riwayat Pengajuan PO
                 </a>
             </div>
         </div>

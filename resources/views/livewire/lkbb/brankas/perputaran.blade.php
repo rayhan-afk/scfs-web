@@ -171,7 +171,7 @@ class extends Component {
 
         {{-- Card 3: Total Laba Bersih LKBB --}}
         <div class="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm flex flex-col justify-center border-l-4 border-l-emerald-500">
-             <p class="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider mb-1">Laba Bersih LKBB (Total Fee)</p>
+             <p class="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider mb-1">Laba Bersih LKBB (Total Profit)</p>
              <h3 class="text-xl font-black text-emerald-600">Rp {{ number_format($this->ringkasan['total_fee'], 0, ',', '.') }}</h3>
              <p class="text-[10px] text-emerald-600 font-bold mt-1">Akumulasi keuntungan murni</p>
         </div>

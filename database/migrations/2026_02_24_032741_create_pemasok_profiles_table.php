@@ -11,15 +11,36 @@ return new class extends Migration
         Schema::create('pemasok_profiles', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('nama_perusahaan');
-            $table->string('kategori_barang'); // cth: Sembako, Daging, Sayur
-            $table->string('nama_pic');
-            $table->string('no_hp')->nullable();
+
+            // Identitas usaha
+            $table->string('nama_perusahaan')->nullable();
+            $table->string('kategori_barang')->default('Lainnya');
+            $table->string('nama_pic')->nullable();
+            $table->string('nik', 16)->nullable();
+            $table->string('no_hp', 20)->nullable();
             $table->text('alamat')->nullable();
-            $table->string('info_bank')->nullable(); // cth: BCA 123456 a.n PT Pangan
-            $table->enum('status_kemitraan', ['aktif', 'nonaktif'])->default('aktif');
-            $table->decimal('tagihan_berjalan', 15, 2)->default(0); // Hutang LKBB ke pemasok
+
+            // Lifecycle + dokumen (mirror MerchantProfile)
+            $table->string('status_verifikasi')->default('belum_melengkapi');
+            $table->string('foto_ktp')->nullable();
+            $table->string('foto_gudang')->nullable();
+            $table->text('catatan_penolakan')->nullable();
+
+            // Rekening flat (mirror Merchant: nama_bank + no_rekening)
+            $table->string('nama_bank')->nullable();
+            $table->string('no_rekening')->nullable();
+            $table->string('atas_nama_rekening')->nullable();
+
+            // Operasional + keuangan
+            $table->enum('status_kemitraan', ['aktif', 'nonaktif'])->default('nonaktif');
+            $table->enum('status_operasional', ['buka', 'tutup'])->default('tutup');
+            $table->decimal('saldo_pendapatan', 15, 2)->default(0);
+            $table->decimal('tagihan_berjalan', 15, 2)->default(0);
+
             $table->timestamps();
+
+            $table->index('status_verifikasi');
+            $table->index('status_kemitraan');
         });
     }
 

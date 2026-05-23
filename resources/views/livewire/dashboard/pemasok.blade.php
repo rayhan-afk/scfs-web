@@ -5,62 +5,58 @@ use Livewire\WithFileUploads;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 use Illuminate\Support\Facades\Auth;
-use App\Models\SupplierProfile;
+use App\Models\PemasokProfile;
 use App\Models\SupplyOrder;
-use App\Models\Transaction;
 use App\Models\User;
 use App\Notifications\NewSupplierSubmission;
 use Carbon\Carbon;
 
-new 
-#[Layout('layouts.app')] 
+new
+#[Layout('layouts.app')]
 class extends Component {
     use WithFileUploads;
 
-    public $nama_perusahaan, $nama_pemilik, $nik, $no_hp, $alamat_gudang;
-
+    // Property onboarding form (selaras schema baru pemasok_profiles + pola Merchant)
+    public $nama_perusahaan, $nama_pic, $nik, $no_hp, $alamat;
     public $nama_bank = 'BCA';
     public $bank_lainnya = '';
     public $no_rekening = '';
+    public $atas_nama_rekening = '';
     public $foto_ktp, $foto_gudang;
 
-    public string $chartFilter = 'month'; 
+    public string $chartFilter = 'month';
 
     public function mount()
     {
-        $profile = SupplierProfile::where('user_id', Auth::id())->first();
-        
+        $profile = PemasokProfile::where('user_id', Auth::id())->first();
+
         if ($profile) {
             $this->nama_perusahaan = $profile->nama_perusahaan;
-            $this->nama_pemilik = $profile->nama_pemilik;
-            $this->nik = $profile->nik;
-            $this->no_hp = $profile->no_hp;
-            $this->alamat_gudang = $profile->alamat_gudang;
-            $standardBanks = ['BCA', 'BNI', 'BRI', 'Mandiri', 'BJB', 'GoPay', 'OVO'];
-                if (in_array($profile->nama_bank, $standardBanks)) {
-                    $this->nama_bank = $profile->nama_bank;
-                } elseif (!empty($profile->nama_bank)) {
-                    $this->nama_bank = 'Lainnya';
-                    $this->bank_lainnya = $profile->nama_bank;
-                }
+            $this->nama_pic        = $profile->nama_pic;
+            $this->nik             = $profile->nik;
+            $this->no_hp           = $profile->no_hp;
+            $this->alamat          = $profile->alamat;
+            $this->atas_nama_rekening = $profile->atas_nama_rekening;
 
-                $this->no_rekening = $profile->no_rekening;
+            $standardBanks = ['BCA', 'BNI', 'BRI', 'Mandiri', 'BJB', 'GoPay', 'OVO'];
+            if (in_array($profile->nama_bank, $standardBanks)) {
+                $this->nama_bank = $profile->nama_bank;
+            } elseif (!empty($profile->nama_bank)) {
+                $this->nama_bank = 'Lainnya';
+                $this->bank_lainnya = $profile->nama_bank;
+            }
+            $this->no_rekening = $profile->no_rekening;
         } else {
-            $this->nama_pemilik = Auth::user()->name;
+            $this->nama_pic = Auth::user()->name;
         }
     }
 
     #[Computed]
     public function profile()
     {
-        return SupplierProfile::firstOrCreate(
+        return PemasokProfile::firstOrCreate(
             ['user_id' => Auth::id()],
-            [
-                'status_verifikasi'       => 'belum_melengkapi',
-                'nama_pemilik'            => Auth::user()->name,
-                'saldo_pendapatan'        => 0, 
-                'status_operasional'      => 'buka',
-            ]
+            ['kategori_barang' => 'Lainnya']
         );
     }
 
@@ -68,13 +64,13 @@ class extends Component {
     public function statHariIni()
     {
         $today = Carbon::today();
-        
+
         $baseQuery = SupplyOrder::where('pemasok_id', Auth::id())
             ->whereIn('status', ['selesai', 'dikirim'])
             ->whereDate('updated_at', $today);
 
         return [
-            'total_nominal' => $baseQuery->sum('total_estimasi'), // FIX: was total_amount
+            'total_nominal' => $baseQuery->sum('total_estimasi'),
             'total_pesanan' => $baseQuery->count(),
         ];
     }
@@ -90,46 +86,37 @@ class extends Component {
     public function getChartData()
     {
         $query = SupplyOrder::where('pemasok_id', Auth::id())
-            ->whereIn('status', ['selesai', 'dikirim']); // Sesuaikan dengan enum yang ada
+            ->whereIn('status', ['selesai', 'dikirim']);
 
         $labels = [];
         $series = [];
 
         if ($this->chartFilter === 'today') {
             $txs = (clone $query)->whereDate('updated_at', Carbon::today())->get();
-            $grouped = $txs->groupBy(function($item) {
-                return Carbon::parse($item->updated_at)->format('H'); 
-            });
+            $grouped = $txs->groupBy(fn($item) => Carbon::parse($item->updated_at)->format('H'));
 
             for ($i = 6; $i <= 21; $i++) {
                 $hour = str_pad($i, 2, '0', STR_PAD_LEFT);
                 $labels[] = $hour . ':00';
-                // FIX: was total_amount
                 $series[] = $grouped->has($hour) ? (int) $grouped->get($hour)->sum('total_estimasi') : 0;
             }
         } elseif ($this->chartFilter === 'month') {
             $now = Carbon::now();
             $txs = (clone $query)->whereMonth('updated_at', $now->month)->whereYear('updated_at', $now->year)->get();
-            $grouped = $txs->groupBy(function($item) {
-                return Carbon::parse($item->updated_at)->format('j'); 
-            });
+            $grouped = $txs->groupBy(fn($item) => Carbon::parse($item->updated_at)->format('j'));
 
             for ($i = 1; $i <= $now->daysInMonth; $i++) {
                 $labels[] = $i . ' ' . $now->format('M');
-                // FIX: was total_amount
                 $series[] = $grouped->has((string)$i) ? (int) $grouped->get((string)$i)->sum('total_estimasi') : 0;
             }
         } elseif ($this->chartFilter === 'year') {
             $now = Carbon::now();
             $txs = (clone $query)->whereYear('updated_at', $now->year)->get();
-            $grouped = $txs->groupBy(function($item) {
-                return Carbon::parse($item->updated_at)->format('n'); 
-            });
+            $grouped = $txs->groupBy(fn($item) => Carbon::parse($item->updated_at)->format('n'));
 
             $months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
             for ($i = 1; $i <= 12; $i++) {
                 $labels[] = $months[$i - 1];
-                // FIX: was total_amount
                 $series[] = $grouped->has((string)$i) ? (int) $grouped->get((string)$i)->sum('total_estimasi') : 0;
             }
         }
@@ -156,46 +143,52 @@ class extends Component {
     public function submitOnboarding()
     {
         $this->validate([
-            'nama_perusahaan' => 'required|string|max:255',
-            'nama_pemilik'    => 'required|string|max:255',
-            'nik'             => 'required|digits:16',
-            'no_hp'           => 'required|string|max:20',
-            'alamat_gudang'   => 'required|string|max:255',
-            'nama_bank'       => 'required|string',
-            'bank_lainnya'    => 'required_if:nama_bank,Lainnya',
-            'no_rekening'     => 'required|numeric',
-            'foto_ktp'        => $this->profile->foto_ktp ? 'nullable|image|max:2048' : 'required|image|max:2048', 
-            'foto_gudang'     => $this->profile->foto_gudang ? 'nullable|image|max:2048' : 'required|image|max:2048', 
+            'nama_perusahaan'    => 'required|string|max:255',
+            'nama_pic'           => 'required|string|max:255',
+            'nik'                => 'required|digits:16',
+            'no_hp'              => 'required|string|max:20|regex:/^[0-9\-\+]+$/',
+            'alamat'             => 'required|string|max:500',
+            'nama_bank'          => 'required|string',
+            'bank_lainnya'       => 'required_if:nama_bank,Lainnya|nullable|string|max:50',
+            'no_rekening'        => 'required|numeric|digits_between:8,20',
+            'atas_nama_rekening' => 'nullable|string|max:100',
+            'foto_ktp'           => $this->profile->foto_ktp ? 'nullable|image|max:2048' : 'required|image|max:2048',
+            'foto_gudang'        => $this->profile->foto_gudang ? 'nullable|image|max:2048' : 'required|image|max:2048',
+        ], [
+            'nik.digits' => 'NIK harus 16 digit.',
+            'no_rekening.numeric' => 'Nomor rekening hanya boleh berisi angka.',
+            'bank_lainnya.required_if' => 'Wajib isi nama bank jika memilih "Lainnya".',
         ]);
 
+        $bankFinal = $this->nama_bank === 'Lainnya' ? $this->bank_lainnya : $this->nama_bank;
+
         $updateData = [
-            'nama_perusahaan'   => $this->nama_perusahaan,
-            'nama_pemilik'      => $this->nama_pemilik,
-            'nik'               => $this->nik,
-            'no_hp'             => $this->no_hp,
-            'alamat_gudang'     => $this->alamat_gudang,
-            'status_verifikasi' => 'menunggu_review', 
-            'nama_bank' => $this->nama_bank === 'Lainnya'
-                ? $this->bank_lainnya
-                : $this->nama_bank,
-            'no_rekening' => $this->no_rekening,
+            'nama_perusahaan'    => $this->nama_perusahaan,
+            'nama_pic'           => $this->nama_pic,
+            'nik'                => $this->nik,
+            'no_hp'              => $this->no_hp,
+            'alamat'             => $this->alamat,
+            'nama_bank'          => $bankFinal,
+            'no_rekening'        => $this->no_rekening,
+            'atas_nama_rekening' => $this->atas_nama_rekening,
+            'status_verifikasi'  => 'menunggu_review',
         ];
 
         if ($this->foto_ktp && !is_string($this->foto_ktp)) {
-            $updateData['foto_ktp'] = $this->foto_ktp->store('suppliers/ktp', 'public');
+            $updateData['foto_ktp'] = $this->foto_ktp->store('pemasok/ktp', 'public');
         }
         if ($this->foto_gudang && !is_string($this->foto_gudang)) {
-            $updateData['foto_gudang'] = $this->foto_gudang->store('suppliers/gudang', 'public');
+            $updateData['foto_gudang'] = $this->foto_gudang->store('pemasok/gudang', 'public');
         }
 
         $this->profile->update($updateData);
-        $lkbbUsers = User::where('role', 'lkbb')->get();
 
-        foreach ($lkbbUsers as $lkbb) {
+        foreach (User::where('role', 'lkbb')->get() as $lkbb) {
             $lkbb->notify(new NewSupplierSubmission($this->profile));
         }
+
         session()->flash('message', 'Data berhasil dikirim! Silakan tunggu verifikasi LKBB.');
-        unset($this->profile); 
+        unset($this->profile);
     }
 
     public function perbaikiData()
@@ -209,6 +202,12 @@ class extends Component {
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
+    @if (session()->has('message'))
+        <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl mb-2 text-sm font-medium">
+            {{ session('message') }}
+        </div>
+    @endif
+
     {{-- ========================================== --}}
     {{-- FASE 1: ONBOARDING BELUM MELENGKAPI DATA   --}}
     {{-- ========================================== --}}
@@ -218,30 +217,31 @@ class extends Component {
                 <h2 class="text-2xl font-bold text-gray-900">Selamat Datang di Mitra Pemasok SCFS!</h2>
                 <p class="text-gray-500 mt-1">Sebelum mulai menyuplai barang ke kantin, mohon lengkapi profil usaha Anda.</p>
             </div>
-            
+
             <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                 <div class="p-6 space-y-5">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama Perusahaan / Usaha</label>
-                            <input wire:model="nama_perusahaan" type="text" class="w-full text-sm rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 py-2.5">
+                            <input wire:model="nama_perusahaan" type="text" placeholder="Cth: PT Sumber Pangan" class="w-full text-sm rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 py-2.5">
                             @error('nama_perusahaan') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Alamat Gudang / Tempat Usaha</label>
-                            <input wire:model="alamat_gudang" type="text" class="w-full text-sm rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 py-2.5">
-                            @error('alamat_gudang') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                            <input wire:model="alamat" type="text" placeholder="Jl. Contoh No. 1, Kota" class="w-full text-sm rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 py-2.5">
+                            @error('alamat') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
                         </div>
                     </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
-                            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama Pemilik (Sesuai KTP)</label>
-                            <input wire:model="nama_pemilik" type="text" class="w-full text-sm rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 py-2.5">
-                            @error('nama_pemilik') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama Pemilik / PIC (Sesuai KTP)</label>
+                            <input wire:model="nama_pic" type="text" class="w-full text-sm rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 py-2.5">
+                            @error('nama_pic') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nomor Induk Kependudukan (NIK)</label>
-                            <input 
+                            <input
                                 wire:model.defer="nik"
                                 type="text"
                                 maxlength="16"
@@ -253,47 +253,57 @@ class extends Component {
                             @error('nik') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
                         </div>
                     </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">No Handphone / WA Aktif</label>
-                            <input wire:model="no_hp" type="text" class="w-full text-sm rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 py-2.5">
+                            <input wire:model="no_hp" type="text" maxlength="20" placeholder="08xxxxxxxxxx" class="w-full text-sm rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 py-2.5">
                             @error('no_hp') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
                         </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1.5">
-                                Rekening Penerimaan Dana
-                            </label>
+                        <div></div>
+                    </div>
 
-                            <div class="flex flex-col md:flex-row gap-3">
-                                {{-- Jenis Bank --}}
-                                <div class="w-full md:w-1/3">
-                                    <select wire:model.live="nama_bank"
-                                        class="w-full text-sm rounded-xl border-blue-200 focus:border-blue-500 focus:ring-blue-500 py-2.5 bg-blue-50/30">
-                                        <option value="BCA">BCA</option>
-                                        <option value="BNI">BNI</option>
-                                        <option value="BRI">BRI</option>
-                                        <option value="Mandiri">Mandiri</option>
-                                        <option value="BJB">BJB</option>
-                                        <option value="GoPay">GoPay</option>
-                                        <option value="OVO">OVO</option>
-                                        <option value="Lainnya">Bank Lainnya...</option>
-                                    </select>
-                                    @error('nama_bank') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                    {{-- REKENING (FLAT, satu kartu, tanpa duplikasi) --}}
+                    <div class="bg-blue-50/40 border border-blue-100 rounded-2xl p-5 space-y-3">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                            <h4 class="font-bold text-blue-900 text-sm">Rekening Penerimaan Dana</h4>
+                        </div>
 
-                                    @if($nama_bank === 'Lainnya')
-                                        <input wire:model="bank_lainnya" type="text" placeholder="Nama bank..." class="mt-2 w-full text-sm rounded-xl border-blue-200 focus:border-blue-500 focus:ring-blue-500 py-2.5 bg-blue-50/30">
-                                        @error('bank_lainnya') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
-                                    @endif
-                                </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div class="md:col-span-1">
+                                <label class="block text-[10px] font-bold text-blue-700 uppercase tracking-wider mb-1.5">Bank</label>
+                                <select wire:model.live="nama_bank" class="w-full text-sm rounded-xl border-blue-200 focus:border-blue-500 focus:ring-blue-500 py-2.5 bg-white">
+                                    <option value="BCA">BCA</option>
+                                    <option value="BNI">BNI</option>
+                                    <option value="BRI">BRI</option>
+                                    <option value="Mandiri">Mandiri</option>
+                                    <option value="BJB">BJB</option>
+                                    <option value="GoPay">GoPay</option>
+                                    <option value="OVO">OVO</option>
+                                    <option value="Lainnya">Lainnya...</option>
+                                </select>
+                                @if($nama_bank === 'Lainnya')
+                                    <input wire:model="bank_lainnya" type="text" placeholder="Nama bank..." class="mt-2 w-full text-sm rounded-xl border-blue-200 focus:border-blue-500 focus:ring-blue-500 py-2.5 bg-white">
+                                    @error('bank_lainnya') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                                @endif
+                                @error('nama_bank') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                            </div>
 
-                                {{-- Nomor Rekening --}}
-                                <div class="w-full md:w-2/3">
-                                    <input wire:model="no_rekening" type="text" placeholder="Nomor rekening" class="w-full text-sm rounded-xl border-blue-200 focus:border-blue-500 focus:ring-blue-500 py-2.5 bg-blue-50/30">
-                                    @error('no_rekening') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
-                                </div>
+                            <div class="md:col-span-1">
+                                <label class="block text-[10px] font-bold text-blue-700 uppercase tracking-wider mb-1.5">Nomor Rekening</label>
+                                <input wire:model="no_rekening" type="text" maxlength="20" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'').slice(0,20)" placeholder="1234567890" class="w-full text-sm rounded-xl border-blue-200 focus:border-blue-500 focus:ring-blue-500 py-2.5 bg-white font-mono">
+                                @error('no_rekening') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div class="md:col-span-1">
+                                <label class="block text-[10px] font-bold text-blue-700 uppercase tracking-wider mb-1.5">Atas Nama (Opsional)</label>
+                                <input wire:model="atas_nama_rekening" type="text" maxlength="100" placeholder="Nama pemilik rekening" class="w-full text-sm rounded-xl border-blue-200 focus:border-blue-500 focus:ring-blue-500 py-2.5 bg-white">
+                                @error('atas_nama_rekening') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
                             </div>
                         </div>
                     </div>
+
                     <hr class="border-gray-100 my-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:bg-gray-50 transition relative">
@@ -303,7 +313,7 @@ class extends Component {
                             @if($foto_ktp && !is_string($foto_ktp))
                                 <img src="{{ $foto_ktp->temporaryUrl() }}" class="mt-3 mx-auto h-24 rounded-lg object-cover shadow-sm border border-gray-200">
                             @elseif($this->profile->foto_ktp)
-                                <div class="mt-3 text-xs text-emerald-600 font-bold">✓ Tersimpan</div>
+                                <div class="mt-3 text-xs text-emerald-600 font-bold">✓ KTP tersimpan</div>
                             @endif
                         </div>
                         <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:bg-gray-50 transition relative">
@@ -313,7 +323,7 @@ class extends Component {
                             @if($foto_gudang && !is_string($foto_gudang))
                                 <img src="{{ $foto_gudang->temporaryUrl() }}" class="mt-3 mx-auto h-24 rounded-lg object-cover shadow-sm border border-gray-200">
                             @elseif($this->profile->foto_gudang)
-                                <div class="mt-3 text-xs text-emerald-600 font-bold">✓ Tersimpan</div>
+                                <div class="mt-3 text-xs text-emerald-600 font-bold">✓ Foto gudang tersimpan</div>
                             @endif
                         </div>
                     </div>
@@ -335,7 +345,7 @@ class extends Component {
             <div class="bg-white p-8 rounded-3xl shadow-xl text-center border border-gray-100">
                 <div class="w-20 h-20 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl animate-pulse">⏳</div>
                 <h2 class="text-2xl font-extrabold text-gray-900 mb-2">Data Sedang Ditinjau</h2>
-                <p class="text-gray-500 text-sm leading-relaxed mb-6">Terima kasih telah melengkapi data! Tim LKBB saat ini sedang melakukan verifikasi terhadap profil perusahaan Anda. Proses ini biasanya memakan waktu maksimal 1x24 Jam.</p>
+                <p class="text-gray-500 text-sm leading-relaxed mb-6">Terima kasih telah melengkapi data! Tim LKBB saat ini sedang melakukan verifikasi terhadap profil perusahaan Anda. Proses ini biasanya memakan waktu maksimal 1×24 Jam.</p>
                 <div class="inline-flex items-center gap-2 px-4 py-2 bg-yellow-50 text-yellow-700 rounded-full text-xs font-bold border border-yellow-200 uppercase tracking-wider">
                     <span class="w-2 h-2 rounded-full bg-yellow-500 animate-ping"></span> Status: Pending Review
                 </div>
@@ -365,7 +375,7 @@ class extends Component {
     {{-- FASE 4: DASHBOARD UTAMA (DISETUJUI)        --}}
     {{-- ========================================== --}}
     @elseif($this->profile->status_verifikasi === 'disetujui')
-        
+
         <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-200 pb-5">
             <div>
                 <h2 class="text-2xl font-bold text-gray-900">Halo, {{ $this->profile->nama_perusahaan }}! 👋</h2>
@@ -378,7 +388,7 @@ class extends Component {
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-6">
-            
+
             {{-- Card 1: Saldo Pemasok --}}
             <div class="bg-gradient-to-br from-[#059669] to-teal-700 rounded-2xl p-5 text-white shadow-lg shadow-emerald-200/50 relative overflow-hidden">
                 <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -mr-8 -mt-8 pointer-events-none"></div>
@@ -429,7 +439,7 @@ class extends Component {
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-            
+
             {{-- AREA GRAFIK (CHART) INTERAKTIF --}}
             <div class="lg:col-span-2 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
                 <div class="px-6 py-4 border-b border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-50/50">
@@ -437,16 +447,16 @@ class extends Component {
                         <h3 class="font-black text-gray-900 text-sm">Grafik Penjualan / Suplai Barang</h3>
                         <p class="text-[10px] font-bold text-gray-500 mt-0.5">Total nominal pesanan (PO) yang telah selesai</p>
                     </div>
-                    
+
                     <div class="inline-flex bg-gray-200 p-1 rounded-lg">
                         <button wire:click="setFilter('today')" class="px-3 py-1.5 text-xs font-bold rounded-md transition {{ $chartFilter === 'today' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">Hari Ini</button>
                         <button wire:click="setFilter('month')" class="px-3 py-1.5 text-xs font-bold rounded-md transition {{ $chartFilter === 'month' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">Bulan Ini</button>
                         <button wire:click="setFilter('year')" class="px-3 py-1.5 text-xs font-bold rounded-md transition {{ $chartFilter === 'year' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">Tahun Ini</button>
                     </div>
                 </div>
-                
+
                 <div class="p-6 flex-1">
-                    <div 
+                    <div
                         x-data="{
                             chart: null,
                             initChart() {
@@ -483,8 +493,7 @@ class extends Component {
 
             {{-- KUMPULAN RIWAYAT (KANAN) --}}
             <div class="lg:col-span-1 flex flex-col gap-6">
-                
-                {{-- RIWAYAT PESANAN PO MASUK --}}
+
                 <div class="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden flex flex-col flex-1">
                     <div class="px-5 py-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                         <h3 class="font-black text-gray-900 text-sm">Pesanan Terbaru</h3>
@@ -504,7 +513,6 @@ class extends Component {
                                     </div>
                                 </div>
                                 <div class="text-right">
-                                    {{-- FIX: was total_amount --}}
                                     <p class="font-bold text-sm text-gray-900">Rp {{ number_format($po->total_estimasi ?? 0, 0, ',', '.') }}</p>
                                     <p class="text-[10px] {{ $po->status === 'selesai' ? 'text-emerald-500' : 'text-amber-500' }} font-bold uppercase">{{ $po->status }}</p>
                                 </div>

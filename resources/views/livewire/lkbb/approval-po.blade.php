@@ -117,7 +117,16 @@
                             <p class="text-[10px] font-bold text-[#4338CA] uppercase tracking-widest mb-1">Penerima Dana (Pemasok)</p>
                             <p class="text-sm font-black text-gray-900">{{ $selectedOrder->pemasok->pemasokProfile->nama_perusahaan ?? $selectedOrder->pemasok->name }}</p>
                             <p class="text-xs font-bold text-gray-600 mt-0.5">Tujuan Rekening:</p>
-                            <p class="text-xs font-mono text-gray-800 bg-white p-1 rounded inline-block mt-0.5 border border-indigo-100">{{ $selectedOrder->pemasok->pemasokProfile->info_bank ?? 'Belum diset' }}</p>
+                            <p class="text-xs font-mono text-gray-800 bg-white p-1 rounded inline-block mt-0.5 border border-indigo-100">
+                                @if($selectedOrder->pemasok->pemasokProfile->nama_bank && $selectedOrder->pemasok->pemasokProfile->no_rekening)
+                                    {{ $selectedOrder->pemasok->pemasokProfile->nama_bank }} • {{ $selectedOrder->pemasok->pemasokProfile->no_rekening }}
+                                    @if($selectedOrder->pemasok->pemasokProfile->atas_nama_rekening)
+                                        <span class="text-gray-500">(a.n. {{ $selectedOrder->pemasok->pemasokProfile->atas_nama_rekening }})</span>
+                                    @endif
+                                @else
+                                    Belum diset
+                                @endif
+                            </p>
                         </div>
                     </div>
 
@@ -154,19 +163,151 @@
                         </div>
                     </div>
 
-                    {{-- Form Penolakan (Opsional) --}}
+                    {{-- VALIDASI PENDANAAN LKBB --}}
+                    @php
+                        $autoItems = [
+                            'merchant_verified' => ['label' => 'Merchant terverifikasi', 'desc' => 'Profil & dokumen kantin lolos verifikasi LKBB.'],
+                            'supplier_verified' => ['label' => 'Pemasok terverifikasi',  'desc' => 'Status kemitraan pemasok aktif.'],
+                            'rekening_valid'    => ['label' => 'Rekening valid',         'desc' => 'Rekening tujuan pemasok terdaftar.'],
+                            'po_complete'       => ['label' => 'Detail PO lengkap',      'desc' => 'Item, qty, harga, dan tanggal kebutuhan sesuai.'],
+                        ];
+                        $manualItem = [
+                            'key'   => 'no_tunggakan',
+                            'label' => 'Tidak ada tunggakan',
+                            'desc'  => 'Konfirmasi manual: merchant tidak memiliki tunggakan pembiayaan aktif.',
+                        ];
+                        $checkedCount = count(array_filter($validationChecklist));
+                        $totalCount   = count($validationChecklist);
+                    @endphp
+
+                    <div class="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                        <div class="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50/60 to-white flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-xl bg-[#4338CA]/10 flex items-center justify-center shrink-0">
+                                    <svg class="w-5 h-5 text-[#4338CA]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                </div>
+                                <div>
+                                    <h4 class="text-xs font-black text-gray-800 uppercase tracking-widest">Validasi Pendanaan LKBB</h4>
+                                    <p class="text-[11px] font-medium text-gray-500 mt-0.5">5 kriteria otomatis + 1 verifikasi manual approver.</p>
+                                </div>
+                            </div>
+                            <div class="text-right shrink-0">
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Progress</p>
+                                <p class="text-sm font-black {{ $this->isChecklistComplete ? 'text-emerald-600' : 'text-[#4338CA]' }}">{{ $checkedCount }}/{{ $totalCount }}</p>
+                            </div>
+                        </div>
+
+                        <div class="p-4 space-y-4">
+                            {{-- 5 KRITERIA OTOMATIS (READ-ONLY) --}}
+                            <div>
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Validasi Otomatis (Data Registrasi)</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    @foreach($autoItems as $key => $item)
+                                        @php
+                                            $passed = $validationChecklist[$key] ?? false;
+                                            $reason = $validationReasons[$key] ?? null;
+                                        @endphp
+                                        <div class="flex items-start gap-3 p-3 rounded-xl border-2 transition
+                                            {{ $passed
+                                                ? 'border-emerald-300 bg-emerald-50/40'
+                                                : 'border-rose-200 bg-rose-50/40' }}">
+                                            <div class="w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5
+                                                {{ $passed ? 'bg-emerald-500' : 'bg-rose-500' }}">
+                                                @if($passed)
+                                                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                                @else
+                                                    <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                @endif
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center gap-2 flex-wrap">
+                                                    <p class="text-sm font-bold {{ $passed ? 'text-emerald-800' : 'text-rose-800' }}">{{ $item['label'] }}</p>
+                                                    <span class="text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider
+                                                        {{ $passed ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' }}">Auto</span>
+                                                </div>
+                                                <p class="text-[11px] font-medium mt-0.5 {{ $passed ? 'text-emerald-700/70' : 'text-rose-700/80' }}">
+                                                    {{ $passed ? $item['desc'] : ($reason ?? $item['desc']) }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            {{-- 1 KRITERIA MANUAL (INTERACTIVE) --}}
+                            <div>
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Verifikasi Manual Approver</p>
+                                @php $manualChecked = $validationChecklist[$manualItem['key']] ?? false; @endphp
+                                <label class="cursor-pointer block group">
+                                    <input type="checkbox" wire:model.live="validationChecklist.{{ $manualItem['key'] }}" class="sr-only" />
+                                    <div class="flex items-start gap-3 p-3 rounded-xl border-2 transition
+                                        {{ $manualChecked
+                                            ? 'border-emerald-400 bg-emerald-50/50'
+                                            : 'border-amber-300 bg-amber-50/40 hover:border-amber-400' }}">
+                                        <div class="w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 transition
+                                            {{ $manualChecked ? 'bg-emerald-500 border border-emerald-500' : 'bg-white border-2 border-amber-400' }}">
+                                            @if($manualChecked)
+                                                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                            @endif
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center gap-2 flex-wrap">
+                                                <p class="text-sm font-bold {{ $manualChecked ? 'text-emerald-800' : 'text-amber-900' }}">{{ $manualItem['label'] }}</p>
+                                                <span class="text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider bg-amber-100 text-amber-800">Manual</span>
+                                            </div>
+                                            <p class="text-[11px] font-medium mt-0.5 {{ $manualChecked ? 'text-emerald-700/70' : 'text-amber-800/80' }}">
+                                                {{ $manualItem['desc'] }}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        @if(! $this->isChecklistComplete)
+                            <div class="mx-4 mb-4 flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                                <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                                <p class="text-xs font-bold text-amber-800 leading-relaxed">Pendanaan belum dapat dicairkan sebelum seluruh validasi terpenuhi.</p>
+                            </div>
+                        @endif
+                    </div>
+
+                    {{-- Form Catatan untuk Revisi / Tolak Final --}}
                     <div class="bg-rose-50/50 p-4 rounded-xl border border-rose-100">
-                        <label class="block text-[10px] uppercase font-bold text-rose-600 mb-1.5 tracking-wider">Alasan Penolakan (Opsional)</label>
-                        <textarea wire:model="alasanPenolakan" rows="2" class="w-full border-rose-200 bg-white rounded-xl focus:ring-rose-500 focus:border-rose-500 text-sm" placeholder="Isi hanya jika ingin menolak PO ini. (Contoh: Saldo brankas kurang...)"></textarea>
+                        <label class="block text-[10px] uppercase font-bold text-rose-600 mb-1.5 tracking-wider">Catatan untuk Merchant (wajib jika Revisi / Tolak)</label>
+                        <textarea wire:model="alasanPenolakan" rows="2" class="w-full border-rose-200 bg-white rounded-xl focus:ring-rose-500 focus:border-rose-500 text-sm" placeholder="Contoh: Merchant masih punya tunggakan aktif Rp 500.000, lunasi dulu sebelum ajukan ulang..."></textarea>
                         @error('alasanPenolakan') <span class="text-[10px] text-rose-500 font-bold block mt-1">{{ $message }}</span> @enderror
+                        <p class="text-[10px] text-rose-500 mt-2 leading-relaxed">
+                            <strong>Minta Revisi</strong> → PO masih hidup, merchant bisa perbaiki & ajukan ulang.
+                            <strong>Tolak Final</strong> → PO ditutup permanen (gunakan hanya untuk pelanggaran berat).
+                        </p>
                     </div>
                 </div>
 
                 <div class="p-5 border-t border-gray-100 bg-white flex flex-col sm:flex-row justify-between gap-3 shrink-0">
-                    <button wire:click="tolakPendanaan" wire:confirm="Yakin ingin membatalkan dan menolak pengajuan PO ini?" wire:loading.attr="disabled" class="px-6 py-3 bg-white border border-rose-200 text-rose-600 font-bold rounded-xl hover:bg-rose-50 transition shadow-sm disabled:opacity-50">
-                        Tolak PO
-                    </button>
-                    <button wire:click="setujuiPendanaan" wire:confirm="Dana akan dipotong dari Brankas dan ditransfer ke Pemasok. Lanjutkan?" wire:loading.attr="disabled" class="flex-1 px-6 py-3 bg-[#4338CA] text-white font-black rounded-xl shadow-lg shadow-indigo-200 hover:bg-indigo-800 transition flex items-center justify-center gap-2 disabled:opacity-50">
+                    <div class="flex gap-2">
+                        <button wire:click="mintaRevisi"
+                                wire:confirm="Kirim PO kembali ke merchant untuk direvisi?"
+                                wire:loading.attr="disabled"
+                                class="px-5 py-3 bg-white border border-amber-200 text-amber-700 font-bold rounded-xl hover:bg-amber-50 transition shadow-sm disabled:opacity-50">
+                            <span wire:loading.remove wire:target="mintaRevisi">⟲ Minta Revisi</span>
+                            <span wire:loading wire:target="mintaRevisi">Memproses...</span>
+                        </button>
+                        <button wire:click="tolakFinal"
+                                wire:confirm="TOLAK FINAL akan menutup PO ini permanen. Lanjutkan?"
+                                wire:loading.attr="disabled"
+                                class="px-5 py-3 bg-white border border-rose-200 text-rose-600 font-bold rounded-xl hover:bg-rose-50 transition shadow-sm disabled:opacity-50">
+                            <span wire:loading.remove wire:target="tolakFinal">✕ Tolak Final</span>
+                            <span wire:loading wire:target="tolakFinal">Memproses...</span>
+                        </button>
+                    </div>
+                    <button wire:click="setujuiPendanaan"
+                            wire:confirm="Dana akan dipotong dari Brankas dan ditransfer ke Pemasok. Lanjutkan?"
+                            wire:loading.attr="disabled"
+                            @disabled(! $this->isChecklistComplete)
+                            class="flex-1 px-6 py-3 bg-[#4338CA] text-white font-black rounded-xl shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-2
+                                {{ $this->isChecklistComplete ? 'hover:bg-indigo-800' : 'opacity-50 cursor-not-allowed' }}
+                                disabled:opacity-50">
                         <span wire:loading.remove wire:target="setujuiPendanaan">Setujui & Cairkan Rp {{ number_format($selectedOrder->total_estimasi, 0, ',', '.') }}</span>
                         <span wire:loading wire:target="setujuiPendanaan">Memproses Pencairan...</span>
                     </button>

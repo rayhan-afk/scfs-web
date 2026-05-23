@@ -45,7 +45,13 @@
                     </div>
                     <div>
                         <p class="text-xs text-blue-100 uppercase font-bold">Rekening Penerima</p>
-                        <p class="font-black text-sm truncate max-w-[150px]">{{ optional($pemasokProfile)->info_bank ?? 'Belum Diatur' }}</p>
+                        <p class="font-black text-sm truncate max-w-[150px]">
+                            @if(optional($pemasokProfile)->nama_bank && optional($pemasokProfile)->no_rekening)
+                                {{ $pemasokProfile->nama_bank }} • {{ $pemasokProfile->no_rekening }}
+                            @else
+                                Belum Diatur
+                            @endif
+                        </p>
                     </div>
                 </div>
             </div>
@@ -165,7 +171,14 @@
                         </div>
                         <div class="flex-1 text-sm">
                             <p class="font-black text-gray-800 leading-tight">
-                                {{ optional($pemasokProfile)->info_bank ?? 'Rekening belum diatur' }}
+                                @if(optional($pemasokProfile)->nama_bank && optional($pemasokProfile)->no_rekening)
+                                    {{ $pemasokProfile->nama_bank }} - {{ $pemasokProfile->no_rekening }}
+                                    @if($pemasokProfile->atas_nama_rekening)
+                                        <span class="text-gray-500 font-normal">(a.n. {{ $pemasokProfile->atas_nama_rekening }})</span>
+                                    @endif
+                                @else
+                                    Rekening belum diatur
+                                @endif
                             </p>
                             <p class="text-[11px] text-gray-500 mt-1 font-medium">Proses pencairan memakan waktu 1x24 Jam kerja.</p>
                         </div>

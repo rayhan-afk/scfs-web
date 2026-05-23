@@ -175,6 +175,7 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/merchant/order', 'merchant.order-bahan')->name('merchant.order');
     Volt::route('/merchant/riwayat', 'merchant.riwayat')->name('merchant.riwayat');
     Volt::route('/merchant/penerimaan', 'merchant.penerimaan')->name('merchant.penerimaan');
+    Route::get('/merchant/riwayat-po', \App\Livewire\Merchant\RiwayatPo::class)->name('merchant.riwayat-po');
     Volt::route('/merchant/setoran', 'merchant.setoran')->name('merchant.setoran');
     
     // Sisi Merchant

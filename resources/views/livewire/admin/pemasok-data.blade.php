@@ -16,8 +16,9 @@ class extends Component {
 
     // Form Tambah Pemasok
     public $isAddModalOpen = false;
-    public $nama_perusahaan, $nama_pic, $no_hp, $kategori_barang, $alamat, $info_bank;
-    public $email, $password; 
+    public $nama_perusahaan, $nama_pic, $no_hp, $kategori_barang, $alamat;
+    public $nama_bank, $no_rekening, $atas_nama_rekening;
+    public $email, $password;
 
     public function getPemasoksProperty()
     {
@@ -64,7 +65,7 @@ class extends Component {
 
     public function resetForm()
     {
-        $this->reset(['nama_perusahaan', 'nama_pic', 'no_hp', 'kategori_barang', 'alamat', 'info_bank', 'email', 'password']);
+        $this->reset(['nama_perusahaan', 'nama_pic', 'no_hp', 'kategori_barang', 'alamat', 'nama_bank', 'no_rekening', 'atas_nama_rekening', 'email', 'password']);
         $this->kategori_barang = 'Sembako'; // default
     }
 
@@ -92,7 +93,10 @@ class extends Component {
             'kategori_barang' => $this->kategori_barang,
             'no_hp' => $this->no_hp,
             'alamat' => $this->alamat,
-            'info_bank' => $this->info_bank,
+            'nama_bank' => $this->nama_bank,
+            'no_rekening' => $this->no_rekening,
+            'atas_nama_rekening' => $this->atas_nama_rekening,
+            'status_verifikasi' => 'disetujui', // di-create admin = langsung aktif
             'status_kemitraan' => 'aktif',
         ]);
 
@@ -288,9 +292,22 @@ class extends Component {
                     </div>
                 </div>
 
-                <div>
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Info Rekening Bank (Untuk Pembayaran LKBB)</label>
-                    <input wire:model="info_bank" type="text" placeholder="Cth: BCA 1234567890 a.n PT Pangan" class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-2.5">
+                <div class="space-y-3 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                    <label class="block text-[10px] font-bold text-blue-500 uppercase tracking-wider">Info Rekening Bank (Untuk Pembayaran LKBB)</label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <span class="block text-[9px] font-bold text-gray-500 uppercase mb-1">Bank</span>
+                            <input wire:model="nama_bank" type="text" placeholder="BCA / BNI" class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-2.5">
+                        </div>
+                        <div>
+                            <span class="block text-[9px] font-bold text-gray-500 uppercase mb-1">No Rekening</span>
+                            <input wire:model="no_rekening" type="text" maxlength="20" inputmode="numeric" placeholder="1234567890" class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-2.5 font-mono">
+                        </div>
+                        <div>
+                            <span class="block text-[9px] font-bold text-gray-500 uppercase mb-1">Atas Nama (opsional)</span>
+                            <input wire:model="atas_nama_rekening" type="text" maxlength="100" placeholder="Nama pemilik" class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-2.5">
+                        </div>
+                    </div>
                 </div>
 
                 <hr class="border-gray-100 my-2">

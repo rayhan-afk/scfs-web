@@ -53,7 +53,12 @@ class extends Component {
         } elseif ($this->role === 'merchant') {
             MerchantProfile::create(['user_id' => $user->id, 'nama_kantin' => $this->name . ' (Baru)', 'nama_pemilik' => $this->name]);
         } elseif ($this->role === 'pemasok') {
-            PemasokProfile::create(['user_id' => $user->id, 'nama_perusahaan' => 'PT/Toko ' . $this->name, 'nama_pic' => $this->name, 'kategori_barang' => 'Lainnya']);
+            // Hanya buat row kosong; user wajib lengkapi via onboarding di dashboard pemasok.
+            // status_verifikasi default 'belum_melengkapi' & status_kemitraan default 'nonaktif' di DB.
+            PemasokProfile::create([
+                'user_id' => $user->id,
+                'kategori_barang' => 'Lainnya',
+            ]);
         } elseif ($this->role === 'investor') {
             InvestorProfile::create(['user_id' => $user->id, 'nama_lengkap' => $this->name]);
         } elseif ($this->role === 'donatur') {

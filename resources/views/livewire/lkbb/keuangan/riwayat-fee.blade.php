@@ -53,8 +53,8 @@ class extends Component {
 <div class="py-8 px-6 md:px-8 w-full max-w-7xl mx-auto space-y-6" x-data="{ tab: 'otomatis' }">
     
     <div class="mb-8">
-        <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Riwayat Fee & Setoran Tunai</h2>
-        <p class="text-gray-500 text-sm mt-1">Pantau seluruh pendapatan LKBB dari potongan pencairan dan setoran fisik merchant.</p>
+        <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Riwayat Profit & Setoran Tunai</h2>
+        <p class="text-gray-500 text-sm mt-1">Pantau seluruh keuntungan LKBB dari potongan pencairan dan setoran fisik merchant.</p>
     </div>
 
     {{-- KARTU RINGKASAN PENDAPATAN --}}
@@ -102,7 +102,7 @@ class extends Component {
                             <th class="px-6 py-4">Waktu / No. Transaksi</th>
                             <th class="px-6 py-4">Kantin (Merchant)</th>
                             <th class="px-6 py-4 text-right">Penarikan Bersih</th>
-                            <th class="px-6 py-4 text-right text-emerald-600">Pendapatan Fee LKBB</th>
+                            <th class="px-6 py-4 text-right text-emerald-600">Pendapatan Profit LKBB</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -127,7 +127,7 @@ class extends Component {
                         @empty
                             <tr>
                                 <td colspan="4" class="px-6 py-12 text-center text-gray-400">
-                                    <p class="text-sm font-bold">Belum ada pendapatan fee dari pemotongan otomatis.</p>
+                                    <p class="text-sm font-bold">Belum ada keuntungan dari pemotongan otomatis.</p>
                                 </td>
                             </tr>
                         @endforelse

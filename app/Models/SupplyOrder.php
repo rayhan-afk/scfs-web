@@ -29,4 +29,9 @@ class SupplyOrder extends Model
     {
         return $this->belongsTo(User::class, 'pemasok_id');
     }
+
+    public function returns()
+    {
+        return $this->hasMany(PengajuanReturn::class, 'supply_order_id');
+    }
 }

@@ -10,32 +10,66 @@ return new class extends Migration
     {
         Schema::create('pengajuan_returns', function (Blueprint $table) {
             $table->id();
-            
-            // Relasi ke order supply chain kamu
+
+            // Relasi ke order utama (cascade delete bila order dihapus)
             $table->foreignId('supply_order_id')->constrained('supply_orders')->cascadeOnDelete();
+
+            // Optional item-level return (NULL = whole order)
+            $table->foreignId('supply_order_detail_id')->nullable()
+                ->constrained('supply_order_details')->nullOnDelete();
+
             $table->foreignId('merchant_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('supplier_id')->constrained('users')->cascadeOnDelete();
-            
-            // Input dari Merchant
-            $table->string('alasan'); // Contoh: Barang Rusak, Basi, Kurang Jumlah, Tidak Sesuai
+
+            // Input merchant
+            $table->enum('tipe_masalah', [
+                'rusak',
+                'basi',
+                'kurang_qty',
+                'salah_barang',
+                'kualitas_buruk',
+                'terlambat',
+            ]);
+            $table->unsignedInteger('qty_bermasalah')->default(1);
             $table->text('deskripsi_masalah');
-            $table->string('foto_bukti')->nullable(); // Path foto yang di-upload
-            $table->enum('solusi_diajukan', ['refund', 'kirim_ulang']); // Solusi yang diminta merchant
-            
-            // Status Alur Return
+            $table->json('foto_bukti')->nullable();       // array of storage paths
+            $table->string('video_bukti')->nullable();    // single video path
+            $table->enum('solusi_diajukan', [
+                'refund',
+                'kirim_ulang',
+                'ganti_barang',
+                'partial_refund',
+            ]);
+
+            // Lifecycle (5 status — clean, no ambiguity)
             $table->enum('status', [
-                'pending',          // Menunggu review Pemasok
-                'disetujui',        // Disetujui Pemasok (Selesai)
-                'ditolak',          // Ditolak Pemasok
-                'banding_lkbb',     // Merchant tidak terima ditolak, masuk ke LKBB (Sengketa)
-                'selesai_lkbb'      // Selesai setelah ditengahi LKBB
-            ])->default('pending');
-            
-            // Catatan Evaluasi
-            $table->text('catatan_pemasok')->nullable(); // Alasan jika pemasok menolak / memberi catatan
-            $table->text('catatan_lkbb')->nullable();    // Keputusan final dari pihak LKBB jika sengketa
-            
+                'pending_supplier_review',
+                'approved',
+                'rejected',
+                'escalated_lkbb',
+                'resolved',
+            ])->default('pending_supplier_review');
+
+            // Keputusan final pemasok/LKBB (label terpisah dari status)
+            $table->string('keputusan_resolusi')->nullable();
+            // Untuk pemasok: refund | kirim_ulang | ganti_barang | partial_refund
+            // Untuk LKBB (saat resolved): menangkan_merchant_refund | menangkan_merchant_replace | menangkan_pemasok
+
+            // Catatan dari reviewer
+            $table->text('catatan_pemasok')->nullable();
+            $table->text('catatan_lkbb')->nullable();
+
+            // Anti-abuse + audit
+            $table->timestamp('deadline_at')->nullable();  // deadline pemasok response (default +48h dari created_at)
+            $table->json('riwayat_audit')->nullable();     // append-only event log
+            $table->boolean('flag_fraud')->default(false); // ditandai bila pattern abnormal
+
             $table->timestamps();
+
+            $table->index('status');
+            $table->index('merchant_id');
+            $table->index('supplier_id');
+            $table->index(['supply_order_id', 'status']);
         });
     }
 

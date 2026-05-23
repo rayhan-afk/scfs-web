@@ -13,7 +13,8 @@ class extends Component {
 
     // Variabel Form Edit Pemasok
     public $isEditModalOpen = false;
-    public $edit_nama_perusahaan, $edit_nama_pic, $edit_no_hp, $edit_kategori_barang, $edit_alamat, $edit_info_bank, $edit_status_kemitraan;
+    public $edit_nama_perusahaan, $edit_nama_pic, $edit_no_hp, $edit_kategori_barang, $edit_alamat, $edit_status_kemitraan;
+    public $edit_nama_bank, $edit_no_rekening, $edit_atas_nama_rekening;
     public $edit_email;
 
     public function mount($id)
@@ -42,7 +43,9 @@ class extends Component {
             $this->edit_no_hp = $this->user->pemasokProfile->no_hp;
             $this->edit_kategori_barang = $this->user->pemasokProfile->kategori_barang;
             $this->edit_alamat = $this->user->pemasokProfile->alamat;
-            $this->edit_info_bank = $this->user->pemasokProfile->info_bank;
+            $this->edit_nama_bank = $this->user->pemasokProfile->nama_bank;
+            $this->edit_no_rekening = $this->user->pemasokProfile->no_rekening;
+            $this->edit_atas_nama_rekening = $this->user->pemasokProfile->atas_nama_rekening;
             $this->edit_status_kemitraan = $this->user->pemasokProfile->status_kemitraan;
             
             $this->edit_email = $this->user->email;
@@ -78,7 +81,9 @@ class extends Component {
                 'no_hp' => $this->edit_no_hp,
                 'kategori_barang' => $this->edit_kategori_barang,
                 'alamat' => $this->edit_alamat,
-                'info_bank' => $this->edit_info_bank,
+                'nama_bank' => $this->edit_nama_bank,
+                'no_rekening' => $this->edit_no_rekening,
+                'atas_nama_rekening' => $this->edit_atas_nama_rekening,
                 'status_kemitraan' => $this->edit_status_kemitraan,
             ]);
         }
@@ -174,7 +179,16 @@ class extends Component {
                         <svg class="w-5 h-5 text-indigo-500 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                         <div>
                             <p class="text-[10px] text-indigo-400 font-bold uppercase tracking-wider mb-0.5">Info Rekening Bank (Tujuan Pembayaran)</p>
-                            <p class="text-indigo-900 font-bold text-sm">{{ $user->pemasokProfile->info_bank ?: 'Belum diisi' }}</p>
+                            <p class="text-indigo-900 font-bold text-sm">
+                                @if($user->pemasokProfile->nama_bank && $user->pemasokProfile->no_rekening)
+                                    {{ $user->pemasokProfile->nama_bank }} - {{ $user->pemasokProfile->no_rekening }}
+                                    @if($user->pemasokProfile->atas_nama_rekening)
+                                        <span class="font-normal text-indigo-600">(a.n. {{ $user->pemasokProfile->atas_nama_rekening }})</span>
+                                    @endif
+                                @else
+                                    Belum diisi
+                                @endif
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -325,9 +339,22 @@ class extends Component {
                     <textarea wire:model="edit_alamat" rows="2" class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white"></textarea>
                 </div>
                 
-                <div class="p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
-                    <label class="block text-[10px] font-bold text-blue-500 uppercase tracking-wider mb-1.5">Info Rekening Bank (Tujuan Pembayaran)</label>
-                    <input wire:model="edit_info_bank" type="text" placeholder="Cth: BCA 1234567890 a.n PT Pangan" class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-2.5">
+                <div class="p-3 bg-indigo-50 border border-indigo-100 rounded-xl space-y-3">
+                    <label class="block text-[10px] font-bold text-blue-500 uppercase tracking-wider">Info Rekening Bank (Tujuan Pembayaran)</label>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div>
+                            <span class="block text-[9px] font-bold text-gray-500 uppercase mb-1">Bank</span>
+                            <input wire:model="edit_nama_bank" type="text" placeholder="BCA / BNI / dll" class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-2.5">
+                        </div>
+                        <div>
+                            <span class="block text-[9px] font-bold text-gray-500 uppercase mb-1">No Rekening</span>
+                            <input wire:model="edit_no_rekening" type="text" maxlength="20" inputmode="numeric" placeholder="1234567890" class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-2.5 font-mono">
+                        </div>
+                        <div>
+                            <span class="block text-[9px] font-bold text-gray-500 uppercase mb-1">Atas Nama (opsional)</span>
+                            <input wire:model="edit_atas_nama_rekening" type="text" maxlength="100" placeholder="Nama pemilik rekening" class="w-full text-sm rounded-xl border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 bg-white py-2.5">
+                        </div>
+                    </div>
                 </div>
             </div>
             
