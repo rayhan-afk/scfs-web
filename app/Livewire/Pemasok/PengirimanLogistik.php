@@ -22,7 +22,8 @@ class PengirimanLogistik extends Component
     public $selectedOrderId = null;
 
     // Form Atur Pengiriman
-    public $kurir = '';
+    public $nama_kurir = '';
+    public $no_hp_kurir = '';
     public $no_resi = '';
 
     public function setTab($tab)
@@ -40,8 +41,9 @@ class PengirimanLogistik extends Component
     public function bukaModalAtur($id)
     {
         $this->selectedOrderId = $id;
-        $this->no_resi = 'SCFS-' . strtoupper(substr(uniqid(), -6)); // Generate resi otomatis
-        $this->kurir = '';
+        $this->no_resi = 'SCFS-' . strtoupper(substr(uniqid(), -6));
+        $this->nama_kurir = '';
+        $this->no_hp_kurir = '';
         $this->showModalAtur = true;
     }
 
@@ -54,25 +56,26 @@ class PengirimanLogistik extends Component
     public function simpanPengiriman()
     {
         $this->validate([
-            'kurir' => 'required', 
-            'no_resi' => 'required'
+            'nama_kurir' => 'required|string|max:100',
+            'no_hp_kurir' => 'required|digits_between:10,15',
+            'no_resi' => 'required',
         ]);
 
         $order = SupplyOrder::where('pemasok_id', Auth::id())->find($this->selectedOrderId);
-        
+
         if ($order && $order->status === 'diproses_pemasok') {
-            $infoPengiriman = "Dikirim via: " . $this->kurir . " | Resi: " . $this->no_resi;
-            
             $order->update([
                 'status' => 'dikirim',
-                'catatan' => $order->catatan ? $order->catatan . "\n\n[UPDATE LOGISTIK]\n" . $infoPengiriman : "[UPDATE LOGISTIK]\n" . $infoPengiriman
+                'nama_kurir' => $this->nama_kurir,
+                'no_hp_kurir' => $this->no_hp_kurir,
+                'no_resi' => $this->no_resi,
             ]);
 
             session()->flash('message', 'Pengiriman berhasil diatur! Pesanan sekarang SEDANG DIKIRIM.');
         }
 
         $this->showModalAtur = false;
-        $this->reset(['kurir', 'no_resi', 'selectedOrderId']);
+        $this->reset(['nama_kurir', 'no_hp_kurir', 'no_resi', 'selectedOrderId']);
     }
 
     #[Computed]
