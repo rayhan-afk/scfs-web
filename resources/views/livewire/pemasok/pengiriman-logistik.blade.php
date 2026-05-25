@@ -229,15 +229,19 @@
                     <p class="text-xs font-medium text-gray-600 mt-0.5">Blok: {{ $this->selectedOrder->merchant->merchantProfile->lokasi_blok ?? '-' }}</p>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Pilih Armada / Kurir</label>
-                    <select wire:model="kurir" class="w-full rounded-xl border-gray-200 text-sm focus:ring-blue-500 bg-white">
-                        <option value="">-- Pilih Kurir --</option>
-                        <option value="Kurir Internal Pemasok">Kurir Internal (Pribadi)</option>
-                        <option value="Lalamove">Lalamove</option>
-                        <option value="Grab Express">Grab Express</option>
-                        <option value="GoSend">GoSend</option>
-                    </select>
-                    @error('kurir') <span class="text-red-500 text-xs font-bold">{{ $message }}</span> @enderror
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nama Kurir</label>
+                    <input type="text" wire:model="nama_kurir"
+                           placeholder="cth: Budi Santoso"
+                           class="w-full rounded-xl border-gray-200 text-sm focus:ring-blue-500 font-bold bg-gray-50">
+                    @error('nama_kurir') <span class="text-red-500 text-xs font-bold">{{ $message }}</span> @enderror
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">No HP Kurir</label>
+                    <input type="tel" wire:model="no_hp_kurir"
+                           placeholder="cth: 081234567890"
+                           inputmode="numeric"
+                           class="w-full rounded-xl border-gray-200 text-sm focus:ring-blue-500 font-bold bg-gray-50">
+                    @error('no_hp_kurir') <span class="text-red-500 text-xs font-bold">{{ $message }}</span> @enderror
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Nomor Resi / Surat Jalan</label>
