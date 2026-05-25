@@ -159,13 +159,15 @@ class extends Component {
                             <p class="text-xs text-gray-500 mt-0.5">Dikirim Untuk: Tgl {{ \Carbon\Carbon::parse($order->tanggal_kebutuhan)->format('d M Y') }}</p>
                         </div>
                         <div>
-                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Status Logistik Pemasok</p>
-                            @if($order->catatan && str_contains($order->catatan, '[UPDATE LOGISTIK]'))
-                                <p class="text-xs font-bold text-blue-600 bg-blue-50 p-2 rounded-lg border border-blue-100 inline-block">
-                                    {{ str_replace('[UPDATE LOGISTIK]', '', $order->catatan) }}
-                                </p>
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Info Kurir</p>
+                            @if($order->nama_kurir)
+                                <div class="text-xs font-bold text-blue-600 bg-blue-50 p-2 rounded-lg border border-blue-100 space-y-0.5">
+                                    <p>👤 {{ $order->nama_kurir }}</p>
+                                    <p>📞 <a href="tel:{{ $order->no_hp_kurir }}" class="underline">{{ $order->no_hp_kurir }}</a></p>
+                                    <p class="text-[10px] text-blue-500">Resi: {{ $order->no_resi }}</p>
+                                </div>
                             @else
-                                <p class="text-xs font-bold text-gray-400 italic">Belum ada info kurir/resi</p>
+                                <p class="text-xs font-bold text-gray-400 italic">Belum ada info kurir</p>
                             @endif
                         </div>
                     </div>
