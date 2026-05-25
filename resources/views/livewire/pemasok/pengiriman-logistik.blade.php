@@ -282,6 +282,13 @@
                         </div>
                     </div>
 
+                    <div class="border-t-2 border-black pt-4 mb-4">
+                        <p class="text-xs uppercase text-gray-500 mb-1">Diantar Oleh:</p>
+                        <p class="font-bold text-sm">{{ $this->selectedOrder->nama_kurir ?? '-' }}</p>
+                        <p class="text-xs">HP: {{ $this->selectedOrder->no_hp_kurir ?? '-' }}</p>
+                        <p class="text-xs">Resi: {{ $this->selectedOrder->no_resi ?? '-' }}</p>
+                    </div>
+
                     <div class="border-t-2 border-black pt-4">
                         <p class="text-xs uppercase text-gray-500 mb-2">Rincian Barang:</p>
                         <table class="w-full text-xs text-left mb-4">
