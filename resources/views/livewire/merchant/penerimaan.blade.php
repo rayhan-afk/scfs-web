@@ -126,252 +126,206 @@ class extends Component {
     }
 }; ?>
 
-<div class="py-8 px-6 md:px-8 w-full max-w-7xl mx-auto space-y-6 relative">
-    
-    {{-- Header & Info --}}
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 border-b border-gray-200 pb-5">
-        <div>
-            <h2 class="text-2xl font-black text-gray-900 tracking-tight">Penerimaan Logistik</h2>
-            <p class="text-gray-500 text-sm mt-1">Pantau status pesanan dan konfirmasi saat armada Pemasok tiba di kantin Anda.</p>
-        </div>
-        
-        <div class="w-full sm:w-auto relative">
-            <input type="text" wire:model.live="search" placeholder="Cari No. Order..." class="w-full sm:w-72 pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 shadow-sm font-bold text-gray-700 transition">
-            <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+<div class="relative mx-auto max-w-7xl px-4 sm:px-6 py-6 lg:py-8">
+
+    {{-- ===== Hero header (emerald) ===== --}}
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-lime-500 p-6 sm:p-8 mb-6 shadow-[0_20px_50px_-20px_rgba(16,185,129,0.5)]">
+        <div class="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
+        <div class="pointer-events-none absolute -left-10 -bottom-20 h-56 w-56 rounded-full bg-lime-300/30 blur-3xl"></div>
+
+        <div class="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div class="text-white">
+                <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-100/90">Merchant · Penerimaan Logistik</p>
+                <h1 class="mt-1 text-2xl sm:text-3xl font-black tracking-tight">Halo, {{ Auth::user()->name }} 👋</h1>
+                <p class="mt-1 text-sm text-emerald-50/90 font-medium">Pantau pesanan, lacak posisi kurir, dan konfirmasi saat barang tiba di kantin Anda.</p>
+            </div>
+            <div class="relative w-full md:w-80">
+                <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari nomor order / resi…"
+                       class="w-full rounded-2xl border border-white/40 bg-white/95 backdrop-blur pl-11 pr-4 py-3 text-sm font-bold text-gray-700 placeholder:font-medium placeholder:text-gray-400 shadow-lg shadow-emerald-900/20 outline-none focus:ring-2 focus:ring-white">
+                <svg class="absolute left-3.5 top-3.5 h-5 w-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
         </div>
     </div>
 
-    {{-- Global Flash Messages --}}
+    {{-- ===== Stats row ===== --}}
+    <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <x-tracking.stat-tile
+            label="Pesanan Aktif"
+            :value="$this->stats['aktif']"
+            caption="sedang diproses"
+            accent="emerald"
+            :icon="'<svg class=\'w-5 h-5\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5\'/></svg>'"
+        />
+        <x-tracking.stat-tile
+            label="Sedang Dikirim"
+            :value="$this->stats['sedang_dikirim']"
+            caption="kurir di jalan"
+            accent="amber"
+            :icon="'<svg class=\'w-5 h-5\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z\'/><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8h4l3 4m0 0v3a1 1 0 01-1 1h-2M14 8h4l3 4\'/></svg>'"
+        />
+        <x-tracking.stat-tile
+            label="Diterima Bulan Ini"
+            :value="$this->stats['diterima_bulan_ini']"
+            caption="masuk etalase"
+            accent="lime"
+            :icon="'<svg class=\'w-5 h-5\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2.5\' d=\'M5 13l4 4L19 7\'/></svg>'"
+        />
+        <x-tracking.stat-tile
+            label="Nilai Aktif"
+            :value="'Rp ' . number_format($this->stats['nilai_aktif'], 0, ',', '.')"
+            caption="modal titipan"
+            accent="sky"
+            :icon="'<svg class=\'w-5 h-5\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1\'/></svg>'"
+        />
+    </div>
+
+    {{-- ===== Flash ===== --}}
     @if(session('success'))
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm px-4 py-3.5 rounded-xl flex items-center gap-3 shadow-sm mb-6 font-bold">
-            <svg class="w-5 h-5 flex-shrink-0 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="mb-5 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 backdrop-blur px-4 py-3 text-sm font-bold text-emerald-700 shadow-sm scfs-fade-in-up">
+            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <span>{{ session('success') }}</span>
         </div>
     @endif
     @if(session('error'))
-        <div class="bg-rose-50 border border-rose-200 text-rose-700 text-sm px-4 py-3.5 rounded-xl flex items-center gap-3 shadow-sm mb-6 font-bold">
-            <svg class="w-5 h-5 flex-shrink-0 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <div class="mb-5 flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50/80 backdrop-blur px-4 py-3 text-sm font-bold text-rose-700 shadow-sm scfs-fade-in-up">
+            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             <span>{{ session('error') }}</span>
         </div>
     @endif
 
-    {{-- Tab Filter --}}
-    <div class="flex overflow-x-auto space-x-2 bg-white p-1.5 rounded-2xl w-full sm:w-max mb-6 border border-gray-100 shadow-sm scrollbar-hide">
-        <button wire:click="$set('statusFilter', 'aktif')" class="flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all relative {{ $statusFilter === 'aktif' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50' }}">
-            📦 Sedang Proses 
-        </button>
-        <button wire:click="$set('statusFilter', 'selesai')" class="flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all {{ $statusFilter === 'selesai' ? 'bg-emerald-50 text-emerald-600' : 'text-gray-500 hover:bg-gray-50' }}">
-            ✅ Telah Diterima
-        </button>
-        <button wire:click="$set('statusFilter', 'ditolak')" class="flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all {{ $statusFilter === 'ditolak' ? 'bg-rose-50 text-rose-600' : 'text-gray-500 hover:bg-gray-50' }}">
-            ❌ Ditolak / Batal
-        </button>
+    {{-- ===== Tabs ===== --}}
+    <div class="mb-6 flex w-full overflow-x-auto rounded-2xl border border-white/60 bg-white/80 p-1.5 shadow-sm backdrop-blur-xl sm:w-max scrollbar-hide">
+        <button wire:click="$set('statusFilter', 'aktif')" @class([
+            'flex-none rounded-xl px-5 py-2.5 text-sm font-bold transition-all',
+            'bg-gradient-to-r from-emerald-500 to-lime-500 text-white shadow-md shadow-emerald-200' => $statusFilter === 'aktif',
+            'text-gray-500 hover:bg-gray-50' => $statusFilter !== 'aktif',
+        ])>Sedang Proses</button>
+        <button wire:click="$set('statusFilter', 'selesai')" @class([
+            'flex-none rounded-xl px-5 py-2.5 text-sm font-bold transition-all',
+            'bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-md shadow-emerald-200' => $statusFilter === 'selesai',
+            'text-gray-500 hover:bg-gray-50' => $statusFilter !== 'selesai',
+        ])>Telah Diterima</button>
+        <button wire:click="$set('statusFilter', 'ditolak')" @class([
+            'flex-none rounded-xl px-5 py-2.5 text-sm font-bold transition-all',
+            'bg-gradient-to-r from-rose-500 to-rose-600 text-white shadow-md shadow-rose-200' => $statusFilter === 'ditolak',
+            'text-gray-500 hover:bg-gray-50' => $statusFilter !== 'ditolak',
+        ])>Ditolak / Batal</button>
     </div>
 
-    {{-- List Pesanan --}}
+    {{-- ===== Order list ===== --}}
     <div class="space-y-4">
-        @forelse($this->supplyOrders as $order)
-            <div class="bg-white rounded-[20px] shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row gap-6 hover:shadow-md transition" wire:key="order-{{ $order->id }}">
-                
-                {{-- Kiri: Detail PO & Pengirim --}}
-                <div class="flex-1 space-y-4">
-                    <div class="flex items-center gap-3 border-b border-gray-100 pb-3">
-                        <span class="px-3 py-1 bg-gray-50 border border-gray-200 text-gray-700 text-[10px] font-black tracking-wider rounded-lg">{{ $order->nomor_order }}</span>
-                        <span class="text-xs font-bold text-gray-400">Order: {{ \Carbon\Carbon::parse($order->created_at)->format('d M Y') }}</span>
+        @forelse($this->supplyOrders as $i => $order)
+            @php $tracking = $this->trackingFor($order); @endphp
+            <article wire:key="order-{{ $order->id }}" class="scfs-fade-in-up relative overflow-hidden rounded-3xl border border-white/60 bg-white/85 backdrop-blur-xl p-5 sm:p-6 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)]" style="animation-delay: {{ $i * 60 }}ms;">
+
+                {{-- Header --}}
+                <header class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4 mb-4">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <span class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-700">{{ $order->nomor_order }}</span>
+                        <span class="text-xs font-bold text-gray-400">Dipesan {{ \Carbon\Carbon::parse($order->created_at)->format('d M Y') }}</span>
                     </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Pengirim (Pemasok)</p>
-                            <h3 class="text-sm font-black text-gray-900">{{ $order->pemasok->pemasokProfile->nama_perusahaan ?? $order->pemasok->name ?? 'Pemasok SCFS' }}</h3>
-                            <p class="text-xs text-gray-500 mt-0.5">Dikirim Untuk: Tgl {{ \Carbon\Carbon::parse($order->tanggal_kebutuhan)->format('d M Y') }}</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Info Kurir</p>
-                            @if($order->nama_kurir)
-                                <div class="relative overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-sm">
-                                    {{-- Accent line + soft gradient blob --}}
-                                    <div class="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-orange-400 via-pink-500 to-orange-400"></div>
-                                    <div class="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br from-orange-100 to-pink-100 opacity-60 blur-2xl"></div>
-
-                                    <div class="relative flex items-center gap-3 p-3">
-                                        {{-- Avatar dengan ikon motor + live dot --}}
-                                        <div class="relative shrink-0">
-                                            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500 text-white shadow-md shadow-orange-200 ring-2 ring-white">
-                                                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                    <circle cx="5.5" cy="17.5" r="2.5"/>
-                                                    <circle cx="18.5" cy="17.5" r="2.5"/>
-                                                    <path d="M8 17.5h8"/>
-                                                    <path d="M13 17.5V8h4l2 4"/>
-                                                    <path d="M5.5 15 7 9h4l1.5 6"/>
-                                                </svg>
-                                            </div>
-                                            <span class="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5">
-                                                @if($order->status === 'dikirim')
-                                                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70"></span>
-                                                @endif
-                                                <span class="relative inline-flex h-3.5 w-3.5 rounded-full border-2 border-white {{ $order->status === 'selesai' ? 'bg-gray-400' : 'bg-emerald-500' }}"></span>
-                                            </span>
-                                        </div>
-
-                                        {{-- Nama + meta --}}
-                                        <div class="min-w-0 flex-1">
-                                            <p class="truncate text-sm font-black leading-tight text-gray-900">{{ $order->nama_kurir }}</p>
-                                            <div class="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] font-bold text-gray-500">
-                                                @if($order->status === 'dikirim')
-                                                    <span class="inline-flex items-center gap-1 text-emerald-600">
-                                                        <span class="relative flex h-1.5 w-1.5">
-                                                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
-                                                            <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                                                        </span>
-                                                        Menuju lokasi
-                                                    </span>
-                                                @elseif($order->status === 'selesai')
-                                                    <span class="inline-flex items-center gap-1 text-emerald-600">
-                                                        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                                                            <path d="M5 13l4 4L19 7"/>
-                                                        </svg>
-                                                        Telah tiba
-                                                    </span>
-                                                @else
-                                                    <span class="text-gray-500">Kurir Pemasok</span>
-                                                @endif
-                                                @if($order->no_resi)
-                                                    <span class="h-1 w-1 rounded-full bg-gray-300"></span>
-                                                    <span class="font-mono uppercase tracking-wider text-gray-600">{{ $order->no_resi }}</span>
-                                                @endif
-                                            </div>
-                                        </div>
-
-                                        {{-- Tombol telepon --}}
-                                        @if($order->no_hp_kurir)
-                                            <a href="tel:{{ $order->no_hp_kurir }}"
-                                               title="Hubungi {{ $order->nama_kurir }}"
-                                               class="group flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-200 transition-all hover:bg-emerald-600 active:scale-95">
-                                                <svg class="h-4 w-4 transition-transform group-hover:rotate-12" viewBox="0 0 24 24" fill="currentColor">
-                                                    <path d="M20 15.5c-1.25 0-2.45-.2-3.57-.57a1 1 0 0 0-1.02.24l-2.2 2.2a15.07 15.07 0 0 1-6.58-6.58l2.2-2.21a1 1 0 0 0 .25-1.02A11.36 11.36 0 0 1 8.5 4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1c0 9.39 7.61 17 17 17a1 1 0 0 0 1-1v-3.5a1 1 0 0 0-1-1z"/>
-                                                </svg>
-                                            </a>
-                                        @endif
-                                    </div>
-                                </div>
-                            @else
-                                <div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 px-3 py-3.5 text-center">
-                                    <p class="text-xs font-bold text-gray-400">Belum ada info kurir</p>
-                                </div>
-                            @endif
-                        </div>
+                    <div class="text-right">
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Nilai LKBB</p>
+                        <p class="text-base font-black text-emerald-600">Rp {{ number_format($order->total_estimasi, 0, ',', '.') }}</p>
                     </div>
+                </header>
 
-                    <div class="pt-3">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Barang yang Akan Diterima:</p>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            @foreach($order->details as $detail)
-                                <div class="flex items-center gap-2 bg-gray-50 border border-gray-100 px-3 py-2 rounded-xl">
-                                    <div class="w-7 h-7 rounded bg-white flex items-center justify-center text-gray-700 text-xs font-black shadow-sm">
-                                        {{ $detail->qty }}
-                                    </div>
-                                    <p class="text-xs font-bold text-gray-800 truncate" title="{{ $detail->nama_produk_snapshot }}">{{ $detail->nama_produk_snapshot }}</p>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Kanan: Aksi & Nilai Total --}}
-                <div class="flex flex-col justify-end lg:items-end gap-3 lg:w-72 border-t lg:border-t-0 lg:border-l border-gray-100 pt-4 lg:pt-0 lg:pl-6 shrink-0">
-                    <div class="w-full text-left lg:text-right mb-2">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Nilai Barang LKBB</p>
-                        <p class="text-2xl font-black text-gray-900">Rp {{ number_format($order->total_estimasi, 0, ',', '.') }}</p>
-                    </div>
-
-                    {{-- Logic Status Panel --}}
-                    @if(in_array($order->status, ['menunggu_pemasok', 'menunggu_lkbb']))
-                        <div class="w-full bg-gray-50 p-3 rounded-xl border border-gray-200 text-center">
-                            <span class="text-[10px] font-extrabold text-gray-600 uppercase tracking-wider">⏳ Diproses Sistem</span>
-                            <p class="text-[10px] text-gray-500 font-medium mt-1">Menunggu persetujuan Pemasok & LKBB.</p>
-                        </div>
-
-                    @elseif($order->status === 'diproses_pemasok')
-                        <div class="w-full bg-amber-50 p-3 rounded-xl border border-amber-200 text-center">
-                            <span class="text-[10px] font-extrabold text-amber-600 uppercase tracking-wider">📦 Sedang Disiapkan</span>
-                            <p class="text-[10px] text-amber-700 font-medium mt-1">Pemasok sedang mengepak barang Anda.</p>
-                        </div>
-
-                   @elseif($order->status === 'dikirim')
-                        {{-- TOMBOL TERIMA BARANG & RETURN (SAAT PROSES CEK FISIK) --}}
-                        <div class="w-full flex flex-col gap-2">
-                            <div class="w-full bg-gradient-to-r from-blue-500 to-indigo-600 p-3 rounded-2xl shadow-lg shadow-blue-200/50 flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0 shadow-inner">
-                                    <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" />
-                                    </svg>
-                                </div>
-                                <div class="text-left">
-                                    <h4 class="text-lg font-black text-white tracking-wide leading-none mb-1">SEDANG JALAN</h4>
-                                    <p class="text-[10px] font-medium text-blue-100 leading-tight">Kurir Pemasok menuju kantin.</p>
-                                </div>
+                <div class="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+                    {{-- Kiri: pengirim + timeline + barang --}}
+                    <div class="space-y-5">
+                        <div class="flex items-start gap-3">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-lime-500 text-white shadow-md shadow-emerald-200 ring-2 ring-white">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16M5 9h14M5 13h14M5 17h14"/></svg>
                             </div>
-                            
-                            <button wire:click="openConfirmModal({{ $order->id }})" class="w-full bg-[#10b981] border border-[#059669] text-white font-black py-3 rounded-2xl hover:bg-[#059669] transition-all text-sm shadow-lg shadow-emerald-200 flex items-center justify-center gap-2">
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
-                                BARANG TELAH DITERIMA
+                            <div class="min-w-0">
+                                <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Dikirim oleh</p>
+                                <h3 class="text-base font-black leading-tight text-gray-900 truncate">{{ $order->pemasok->pemasokProfile->nama_perusahaan ?? $order->pemasok->name ?? 'Pemasok SCFS' }}</h3>
+                                <p class="mt-0.5 text-xs font-medium text-gray-500">Untuk tanggal kebutuhan {{ \Carbon\Carbon::parse($order->tanggal_kebutuhan)->format('d M Y') }}</p>
+                            </div>
+                        </div>
+
+                        {{-- Progress + timeline --}}
+                        <div>
+                            <x-tracking.progress-track :percentage="$tracking['progress']" variant="merchant" :label="'Progres Pengiriman'" :sublabel="$tracking['progress'] . '%'" />
+                            <div class="mt-4 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
+                                <x-tracking.status-timeline :events="$tracking['events']" variant="merchant" />
+                            </div>
+                        </div>
+
+                        {{-- Barang --}}
+                        <div>
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Barang yang Diterima ({{ $order->details->count() }} item)</p>
+                            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                @foreach($order->details as $detail)
+                                    <div class="flex items-center gap-2 rounded-xl border border-gray-100 bg-white/70 px-3 py-2">
+                                        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-[11px] font-black text-emerald-700">{{ $detail->qty }}</div>
+                                        <p class="truncate text-xs font-bold text-gray-800" title="{{ $detail->nama_produk_snapshot }}">{{ $detail->nama_produk_snapshot }}</p>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Kanan: courier card + aksi sesuai status --}}
+                    <aside class="flex flex-col gap-3 border-t border-gray-100 pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+                        @if($order->nama_kurir)
+                            <x-tracking.courier-card
+                                :name="$order->nama_kurir"
+                                :phone="$order->no_hp_kurir"
+                                :resi="$order->no_resi"
+                                :status="$order->status"
+                                variant="merchant"
+                            />
+                        @endif
+
+                        @if(in_array($order->status, ['menunggu_pemasok', 'menunggu_lkbb']))
+                            <div class="rounded-2xl border border-gray-200 bg-gray-50 p-3 text-center">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-gray-600">⏳ Menunggu Persetujuan</p>
+                                <p class="mt-1 text-[10px] font-medium text-gray-500">Pemasok & LKBB sedang meninjau.</p>
+                            </div>
+                        @elseif($order->status === 'diproses_pemasok')
+                            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-center">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-amber-700">📦 Disiapkan Pemasok</p>
+                                <p class="mt-1 text-[10px] font-medium text-amber-700">Barang sedang dikemas.</p>
+                            </div>
+                        @elseif($order->status === 'dikirim')
+                            <button wire:click="openConfirmModal({{ $order->id }})" class="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-lime-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-emerald-200 transition hover:shadow-xl hover:shadow-emerald-300 active:scale-[0.98] flex items-center justify-center gap-2">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                Barang Telah Diterima
                             </button>
-
                             @if($order->has_active_return)
-                                <a href="{{ route('merchant.form-return', $order->id) }}"
-                                   class="w-full bg-amber-50 border border-amber-200 text-amber-700 font-bold py-2.5 rounded-2xl hover:bg-amber-100 transition-all text-xs flex items-center justify-center gap-2 shadow-sm">
-                                    ⏳ Sudah Ada Return Aktif — Lihat Status
-                                </a>
+                                <a href="{{ route('merchant.form-return', $order->id) }}" class="w-full rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-xs font-bold text-amber-700 transition hover:bg-amber-100">⏳ Ada Return Aktif — Lihat Status</a>
                             @else
-                                <a href="{{ route('merchant.form-return', $order->id) }}"
-                                   class="w-full bg-white border border-rose-200 text-rose-600 font-bold py-2.5 rounded-2xl hover:bg-rose-50 hover:border-rose-300 transition-all text-xs flex items-center justify-center gap-2 shadow-sm">
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
-                                    Fisik Bermasalah? Ajukan Return
-                                </a>
+                                <a href="{{ route('merchant.form-return', $order->id) }}" class="w-full rounded-2xl border border-rose-200 bg-white px-4 py-2.5 text-center text-xs font-bold text-rose-600 transition hover:bg-rose-50">Fisik Bermasalah? Ajukan Return</a>
                             @endif
-                        </div>
-
-                    @elseif($order->status === 'selesai')
-                        <div class="w-full flex flex-col gap-2">
-                            <div class="w-full bg-emerald-50 p-4 rounded-xl border border-emerald-200 flex items-center gap-3">
-                                <div class="w-8 h-8 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shrink-0">
-                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
+                        @elseif($order->status === 'selesai')
+                            <div class="rounded-2xl bg-gradient-to-br from-emerald-50 to-lime-50 border border-emerald-200 px-4 py-3 flex items-center gap-3">
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow shadow-emerald-300">
+                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                                 </div>
-                                <div class="text-left">
-                                    <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Selesai</p>
-                                    <p class="text-[10px] text-emerald-600 font-bold">Stok telah masuk etalase.</p>
+                                <div>
+                                    <p class="text-[10px] font-black uppercase tracking-widest text-emerald-700">Selesai</p>
+                                    <p class="text-[10px] font-bold text-emerald-600">Stok masuk etalase.</p>
                                 </div>
                             </div>
-
-                            {{-- Window return 24 jam masih bisa diajukan setelah terima --}}
                             @if($order->updated_at && $order->updated_at->diffInHours(now()) < 24)
                                 @if($order->has_active_return)
-                                    <a href="{{ route('merchant.form-return', $order->id) }}"
-                                       class="w-full bg-amber-50 border border-amber-200 text-amber-700 font-bold py-2 rounded-xl hover:bg-amber-100 text-[11px] text-center">
-                                        ⏳ Return Aktif — Lihat Status
-                                    </a>
+                                    <a href="{{ route('merchant.form-return', $order->id) }}" class="w-full rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-center text-[11px] font-bold text-amber-700 hover:bg-amber-100">⏳ Return Aktif — Lihat Status</a>
                                 @else
-                                    <a href="{{ route('merchant.form-return', $order->id) }}"
-                                       class="w-full bg-white border border-rose-200 text-rose-600 font-bold py-2 rounded-xl hover:bg-rose-50 text-[11px] text-center">
-                                        ⚠ Masalah Setelah Cek Lebih Detail? Ajukan Return
-                                    </a>
+                                    <a href="{{ route('merchant.form-return', $order->id) }}" class="w-full rounded-2xl border border-rose-200 bg-white px-4 py-2 text-center text-[11px] font-bold text-rose-600 hover:bg-rose-50">⚠ Masalah Setelah Cek? Ajukan Return</a>
                                 @endif
                             @endif
-                        </div>
-                    @endif
+                        @endif
+                    </aside>
                 </div>
-
-            </div>
+            </article>
         @empty
-            <div class="py-20 text-center border border-gray-100 rounded-[24px] bg-white shadow-sm flex flex-col items-center justify-center">
-                <div class="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4 border border-gray-100">
-                    <svg class="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
+            <div class="rounded-3xl border border-dashed border-gray-200 bg-white/60 py-20 text-center">
+                <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 to-lime-100 text-emerald-500">
+                    <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
                 </div>
-                <h3 class="text-lg font-black text-gray-800 mb-1">Kategori Kosong</h3>
-                <p class="text-gray-500 text-sm font-medium">Belum ada aktivitas logistik di tab ini.</p>
+                <h3 class="text-lg font-black text-gray-800">Kategori Kosong</h3>
+                <p class="mt-1 text-sm font-medium text-gray-500">Belum ada aktivitas logistik di tab ini.</p>
             </div>
         @endforelse
     </div>
