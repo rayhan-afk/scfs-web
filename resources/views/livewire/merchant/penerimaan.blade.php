@@ -96,6 +96,34 @@ class extends Component {
             session()->flash('error', $e->getMessage());
         }
     }
+
+    #[Computed]
+    public function stats(): array
+    {
+        $base = SupplyOrder::where('merchant_id', Auth::id());
+
+        return [
+            'aktif' => (clone $base)->whereIn('status', ['menunggu_lkbb', 'diproses_pemasok', 'dikirim', 'menunggu_pemasok'])->count(),
+            'sedang_dikirim' => (clone $base)->where('status', 'dikirim')->count(),
+            'diterima_bulan_ini' => (clone $base)
+                ->where('status', 'selesai')
+                ->whereMonth('updated_at', now()->month)
+                ->whereYear('updated_at', now()->year)
+                ->count(),
+            'nilai_aktif' => (clone $base)
+                ->whereIn('status', ['menunggu_lkbb', 'diproses_pemasok', 'dikirim', 'menunggu_pemasok'])
+                ->sum('total_estimasi'),
+        ];
+    }
+
+    public function trackingFor(SupplyOrder $order): array
+    {
+        $svc = app(\App\Services\Tracking\TrackingTimelineService::class);
+        return [
+            'events' => $svc->buildEvents($order),
+            'progress' => $svc->progressPercentage($order),
+        ];
+    }
 }; ?>
 
 <div class="py-8 px-6 md:px-8 w-full max-w-7xl mx-auto space-y-6 relative">
@@ -159,15 +187,78 @@ class extends Component {
                             <p class="text-xs text-gray-500 mt-0.5">Dikirim Untuk: Tgl {{ \Carbon\Carbon::parse($order->tanggal_kebutuhan)->format('d M Y') }}</p>
                         </div>
                         <div>
-                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Info Kurir</p>
+                            <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Info Kurir</p>
                             @if($order->nama_kurir)
-                                <div class="text-xs font-bold text-blue-600 bg-blue-50 p-2 rounded-lg border border-blue-100 space-y-0.5">
-                                    <p>👤 {{ $order->nama_kurir }}</p>
-                                    <p>📞 <a href="tel:{{ $order->no_hp_kurir }}" class="underline">{{ $order->no_hp_kurir }}</a></p>
-                                    <p class="text-[10px] text-blue-500">Resi: {{ $order->no_resi }}</p>
+                                <div class="relative overflow-hidden rounded-2xl bg-white border border-gray-100 shadow-sm">
+                                    {{-- Accent line + soft gradient blob --}}
+                                    <div class="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-orange-400 via-pink-500 to-orange-400"></div>
+                                    <div class="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br from-orange-100 to-pink-100 opacity-60 blur-2xl"></div>
+
+                                    <div class="relative flex items-center gap-3 p-3">
+                                        {{-- Avatar dengan ikon motor + live dot --}}
+                                        <div class="relative shrink-0">
+                                            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-pink-500 text-white shadow-md shadow-orange-200 ring-2 ring-white">
+                                                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <circle cx="5.5" cy="17.5" r="2.5"/>
+                                                    <circle cx="18.5" cy="17.5" r="2.5"/>
+                                                    <path d="M8 17.5h8"/>
+                                                    <path d="M13 17.5V8h4l2 4"/>
+                                                    <path d="M5.5 15 7 9h4l1.5 6"/>
+                                                </svg>
+                                            </div>
+                                            <span class="absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5">
+                                                @if($order->status === 'dikirim')
+                                                    <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70"></span>
+                                                @endif
+                                                <span class="relative inline-flex h-3.5 w-3.5 rounded-full border-2 border-white {{ $order->status === 'selesai' ? 'bg-gray-400' : 'bg-emerald-500' }}"></span>
+                                            </span>
+                                        </div>
+
+                                        {{-- Nama + meta --}}
+                                        <div class="min-w-0 flex-1">
+                                            <p class="truncate text-sm font-black leading-tight text-gray-900">{{ $order->nama_kurir }}</p>
+                                            <div class="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[10px] font-bold text-gray-500">
+                                                @if($order->status === 'dikirim')
+                                                    <span class="inline-flex items-center gap-1 text-emerald-600">
+                                                        <span class="relative flex h-1.5 w-1.5">
+                                                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                                                            <span class="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                                                        </span>
+                                                        Menuju lokasi
+                                                    </span>
+                                                @elseif($order->status === 'selesai')
+                                                    <span class="inline-flex items-center gap-1 text-emerald-600">
+                                                        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                                            <path d="M5 13l4 4L19 7"/>
+                                                        </svg>
+                                                        Telah tiba
+                                                    </span>
+                                                @else
+                                                    <span class="text-gray-500">Kurir Pemasok</span>
+                                                @endif
+                                                @if($order->no_resi)
+                                                    <span class="h-1 w-1 rounded-full bg-gray-300"></span>
+                                                    <span class="font-mono uppercase tracking-wider text-gray-600">{{ $order->no_resi }}</span>
+                                                @endif
+                                            </div>
+                                        </div>
+
+                                        {{-- Tombol telepon --}}
+                                        @if($order->no_hp_kurir)
+                                            <a href="tel:{{ $order->no_hp_kurir }}"
+                                               title="Hubungi {{ $order->nama_kurir }}"
+                                               class="group flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-md shadow-emerald-200 transition-all hover:bg-emerald-600 active:scale-95">
+                                                <svg class="h-4 w-4 transition-transform group-hover:rotate-12" viewBox="0 0 24 24" fill="currentColor">
+                                                    <path d="M20 15.5c-1.25 0-2.45-.2-3.57-.57a1 1 0 0 0-1.02.24l-2.2 2.2a15.07 15.07 0 0 1-6.58-6.58l2.2-2.21a1 1 0 0 0 .25-1.02A11.36 11.36 0 0 1 8.5 4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1c0 9.39 7.61 17 17 17a1 1 0 0 0 1-1v-3.5a1 1 0 0 0-1-1z"/>
+                                                </svg>
+                                            </a>
+                                        @endif
+                                    </div>
                                 </div>
                             @else
-                                <p class="text-xs font-bold text-gray-400 italic">Belum ada info kurir</p>
+                                <div class="rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 px-3 py-3.5 text-center">
+                                    <p class="text-xs font-bold text-gray-400">Belum ada info kurir</p>
+                                </div>
                             @endif
                         </div>
                     </div>
