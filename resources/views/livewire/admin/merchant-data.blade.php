@@ -24,7 +24,7 @@ class extends Component {
     // Modal Form State
     public bool $isAddModalOpen = false;
     public $nama_kantin, $nama_pemilik, $nik, $no_hp, $lokasi_blok, $info_pencairan;
-    public $persentase_bagi_hasil = 10;
+    public $persentase_fee_merchant = 10;
     public $email, $password; 
 
     public function setTab(string $tab): void
@@ -109,7 +109,7 @@ class extends Component {
     public function resetForm(): void
     {
         $this->reset(['nama_kantin', 'nama_pemilik', 'nik', 'no_hp', 'lokasi_blok', 'info_pencairan', 'email', 'password']);
-        $this->persentase_bagi_hasil = 10; 
+        $this->persentase_fee_merchant = 10; 
     }
 
     public function saveMerchant(): void
@@ -121,7 +121,7 @@ class extends Component {
             'no_hp'                 => 'required|string|max:20',
             'lokasi_blok'           => 'required|string|max:255',
             'info_pencairan'        => 'required|string|max:255',
-            'persentase_bagi_hasil' => 'required|numeric|min:0|max:100',
+            'persentase_fee_merchant' => 'required|numeric|min:0|max:100',
             'email'                 => 'required|email|unique:users,email',
             'password'              => 'required|min:6',
         ]);
@@ -143,7 +143,7 @@ class extends Component {
                     'no_hp'                 => $this->no_hp,
                     'lokasi_blok'           => $this->lokasi_blok,
                     'info_pencairan'        => $this->info_pencairan,
-                    'persentase_bagi_hasil' => $this->persentase_bagi_hasil,
+                    'persentase_fee_merchant' => $this->persentase_fee_merchant,
                     'status_verifikasi'     => 'disetujui', 
                     'status_toko'           => 'tutup',
                     'saldo_token'           => 0,
@@ -315,7 +315,7 @@ class extends Component {
                                 <div class="text-sm font-bold text-emerald-600">
                                     Rp {{ number_format($merchant->merchantProfile->saldo_token ?? 0, 0, ',', '.') }}
                                 </div>
-                                <div class="text-[10px] text-gray-500 mt-0.5">Bagi Hasil: {{ $merchant->merchantProfile->persentase_bagi_hasil ?? 0 }}%</div>
+                                <div class="text-[10px] text-gray-500 mt-0.5">Bagi Hasil: {{ $merchant->merchantProfile->persentase_fee_merchant ?? 0 }}%</div>
                             @else
                                 <span class="text-xs text-gray-400 italic">Belum tersedia</span>
                             @endif
@@ -403,8 +403,8 @@ class extends Component {
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Persentase LKBB (%) *</label>
-                            <input wire:model="persentase_bagi_hasil" type="number" min="0" max="100" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
-                            @error('persentase_bagi_hasil') <span class="text-red-500 text-[10px] mt-1 font-semibold">{{ $message }}</span> @enderror
+                            <input wire:model="persentase_fee_merchant" type="number" min="0" max="100" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 bg-white py-2.5">
+                            @error('persentase_fee_merchant') <span class="text-red-500 text-[10px] mt-1 font-semibold">{{ $message }}</span> @enderror
                         </div>
                     </div>
 

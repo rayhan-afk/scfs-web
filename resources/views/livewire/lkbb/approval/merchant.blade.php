@@ -34,10 +34,16 @@ new #[Layout('layouts.lkbb')] class extends Component {
     public function openModal($id)
     {
         $this->selectedMerchant = MerchantProfile::with('user')->findOrFail($id);
-        $this->catatan_penolakan = ''; 
-        
-        // 2. RESET VARIABEL SUDAH DISERAGAMKAN
-        $this->persentase_fee_merchant = 10; 
+        $this->catatan_penolakan = '';
+
+        // Field input LKBB = BAGIAN LKBB (persentase yang masuk ke LKBB tiap transaksi).
+        // Usulan merchant = bagian merchant. Convert: bagian LKBB = 100 - usulan_merchant.
+        // Fallback default kalau merchant belum input usulan = 30% LKBB.
+        if ($this->selectedMerchant->usulan_fee_merchant !== null) {
+            $this->persentase_fee_merchant = 100 - (int) $this->selectedMerchant->usulan_fee_merchant;
+        } else {
+            $this->persentase_fee_merchant = $this->selectedMerchant->persentase_fee_merchant ?? 30;
+        }
         $this->showModal = true;
     }
 
@@ -245,21 +251,61 @@ new #[Layout('layouts.lkbb')] class extends Component {
 
                             <hr class="border-gray-100">
 
+                            {{-- USULAN MERCHANT — preview split bagian merchant vs LKBB --}}
+                            @php
+                                $usulanMerchant = $selectedMerchant->usulan_fee_merchant !== null ? (int) $selectedMerchant->usulan_fee_merchant : null;
+                                $sisaLKBB = $usulanMerchant !== null ? 100 - $usulanMerchant : null;
+                            @endphp
+                            <div class="rounded-xl border border-blue-200 bg-blue-50 p-4">
+                                <div class="flex items-center justify-between mb-3">
+                                    <label class="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Usulan Bagi Hasil dari Merchant</label>
+                                    <span class="text-[9px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full uppercase tracking-wider">Proposal</span>
+                                </div>
+                                @if($usulanMerchant !== null)
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div class="rounded-lg bg-white border-2 border-amber-300 p-3">
+                                            <p class="text-[9px] font-black uppercase tracking-widest text-amber-700">🏪 Bagian Merchant</p>
+                                            <p class="mt-1 text-2xl font-black text-amber-900">{{ $usulanMerchant }}<span class="text-sm font-bold text-amber-600 ml-0.5">%</span></p>
+                                        </div>
+                                        <div class="rounded-lg bg-white border-2 border-blue-300 p-3">
+                                            <p class="text-[9px] font-black uppercase tracking-widest text-blue-700">🏦 Bagian LKBB</p>
+                                            <p class="mt-1 text-2xl font-black text-blue-900">{{ $sisaLKBB }}<span class="text-sm font-bold text-blue-600 ml-0.5">%</span></p>
+                                        </div>
+                                    </div>
+                                    <p class="text-[10px] text-blue-700 mt-3">Merchant minta {{ $usulanMerchant }}% buat dirinya, sisa {{ $sisaLKBB }}% buat LKBB. Kalau menurut Anda bagian merchant kebesaran (= LKBB kekecilan), tolak & minta revisi.</p>
+                                @else
+                                    <p class="text-sm font-bold text-blue-700/70 italic">Belum diajukan oleh merchant</p>
+                                @endif
+                            </div>
+
                             {{-- Form Setujui & Tolak --}}
                             <div class="grid grid-cols-1 gap-4">
                                 <div class="bg-green-50 p-4 rounded-xl border border-green-100">
-                                    <label class="block text-[10px] font-bold text-green-700 uppercase tracking-wider mb-2">Persentase Laba untuk Merchant (%)</label>
-                                    
-                                    <input wire:model="persentase_fee_merchant" type="number" min="0" max="100" class="w-full text-sm rounded-lg border-green-200 focus:border-green-500 focus:ring-green-500 bg-white">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <label class="block text-[10px] font-bold text-green-700 uppercase tracking-wider">Bagian LKBB Aktif yang Akan Diberlakukan (%)</label>
+                                        @if($usulanMerchant !== null)
+                                            <button type="button"
+                                                    wire:click="$set('persentase_fee_merchant', {{ $sisaLKBB }})"
+                                                    class="text-[9px] font-bold text-blue-600 hover:text-blue-700 underline">
+                                                Pakai sesuai usulan ({{ $sisaLKBB }}%)
+                                            </button>
+                                        @endif
+                                    </div>
+                                    <input wire:model.live="persentase_fee_merchant" type="number" step="5" min="0" max="100"
+                                        class="w-full text-base rounded-lg border-green-200 focus:border-green-500 focus:ring-green-500 bg-white font-black">
                                     @error('persentase_fee_merchant') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
-                                    
-                                    <p class="text-[10px] text-green-600 mt-1.5">*Angka ini menentukan berapa persen keuntungan yang masuk ke dompet Merchant (Sisa % akan menjadi milik LKBB).</p>
+
+                                    <p class="text-[10px] text-green-700 mt-2 font-medium">
+                                        ➜ Bagian Merchant otomatis: <span class="font-black text-amber-700">{{ 100 - (int)$persentase_fee_merchant }}%</span>
+                                    </p>
+                                    <p class="text-[10px] text-green-600 mt-1">*Nilai ini adalah % LKBB yang dipotong tiap transaksi. Naikkan kalau usulan merchant kebesaran.</p>
                                 </div>
 
                                 <div class="bg-red-50 p-4 rounded-xl border border-red-100">
-                                    <label class="block text-[10px] font-bold text-red-700 uppercase tracking-wider mb-2">Alasan Penolakan (Jika Ingin Ditolak)</label>
-                                    <textarea wire:model="catatan_penolakan" class="w-full text-sm rounded-lg border-red-200 focus:border-red-500 focus:ring-red-500 bg-white" rows="2" placeholder="Cth: Foto KTP terpotong/buram..."></textarea>
+                                    <label class="block text-[10px] font-bold text-red-700 uppercase tracking-wider mb-2">Alasan Penolakan (jika usulan tidak disetujui)</label>
+                                    <textarea wire:model="catatan_penolakan" class="w-full text-sm rounded-lg border-red-200 focus:border-red-500 focus:ring-red-500 bg-white" rows="3" placeholder="cth: Usulan bagi hasil merchant terlalu besar (70%). Mohon revisi maksimal 60% bagian merchant — LKBB butuh minimal 40% untuk biaya talangan modal."></textarea>
                                     @error('catatan_penolakan') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                                    <p class="text-[10px] text-red-600 mt-1.5">*Alasan ini akan muncul di halaman profil merchant agar mereka bisa revisi.</p>
                                 </div>
                             </div>
                         </div>
@@ -336,10 +382,11 @@ new #[Layout('layouts.lkbb')] class extends Component {
                             Setujui Merchant?
                         </h2>
                         <p class="text-gray-500 text-sm leading-relaxed">
-                            Merchant akan langsung aktif dengan pembagian laba
-                            <span class="font-bold text-green-600">
-                                {{ $persentase_fee_merchant }}%
-                            </span>
+                            Merchant aktif dengan pembagian:
+                            <br>
+                            <span class="font-bold text-amber-600">Merchant {{ 100 - (int)$persentase_fee_merchant }}%</span>
+                            <span class="text-gray-400">·</span>
+                            <span class="font-bold text-blue-600">LKBB {{ (int)$persentase_fee_merchant }}%</span>
                         </p>
                         <div class="flex gap-3 mt-8">
                             <button

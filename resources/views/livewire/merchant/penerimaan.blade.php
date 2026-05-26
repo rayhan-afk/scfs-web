@@ -3,32 +3,59 @@
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
+use Livewire\WithPagination;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\SupplyOrder;
 
-new #[Layout('layouts.app')] 
+new #[Layout('layouts.app')]
 class extends Component {
-    
+
+    use WithPagination;
+
     // UI State
     public $statusFilter = 'aktif'; // 'aktif' (belum selesai), 'selesai', 'ditolak'
     public $search = '';
 
-    // PROPERTI BARU UNTUK MODAL
+    // Modal Konfirmasi Terima
     public $showConfirmModal = false;
     public $selectedOrderId = null;
 
-    // FUNGSI UNTUK MEMBUKA MODAL
+    // Modal Lihat Rincian (tampilkan detail PO terkonfirmasi/ditolak)
+    public $showModalDetail = false;
+
+    // Reset pagination saat filter berubah biar tidak nyangkut di halaman kosong
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStatusFilter()
+    {
+        $this->resetPage();
+    }
+
     public function openConfirmModal($id)
     {
         $this->selectedOrderId = $id;
         $this->showConfirmModal = true;
     }
 
-    // FUNGSI UNTUK MENUTUP MODAL
     public function closeConfirmModal()
     {
         $this->showConfirmModal = false;
+        $this->selectedOrderId = null;
+    }
+
+    public function bukaModalDetail($id)
+    {
+        $this->selectedOrderId = $id;
+        $this->showModalDetail = true;
+    }
+
+    public function tutupModalDetail()
+    {
+        $this->showModalDetail = false;
         $this->selectedOrderId = null;
     }
 
@@ -59,7 +86,41 @@ class extends Component {
             $query->where('status', 'ditolak');
         }
 
-        return $query->orderBy('updated_at', 'desc')->get();
+        return $query->orderBy('updated_at', 'desc')->paginate(10);
+    }
+
+    /**
+     * COMPUTED: PO yang sedang dibuka di modal detail.
+     */
+    #[Computed]
+    public function selectedOrder()
+    {
+        if (! $this->selectedOrderId) {
+            return null;
+        }
+        return SupplyOrder::with(['details', 'pemasok.pemasokProfile'])
+            ->where('merchant_id', Auth::id())
+            ->find($this->selectedOrderId);
+    }
+
+    #[Computed]
+    public function selectedOrderEvents()
+    {
+        if (! $this->selectedOrder) {
+            return collect();
+        }
+        return app(\App\Services\Tracking\TrackingTimelineService::class)
+            ->buildEvents($this->selectedOrder);
+    }
+
+    #[Computed]
+    public function selectedOrderProgress(): int
+    {
+        if (! $this->selectedOrder) {
+            return 0;
+        }
+        return app(\App\Services\Tracking\TrackingTimelineService::class)
+            ->progressPercentage($this->selectedOrder);
     }
 
     /**
@@ -213,8 +274,57 @@ class extends Component {
     </div>
 
     {{-- ===== Order list ===== --}}
-    <div class="space-y-4">
+    <div class="space-y-3">
         @forelse($this->supplyOrders as $i => $order)
+
+            {{-- ============================================================ --}}
+            {{-- VARIAN 1: COMPACT LIST ROW (untuk PO selesai / ditolak)        --}}
+            {{-- ============================================================ --}}
+            @if(in_array($order->status, ['selesai', 'ditolak']))
+                @php
+                    $isSelesai = $order->status === 'selesai';
+                    $accent = $isSelesai
+                        ? ['avatar' => 'from-emerald-500 to-lime-500', 'shadow' => 'shadow-emerald-200', 'pill' => 'bg-emerald-50 border-emerald-200 text-emerald-700', 'cta' => 'text-emerald-600', 'value' => 'text-emerald-600']
+                        : ['avatar' => 'from-rose-500 to-rose-600',    'shadow' => 'shadow-rose-200',    'pill' => 'bg-rose-50 border-rose-200 text-rose-700',    'cta' => 'text-rose-600',    'value' => 'text-rose-600'];
+                @endphp
+                <button wire:key="order-{{ $order->id }}" wire:click="bukaModalDetail({{ $order->id }})" type="button"
+                        class="scfs-fade-in-up group block w-full text-left relative overflow-hidden rounded-2xl border border-white/60 bg-white/85 backdrop-blur-xl px-4 sm:px-5 py-3.5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md hover:border-emerald-200"
+                        style="animation-delay: {{ $i * 40 }}ms;">
+                    <div class="flex items-center gap-4">
+                        {{-- Status icon --}}
+                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br {{ $accent['avatar'] }} text-white shadow-md {{ $accent['shadow'] }} ring-2 ring-white">
+                            @if($isSelesai)
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                            @else
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            @endif
+                        </div>
+
+                        {{-- Info --}}
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="rounded-md border {{ $accent['pill'] }} px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">{{ $order->nomor_order }}</span>
+                                <span class="text-[10px] font-bold text-gray-400">{{ \Carbon\Carbon::parse($order->updated_at)->format('d M Y · H:i') }}</span>
+                            </div>
+                            <p class="mt-1 text-sm font-black leading-tight text-gray-900 truncate">{{ $order->pemasok->pemasokProfile->nama_perusahaan ?? $order->pemasok->name ?? 'Pemasok SCFS' }}</p>
+                            <p class="text-[11px] font-medium text-gray-500">
+                                {{ $order->details->count() }} item · <span class="font-black {{ $accent['value'] }}">Rp {{ number_format($order->total_estimasi, 0, ',', '.') }}</span>
+                            </p>
+                        </div>
+
+                        {{-- CTA --}}
+                        <div class="hidden sm:flex items-center gap-1 text-[11px] font-black {{ $accent['cta'] }} group-hover:translate-x-0.5 transition">
+                            Rincian
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        </div>
+                        <svg class="sm:hidden h-5 w-5 shrink-0 text-gray-300 group-hover:text-emerald-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                    </div>
+                </button>
+
+            @else
+            {{-- ============================================================ --}}
+            {{-- VARIAN 2: FULL CARD (untuk PO aktif/dikirim)                    --}}
+            {{-- ============================================================ --}}
             @php $tracking = $this->trackingFor($order); @endphp
             <article wire:key="order-{{ $order->id }}" class="scfs-fade-in-up relative overflow-hidden rounded-3xl border border-white/60 bg-white/85 backdrop-blur-xl p-5 sm:p-6 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)]" style="animation-delay: {{ $i * 60 }}ms;">
 
@@ -319,6 +429,7 @@ class extends Component {
                     </aside>
                 </div>
             </article>
+            @endif {{-- /varian compact vs full --}}
         @empty
             <div class="rounded-3xl border border-dashed border-gray-200 bg-white/60 py-20 text-center">
                 <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 to-lime-100 text-emerald-500">
@@ -328,6 +439,11 @@ class extends Component {
                 <p class="mt-1 text-sm font-medium text-gray-500">Belum ada aktivitas logistik di tab ini.</p>
             </div>
         @endforelse
+
+        {{-- Pagination --}}
+        @if($this->supplyOrders->hasPages())
+            <div class="mt-5">{{ $this->supplyOrders->links() }}</div>
+        @endif
     </div>
 
     {{-- MODAL POP-UP KONFIRMASI (TETAP SAMA, DESAIN DIPERHALUS) --}}
@@ -368,4 +484,146 @@ class extends Component {
             </div>
         </div>
     @endif
+
+    {{-- MODAL LIHAT RINCIAN PESANAN (untuk PO yang sudah terkonfirmasi/ditolak) --}}
+    <div x-data="{ open: @entangle('showModalDetail') }" x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center px-4" style="display: none;">
+        <div x-show="open" x-transition.opacity @click="$wire.tutupModalDetail()" class="fixed inset-0 bg-gray-900/50 backdrop-blur-md"></div>
+        <div x-show="open"
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 scale-95 translate-y-2"
+             x-transition:enter-end="opacity-100 scale-100 translate-y-0"
+             class="relative z-50 flex w-full max-w-2xl max-h-[90vh] flex-col overflow-hidden rounded-[28px] border border-white/60 bg-white shadow-[0_30px_80px_-20px_rgba(16,185,129,0.45)]">
+
+            @if($this->selectedOrder)
+            @php
+                $detailIsSelesai = $this->selectedOrder->status === 'selesai';
+                $heroGrad = $detailIsSelesai
+                    ? 'from-emerald-500 via-emerald-600 to-lime-500'
+                    : 'from-rose-500 via-rose-600 to-rose-700';
+                $heroShadowColor = $detailIsSelesai ? 'rgba(16,185,129,0.45)' : 'rgba(244,63,94,0.45)';
+                $heroDecor = $detailIsSelesai ? 'bg-lime-300/30' : 'bg-rose-300/30';
+            @endphp
+
+            {{-- Hero header --}}
+            <div class="relative overflow-hidden bg-gradient-to-br {{ $heroGrad }} px-6 py-5 shrink-0">
+                <div class="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/15 blur-2xl"></div>
+                <div class="pointer-events-none absolute -left-8 -bottom-12 h-32 w-32 rounded-full {{ $heroDecor }} blur-2xl"></div>
+
+                <div class="relative flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="text-[10px] font-bold uppercase tracking-[0.2em] {{ $detailIsSelesai ? 'text-emerald-100/90' : 'text-rose-100/90' }}">
+                            {{ $detailIsSelesai ? 'Pesanan Selesai' : 'Pesanan Ditolak / Batal' }}
+                        </p>
+                        <h3 class="mt-1 truncate text-xl font-black tracking-tight text-white">{{ $this->selectedOrder->pemasok->pemasokProfile->nama_perusahaan ?? $this->selectedOrder->pemasok->name ?? 'Pemasok SCFS' }}</h3>
+                        <span class="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white backdrop-blur">
+                            <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                            {{ $this->selectedOrder->nomor_order }}
+                        </span>
+                    </div>
+                    <button wire:click="tutupModalDetail" type="button" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/30 bg-white/15 text-white shadow-md transition hover:bg-white/30 active:scale-95">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-y-auto bg-gradient-to-b {{ $detailIsSelesai ? 'from-emerald-50/40' : 'from-rose-50/40' }} to-white p-6 space-y-5">
+
+                {{-- Tanggal & timestamp --}}
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div class="relative overflow-hidden rounded-2xl border {{ $detailIsSelesai ? 'border-emerald-100' : 'border-rose-100' }} bg-white p-4 shadow-sm">
+                        <p class="text-[10px] font-black uppercase tracking-widest {{ $detailIsSelesai ? 'text-emerald-600' : 'text-rose-600' }}">Tanggal Pesan</p>
+                        <p class="mt-1 text-sm font-black text-gray-900">{{ \Carbon\Carbon::parse($this->selectedOrder->created_at)->format('d M Y') }}</p>
+                        <p class="text-[11px] font-bold text-gray-500">{{ \Carbon\Carbon::parse($this->selectedOrder->created_at)->format('H:i') }} WIB</p>
+                    </div>
+                    <div class="relative overflow-hidden rounded-2xl border {{ $detailIsSelesai ? 'border-lime-100' : 'border-rose-100' }} bg-white p-4 shadow-sm">
+                        <p class="text-[10px] font-black uppercase tracking-widest {{ $detailIsSelesai ? 'text-lime-600' : 'text-rose-600' }}">
+                            {{ $detailIsSelesai ? 'Diterima' : 'Status Akhir' }}
+                        </p>
+                        <p class="mt-1 text-sm font-black text-gray-900">{{ \Carbon\Carbon::parse($this->selectedOrder->updated_at)->format('d M Y') }}</p>
+                        <p class="text-[11px] font-bold text-gray-500">{{ \Carbon\Carbon::parse($this->selectedOrder->updated_at)->format('H:i') }} WIB</p>
+                    </div>
+                </div>
+
+                {{-- Catatan merchant --}}
+                @if($this->selectedOrder->catatan)
+                    <div class="rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2.5 text-[11px] font-bold text-amber-800">
+                        ✱ Catatan: {{ $this->selectedOrder->catatan }}
+                    </div>
+                @endif
+
+                {{-- Kurir card (kalau ada) --}}
+                @if($this->selectedOrder->nama_kurir)
+                    <div>
+                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Diantar Oleh</p>
+                        <x-tracking.courier-card
+                            :name="$this->selectedOrder->nama_kurir"
+                            :phone="$this->selectedOrder->no_hp_kurir"
+                            :resi="$this->selectedOrder->no_resi"
+                            :status="$this->selectedOrder->status"
+                            variant="merchant"
+                        />
+                    </div>
+                @endif
+
+                {{-- Timeline --}}
+                @if($detailIsSelesai)
+                    <div class="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                        <x-tracking.progress-track :percentage="$this->selectedOrderProgress" variant="merchant" :label="'Progres Pengiriman'" :sublabel="$this->selectedOrderProgress . '%'" />
+                        <div class="mt-4 rounded-xl bg-gray-50/60 p-3">
+                            <x-tracking.status-timeline :events="$this->selectedOrderEvents" variant="merchant" />
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Rincian barang --}}
+                <div>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Rincian Barang ({{ $this->selectedOrder->details->count() }} item)</p>
+                    <div class="overflow-hidden rounded-2xl border {{ $detailIsSelesai ? 'border-emerald-100' : 'border-rose-100' }} bg-white shadow-sm">
+                        <table class="w-full text-left text-sm">
+                            <thead class="text-[10px] uppercase {{ $detailIsSelesai ? 'bg-gradient-to-r from-emerald-50 to-lime-50' : 'bg-gradient-to-r from-rose-50 to-rose-100' }}">
+                                <tr>
+                                    <th class="px-4 py-3 font-black tracking-wider {{ $detailIsSelesai ? 'text-emerald-700' : 'text-rose-700' }}">Produk</th>
+                                    <th class="px-4 py-3 text-center font-black tracking-wider {{ $detailIsSelesai ? 'text-emerald-700' : 'text-rose-700' }}">Qty</th>
+                                    <th class="px-4 py-3 text-right font-black tracking-wider {{ $detailIsSelesai ? 'text-emerald-700' : 'text-rose-700' }}">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y {{ $detailIsSelesai ? 'divide-emerald-50' : 'divide-rose-50' }}">
+                                @foreach($this->selectedOrder->details as $item)
+                                <tr class="transition {{ $detailIsSelesai ? 'hover:bg-emerald-50/40' : 'hover:bg-rose-50/40' }}">
+                                    <td class="px-4 py-3 font-bold text-gray-800">{{ $item->nama_produk_snapshot }}</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <span class="inline-flex h-7 min-w-[28px] items-center justify-center rounded-lg px-2 text-[11px] font-black {{ $detailIsSelesai ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' }}">{{ $item->qty }}</span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-black text-gray-900">Rp {{ number_format($item->subtotal, 0, ',', '.') }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot class="bg-gradient-to-r {{ $detailIsSelesai ? 'from-emerald-500 to-lime-500' : 'from-rose-500 to-rose-600' }} text-white">
+                                <tr>
+                                    <td colspan="2" class="px-4 py-3 text-right text-[11px] font-black uppercase tracking-widest">Total Nilai</td>
+                                    <td class="px-4 py-3 text-right text-base font-black">Rp {{ number_format($this->selectedOrder->total_estimasi, 0, ',', '.') }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- Return link (window 24 jam, hanya untuk selesai) --}}
+                @if($detailIsSelesai && $this->selectedOrder->updated_at && $this->selectedOrder->updated_at->diffInHours(now()) < 24)
+                    @if($this->selectedOrder->returns()->whereIn('status', ['pending_supplier_review', 'approved', 'escalated_lkbb'])->exists())
+                        <a href="{{ route('merchant.form-return', $this->selectedOrder->id) }}" class="block w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-[11px] font-bold text-amber-700 hover:bg-amber-100">⏳ Return Aktif — Lihat Status</a>
+                    @else
+                        <a href="{{ route('merchant.form-return', $this->selectedOrder->id) }}" class="block w-full rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-center text-[11px] font-bold text-rose-600 hover:bg-rose-50">⚠ Ada masalah? Ajukan Return (dalam 24 jam)</a>
+                    @endif
+                @endif
+            </div>
+
+            {{-- Footer --}}
+            <div class="flex shrink-0 items-center justify-between gap-3 border-t border-gray-100 bg-white/80 px-6 py-4 backdrop-blur">
+                <span class="text-[10px] font-bold text-gray-400">PO {{ $this->selectedOrder->nomor_order }}</span>
+                <button wire:click="tutupModalDetail" type="button" class="rounded-xl bg-gradient-to-r from-gray-800 to-gray-900 px-5 py-2.5 text-sm font-black text-white shadow-md transition hover:from-gray-900 hover:to-black active:scale-[0.98]">Tutup</button>
+            </div>
+            @endif
+        </div>
+    </div>
 </div>

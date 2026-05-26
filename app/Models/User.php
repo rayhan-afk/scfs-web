@@ -97,4 +97,48 @@ class User extends Authenticatable
     public function merchantProducts() {
     return $this->hasMany(MerchantProduct::class, 'merchant_id');
 }
+
+    // ============================================================
+    //  Buku Besar Entitas — relasi agregat per entitas
+    // ============================================================
+
+    /** PO dimana user ini bertindak sebagai pemasok (penerima dana talangan LKBB). */
+    public function supplyOrdersAsPemasok()
+    {
+        return $this->hasMany(\App\Models\SupplyOrder::class, 'pemasok_id');
+    }
+
+    /** PO dimana user ini bertindak sebagai merchant (pemohon talangan). */
+    public function supplyOrdersAsMerchant()
+    {
+        return $this->hasMany(\App\Models\SupplyOrder::class, 'merchant_id');
+    }
+
+    /**
+     * Riwayat pencairan dana milik user ini.
+     * Catatan: kolom `merchant_id` di tabel withdrawals adalah FK user yang generik
+     * (dipakai untuk merchant DAN pemasok), bukan flag role.
+     */
+    public function withdrawals()
+    {
+        return $this->hasMany(\App\Models\Withdrawal::class, 'merchant_id');
+    }
+
+    /** Riwayat setoran tunai (hanya merchant yang melakukan setoran ke LKBB). */
+    public function setoranTunais()
+    {
+        return $this->hasMany(\App\Models\SetoranTunai::class, 'merchant_id');
+    }
+
+    /** Transaksi dimana user ini menjadi merchant penjual (POS kantin). */
+    public function transactionsAsMerchant()
+    {
+        return $this->hasMany(\App\Models\Transaction::class, 'merchant_id');
+    }
+
+    /** Produk yang disuplai pemasok ini. */
+    public function produkPemasoks()
+    {
+        return $this->hasMany(\App\Models\ProdukPemasok::class, 'user_id');
+    }
 }

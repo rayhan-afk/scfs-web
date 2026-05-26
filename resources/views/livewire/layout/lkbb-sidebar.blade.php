@@ -21,7 +21,10 @@ new class extends Component
     
     // DETEKSI AKTIF UNTUK DROPDOWN BRANKAS INTI BARU
     $isBrankasIntiActive = request()->routeIs('lkbb.brankas.*') || request()->is('lkbb/brankas/*');
-    
+
+    // DETEKSI AKTIF UNTUK DROPDOWN BUKU BESAR ENTITAS (Pemasok & Merchant)
+    $isEntitasActive = request()->routeIs('lkbb.entitas.*') || request()->is('lkbb/entitas/*');
+
     $isKeuanganActive = request()->is('keuangan/pencairan*') || request()->routeIs('lkbb.withdraw.merchant.approval', 'lkbb.withdraw.pemasok.approval');
 @endphp
 
@@ -108,6 +111,38 @@ new class extends Component
                 </a>
                 <a href="{{ route('lkbb.brankas.perputaran') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.brankas.perputaran') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
                     Audit Volume & Perputaran
+                </a>
+            </div>
+        </div>
+
+        {{-- ========================================================================= --}}
+        {{-- MENU BARU: BUKU BESAR ENTITAS (Audit per-aktor: Pemasok & Merchant)         --}}
+        {{-- ========================================================================= --}}
+        <div x-data="{ entitasOpen: true }" class="mt-1">
+            <button
+                @click="if(!sidebarOpen) sidebarOpen = true; entitasOpen = !entitasOpen"
+                class="w-full flex items-center justify-between px-3 py-3 text-[15px] font-bold rounded-xl transition-all duration-200 group
+                {{ $isEntitasActive ? 'bg-white/20 text-white' : 'text-indigo-100 hover:bg-white/10 hover:text-white' }}"
+                :class="sidebarOpen ? '' : 'justify-center'" title="Buku Besar Entitas">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 flex-shrink-0 transition-colors {{ $isEntitasActive ? 'text-white' : 'text-indigo-300 group-hover:text-white' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                    </svg>
+                    <span x-show="sidebarOpen" class="ml-3 whitespace-nowrap">Buku Besar Entitas</span>
+                </div>
+                <svg x-show="sidebarOpen" :class="{'rotate-180': entitasOpen}" class="w-4 h-4 transition-transform duration-300 {{ $isEntitasActive ? 'text-white' : 'text-indigo-300' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+            <div x-show="entitasOpen && sidebarOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0 -translate-y-2" x-transition:enter-end="opacity-100 translate-y-0" class="mt-2 space-y-1 px-2 border-l-2 border-white/20 ml-4">
+                <a href="{{ route('lkbb.entitas.pemasok-index') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.entitas.pemasok-index', 'lkbb.entitas.pemasok-detail') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
+                    Buku Besar Pemasok
+                </a>
+                <a href="{{ route('lkbb.entitas.merchant-index') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.entitas.merchant-index', 'lkbb.entitas.merchant-detail') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
+                    Buku Besar Merchant
+                </a>
+                <a href="{{ route('lkbb.entitas.mahasiswa-index') }}" wire:navigate class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.entitas.mahasiswa-index', 'lkbb.entitas.mahasiswa-detail') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
+                    Buku Besar Mahasiswa
                 </a>
             </div>
         </div>

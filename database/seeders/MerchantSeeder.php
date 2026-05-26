@@ -23,7 +23,7 @@ class MerchantSeeder extends Seeder
             'nama_kantin' => 'Kantin Mang Budi',
             'nama_pemilik' => 'Budi Santoso',
             'lokasi_blok' => 'Kantin Barat Blok A',
-            'persentase_bagi_hasil' => 10,
+            'persentase_fee_merchant' => 10,
             'status_toko' => 'tutup',
             'status_verifikasi' => 'pending',
         ]);
@@ -40,7 +40,7 @@ class MerchantSeeder extends Seeder
             'nama_kantin' => 'Kedai Kopi Bu Siti',
             'nama_pemilik' => 'Siti Aminah',
             'lokasi_blok' => 'Kantin Timur Blok C',
-            'persentase_bagi_hasil' => 10,
+            'persentase_fee_merchant' => 10,
             'status_toko' => 'buka',
             'status_verifikasi' => 'disetujui',
         ]);
@@ -57,7 +57,7 @@ class MerchantSeeder extends Seeder
             'nama_kantin' => 'Gorengan Kang Asep',
             'nama_pemilik' => 'Asep Hidayat',
             'lokasi_blok' => 'Area Parkir Utama',
-            'persentase_bagi_hasil' => 10,
+            'persentase_fee_merchant' => 10,
             'status_toko' => 'tutup',
             'status_verifikasi' => 'ditolak',
         ]);

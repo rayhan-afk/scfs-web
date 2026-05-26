@@ -16,7 +16,7 @@ class extends Component {
 
     // Variabel Modal Edit Profil
     public $isEditModalOpen = false;
-    public $edit_nama_kantin, $edit_nama_pemilik, $edit_lokasi_blok, $edit_persentase_bagi_hasil, $edit_status_toko;
+    public $edit_nama_kantin, $edit_nama_pemilik, $edit_lokasi_blok, $edit_persentase_fee_merchant, $edit_status_toko;
     public $edit_email, $edit_no_hp, $edit_info_pencairan;
 
     // Variabel Modal Riwayat Harga
@@ -63,7 +63,7 @@ class extends Component {
             $this->edit_nama_kantin = $this->user->merchantProfile->nama_kantin;
             $this->edit_nama_pemilik = $this->user->merchantProfile->nama_pemilik;
             $this->edit_lokasi_blok = $this->user->merchantProfile->lokasi_blok;
-            $this->edit_persentase_bagi_hasil = $this->user->merchantProfile->persentase_bagi_hasil;
+            $this->edit_persentase_fee_merchant = $this->user->merchantProfile->persentase_fee_merchant;
             $this->edit_status_toko = $this->user->merchantProfile->status_toko;
             
             $this->edit_email = $this->user->email;
@@ -85,7 +85,7 @@ class extends Component {
             'edit_nama_kantin' => 'required|string|max:255',
             'edit_nama_pemilik' => 'required|string|max:255',
             'edit_email' => 'required|email|unique:users,email,' . $this->user->id,
-            'edit_persentase_bagi_hasil' => 'required|numeric|min:0|max:100',
+            'edit_persentase_fee_merchant' => 'required|numeric|min:0|max:100',
             'edit_status_toko' => 'required|in:buka,tutup',
         ]);
 
@@ -101,7 +101,7 @@ class extends Component {
                 'no_hp' => $this->edit_no_hp,
                 'info_pencairan' => $this->edit_info_pencairan, 
                 'lokasi_blok' => $this->edit_lokasi_blok,
-                'persentase_bagi_hasil' => $this->edit_persentase_bagi_hasil,
+                'persentase_fee_merchant' => $this->edit_persentase_fee_merchant,
                 'status_toko' => $this->edit_status_toko,
             ]);
         }
@@ -203,7 +203,7 @@ class extends Component {
                     </div>
                     <div>
                         <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Bagi Hasil LKBB</p>
-                        <p class="text-blue-600 font-bold text-sm bg-blue-50 px-2 py-0.5 rounded-md inline-block">{{ $user->merchantProfile->persentase_bagi_hasil ?? 0 }}%</p>
+                        <p class="text-blue-600 font-bold text-sm bg-blue-50 px-2 py-0.5 rounded-md inline-block">{{ $user->merchantProfile->persentase_fee_merchant ?? 0 }}%</p>
                     </div>
                 </div>
             </div>
@@ -292,7 +292,7 @@ class extends Component {
                         <th class="px-6 py-4">ID Pesanan & Waktu</th>
                         <th class="px-6 py-4">Pembeli & Metode</th>
                         <th class="px-6 py-4 text-right">Nilai Transaksi</th>
-                        <th class="px-6 py-4 text-right">Potongan LKBB ({{ $user->merchantProfile->persentase_bagi_hasil ?? 0 }}%)</th>
+                        <th class="px-6 py-4 text-right">Potongan LKBB ({{ $user->merchantProfile->persentase_fee_merchant ?? 0 }}%)</th>
                         <th class="px-6 py-4 text-right">Diterima Kantin</th>
                     </tr>
                 </thead>
@@ -435,7 +435,7 @@ class extends Component {
                 <div><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Lokasi / Blok</label><input wire:model="edit_lokasi_blok" type="text" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 py-2"></div>
                 <div class="p-3 bg-blue-50 border border-blue-100 rounded-xl"><label class="block text-[10px] font-bold text-blue-500 uppercase mb-1.5">Info Rekening</label><input wire:model="edit_info_pencairan" type="text" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 py-2"></div>
                 <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Bagi Hasil (%)</label><input wire:model="edit_persentase_bagi_hasil" type="number" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 py-2"></div>
+                    <div><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Bagi Hasil (%)</label><input wire:model="edit_persentase_fee_merchant" type="number" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 py-2"></div>
                     <div><label class="block text-[10px] font-bold text-gray-500 uppercase mb-1.5">Status Toko</label><select wire:model="edit_status_toko" class="w-full text-sm rounded-xl border-gray-300 focus:border-blue-500 focus:ring-blue-500 py-2"><option value="buka">Buka</option><option value="tutup">Tutup</option></select></div>
                 </div>
             </div>

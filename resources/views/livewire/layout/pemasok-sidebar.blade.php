@@ -15,8 +15,11 @@ new class extends Component
 @php
     // Logika untuk mendeteksi menu mana yang sedang aktif
     $isDashboardActive = request()->routeIs('pemasok.dashboard');
-    $isPesananActive = request()->routeIs('pemasok.pesanan-masuk') || request()->is('pemasok/pesanan*'); 
+    $isPesananActive = request()->routeIs('pemasok.pesanan-masuk') || request()->is('pemasok/pesanan*');
     $isKeuanganActive = request()->is('pemasok/keuangan*') || request()->routeIs('pemasok.tarik-dana');
+
+    // Status verifikasi pemasok — hide menu bisnis kalau belum disetujui (hanya Dashboard).
+    $isPemasokApproved = in_array(Auth::user()->pemasokProfile?->status_verifikasi, ['disetujui', 'terverifikasi'], true);
 @endphp
 
 <aside 
@@ -71,6 +74,18 @@ new class extends Component
             <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">Dashboard</span>
         </a>
 
+        @if(! $isPemasokApproved)
+            {{-- Locked notice — akun belum disetujui LKBB --}}
+            <div x-show="sidebarOpen" x-transition class="mt-4 mx-2 p-3 rounded-xl bg-white/10 border border-white/15 text-[11px] text-orange-100 leading-relaxed">
+                <div class="flex items-center gap-1.5 font-black uppercase tracking-widest text-yellow-200 text-[10px] mb-1">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    Menu Terkunci
+                </div>
+                <p class="font-medium">Lengkapi data & tunggu ACC LKBB untuk membuka menu bisnis lainnya.</p>
+            </div>
+        @endif
+
+        @if($isPemasokApproved)
         <div x-show="sidebarOpen" x-transition class="px-4 mb-1 mt-6 text-xs font-bold text-orange-300 uppercase tracking-widest whitespace-nowrap border-t border-white/10 pt-4">
             Operasional
         </div>
@@ -212,6 +227,8 @@ new class extends Component
             </svg>
             <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">Pengaturan Profil</span>
         </a>
+
+        @endif {{-- /isPemasokApproved --}}
 
         <div class="h-6"></div>
     </nav>

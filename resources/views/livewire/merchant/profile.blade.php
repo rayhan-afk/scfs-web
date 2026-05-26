@@ -17,7 +17,10 @@ class extends Component {
 
     // State Profil & Bisnis
     public $nama_pemilik, $nama_kantin, $nik, $no_hp, $lokasi_blok;
-    
+
+    // State Usulan Bagi Hasil (proposal merchant ke LKBB, dalam %)
+    public $usulan_fee_merchant = null;
+
     // State Rekening (Baru)
     public $nama_bank = 'BCA';
     public $bank_lainnya = '';
@@ -43,6 +46,7 @@ class extends Component {
         $this->nik = $profile->nik;
         $this->no_hp = $profile->no_hp;
         $this->lokasi_blok = $profile->lokasi_blok;
+        $this->usulan_fee_merchant = $profile->usulan_fee_merchant;
 
         // Logika untuk menampilkan Bank yang tersimpan
         $standardBanks = ['BCA', 'BNI', 'BRI', 'Mandiri', 'BJB', 'GoPay', 'OVO'];
@@ -73,6 +77,9 @@ class extends Component {
             'bank_lainnya'   => 'required_if:nama_bank,Lainnya',
             'no_rekening'    => 'required|numeric',
 
+            // Usulan bagi hasil: 0-100, decimal allowed
+            'usulan_fee_merchant' => 'required|numeric|min:0|max:100',
+
             'foto_ktp_baru'    => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'foto_kantin_baru' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
             'password_konfirmasi'=> 'required|string', 
@@ -96,13 +103,14 @@ class extends Component {
         $bankFinal = $this->nama_bank === 'Lainnya' ? $this->bank_lainnya : $this->nama_bank;
 
         $updateData = [
-            'nama_pemilik'   => $this->nama_pemilik,
-            'nama_kantin'    => $this->nama_kantin,
-            'nik'            => $this->nik,
-            'no_hp'          => $this->no_hp,
-            'lokasi_blok'    => $this->lokasi_blok,
-            'nama_bank'      => $bankFinal,
-            'no_rekening'    => $this->no_rekening,
+            'nama_pemilik'         => $this->nama_pemilik,
+            'nama_kantin'          => $this->nama_kantin,
+            'nik'                  => $this->nik,
+            'no_hp'                => $this->no_hp,
+            'lokasi_blok'          => $this->lokasi_blok,
+            'nama_bank'            => $bankFinal,
+            'no_rekening'          => $this->no_rekening,
+            'usulan_fee_merchant'  => $this->usulan_fee_merchant,
         ];
 
         if ($this->foto_ktp_baru) {
@@ -236,6 +244,43 @@ class extends Component {
                                 @error('lokasi_blok') <span class="text-rose-500 text-[10px] mt-1 font-bold block">{{ $message }}</span> @enderror
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                {{-- Card 2b: Usulan Bagi Hasil ke LKBB --}}
+                <div class="bg-white rounded-2xl border border-blue-200 shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-blue-100 bg-blue-50/50 flex items-center gap-2">
+                        <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/></svg>
+                        <h3 class="font-bold text-blue-900 text-sm">Usulan Bagi Hasil untuk LKBB</h3>
+                    </div>
+                    <div class="p-6 space-y-3">
+                        <p class="text-[12px] text-gray-600 leading-relaxed">
+                            Tentukan berapa persen dari keuntungan tiap transaksi yang akan Anda bagikan ke LKBB sebagai biaya layanan SCFS (talangan modal, sistem pembayaran, audit). Nilai ini bersifat <span class="font-bold">usulan</span> — LKBB akan meninjau dan menyetujui atau meminta revisi.
+                        </p>
+                        <div class="relative max-w-xs">
+                            <input wire:model="usulan_fee_merchant"
+                                   type="number"
+                                   step="0.01"
+                                   min="0"
+                                   max="100"
+                                   placeholder="cth: 5.00"
+                                   class="w-full py-3 pl-4 pr-12 text-base font-bold text-gray-900 border border-blue-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition">
+                            <span class="absolute inset-y-0 right-0 flex items-center pr-4 text-blue-600 font-extrabold">%</span>
+                        </div>
+                        @error('usulan_fee_merchant') <span class="text-rose-500 text-[11px] mt-1 font-bold block">{{ $message }}</span> @enderror
+
+                        @php $_mp = Auth::user()->merchantProfile; @endphp
+                        @if($_mp?->status_verifikasi === 'ditolak' && $_mp?->catatan_penolakan)
+                            <div class="mt-3 p-3 bg-rose-50 border border-rose-200 rounded-xl">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-rose-700 mb-1">⚠ Catatan LKBB (untuk revisi)</p>
+                                <p class="text-xs text-rose-700 leading-relaxed">{{ $_mp->catatan_penolakan }}</p>
+                            </div>
+                        @elseif($_mp?->status_verifikasi === 'disetujui' && $_mp?->persentase_fee_merchant)
+                            <div class="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-emerald-700 mb-1">✓ Fee Aktif Saat Ini</p>
+                                <p class="text-xs text-emerald-700 leading-relaxed font-bold">{{ $_mp->persentase_fee_merchant }}% per transaksi</p>
+                            </div>
+                        @endif
                     </div>
                 </div>
 

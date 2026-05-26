@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\VerifyEmailController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -39,6 +40,13 @@ Route::middleware('auth')->group(function () {
     Volt::route('confirm-password', 'pages.auth.confirm-password')
         ->name('password.confirm');
         
-    // Catatan: Route Logout tidak ada di sini karena di Breeze + Livewire,
-    // logout biasanya ditangani langsung oleh Action di tombol navigasi (wire:click="logout").
+    // Catatan: Tombol logout di sidebar dashboard tetap pakai wire:click="logout"
+    // (Action class). Route POST `logout` di bawah ini untuk halaman non-Livewire
+    // (mis. pending-verification, error pages) yang butuh form submit standar.
+    Route::post('logout', function () {
+        Auth::guard('web')->logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+        return redirect('/');
+    })->name('logout');
 });

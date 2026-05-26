@@ -14,7 +14,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Alias: verified.entity → cek status_verifikasi merchant/pemasok,
+        // redirect ke /pending-verification kalau belum disetujui (no abort 403).
+        $middleware->alias([
+            'verified.entity' => \App\Http\Middleware\EnsureVerified::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -33,19 +33,18 @@ class extends Component {
         return $wallet ? $wallet->balance : 0;
     }
 
-    // 2. Query Utama: Murni mengambil transaksi INJEKSI/BANTUAN dari LKBB ke Mahasiswa
+    // 2. Query Utama: hanya tarik transaksi PENYALURAN BEASISWA ke mahasiswa.
+    // BUGFIX besar: blacklist sebelumnya kebobolan INJEKSI_MANUAL (top-up brankas
+    // LKBB sendiri) dan TOPUP (deposit ke wallet apapun). Ganti ke WHITELIST
+    // type=`penerimaan_bantuan` yang di-set oleh approval mahasiswa
+    // (lihat resources/views/livewire/lkbb/approval/mahasiswa.blade.php).
     #[Computed]
     public function baseQuery()
     {
         $query = Transaction::with(['user'])
-            ->whereIn('status', ['sukses', 'lunas'])
-            ->whereNull('merchant_id') // KUNCI: Transaksi dari LKBB tidak lewat kantin
-            ->whereNotNull('user_id')  // Harus ada mahasiswa penerimanya
-            ->where(function($q) {
-                // Kecualikan transaksi penarikan uang (withdraw)
-                $q->where('type', 'not like', '%withdraw%')
-                  ->where('type', 'not like', '%tarik%');
-            });
+            ->whereIn('status', ['success', 'sukses', 'lunas'])
+            ->where('type', 'penerimaan_bantuan')
+            ->whereNotNull('user_id'); // user_id = mahasiswa penerima
 
         if (!empty($this->search)) {
             $query->where(function($q) {
@@ -67,16 +66,14 @@ class extends Component {
         return $query;
     }
 
-    // 3. Agregasi Penyaluran Dana
+    // 3. Agregasi Penyaluran Dana — pakai aggregate SQL biar gak narik semua row ke memori
     #[Computed]
     public function ringkasan()
     {
-        $allTrx = (clone $this->baseQuery)->get();
-        
         return [
-            'total_disalurkan'     => $allTrx->sum('total_amount'),
-            'jumlah_injeksi'       => $allTrx->count(),
-            'mahasiswa_penerima'   => $allTrx->unique('user_id')->count(),
+            'total_disalurkan'   => (clone $this->baseQuery)->sum('total_amount'),
+            'jumlah_injeksi'    => (clone $this->baseQuery)->count(),
+            'mahasiswa_penerima' => (clone $this->baseQuery)->distinct('user_id')->count('user_id'),
         ];
     }
 
@@ -113,14 +110,22 @@ class extends Component {
 
     {{-- HIGHLIGHT CARDS --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        {{-- Card 1: Saldo Donasi Siap Salur --}}
-        <div class="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg shadow-orange-200 relative overflow-hidden">
-            <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
-            <p class="text-orange-100 text-[10px] font-extrabold uppercase tracking-widest mb-1">Sisa Saldo Brankas Donasi</p>
-            <h3 class="text-3xl font-black tracking-tight mt-1">Rp {{ number_format($this->dompetTerkini, 0, ',', '.') }}</h3>
-            <p class="text-[10px] text-orange-50 mt-3 font-medium bg-orange-900/30 w-fit px-2.5 py-1 rounded-md inline-flex items-center gap-1.5">
-                <span class="w-1.5 h-1.5 bg-amber-300 rounded-full animate-ping"></span> Dana Siap Disalurkan Kembali
-            </p>
+        {{-- Card 1: Saldo Donasi Siap Salur — admin gradient pattern --}}
+        <div class="bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10 pointer-events-none transition-transform group-hover:scale-110"></div>
+            <div class="relative z-10">
+                <div class="flex justify-between items-start mb-6">
+                    <div class="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    </div>
+                    <span class="bg-white/20 px-3 py-1 rounded-full text-[9px] font-bold tracking-widest uppercase">Donasi</span>
+                </div>
+                <p class="text-orange-100 text-[10px] font-bold tracking-wider mb-1 uppercase">Sisa Saldo Brankas Donasi</p>
+                <h3 class="text-3xl font-extrabold tracking-tight drop-shadow-md">Rp {{ number_format($this->dompetTerkini, 0, ',', '.') }}</h3>
+                <p class="text-[10px] text-orange-50 mt-3 font-medium inline-flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 bg-amber-300 rounded-full animate-ping"></span> Dana Siap Disalurkan Kembali
+                </p>
+            </div>
         </div>
 
         {{-- Card 2: Total Beasiswa Disalurkan --}}
@@ -179,13 +184,20 @@ class extends Component {
                                 <div class="text-[10px] text-gray-400 mt-1">{{ $log->created_at->format('d M y - H:i') }}</div>
                             </td>
                             
-                            {{-- Kolom 2: Nama Mahasiswa --}}
+                            {{-- Kolom 2: Nama Mahasiswa — link ke buku besar mahasiswa --}}
                             <td class="px-5 py-4">
                                 <div class="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                    <div class="w-6 h-6 rounded-full bg-orange-100 text-orange-700 text-[10px] flex items-center justify-center font-black">
+                                    <div class="w-6 h-6 rounded-full bg-orange-100 text-orange-700 text-[10px] flex items-center justify-center font-black shrink-0">
                                         🎓
                                     </div>
-                                    {{ optional($log->user)->name ?? 'Mahasiswa Terhapus' }}
+                                    @if($log->user)
+                                        <a href="{{ route('lkbb.entitas.mahasiswa-detail', $log->user->id) }}" wire:navigate
+                                           class="hover:text-amber-600 hover:underline transition truncate">
+                                            {{ $log->user->name }}
+                                        </a>
+                                    @else
+                                        <span class="text-gray-400 italic">Mahasiswa Terhapus</span>
+                                    @endif
                                 </div>
                                 <div class="text-[9px] font-mono text-gray-400 mt-0.5 ml-8">UID: #{{ $log->user_id }}</div>
                             </td>

@@ -35,11 +35,12 @@ class extends Component {
     }
 
     // 2. Query Utama (Hanya hitung transaksi yang sukses/lunas)
+    // BUGFIX: status di tabel transactions ditulis 'success' (FinanceService), bukan 'sukses'.
     #[Computed]
     public function baseQuery()
     {
-        $query = Transaction::with('merchant')
-            ->whereIn('status', ['sukses', 'lunas'])
+        $query = Transaction::with('merchant.merchantProfile')
+            ->whereIn('status', ['success', 'sukses', 'lunas'])
             ->whereIn('type', ['pembayaran_makanan', 'pembayaran_makanan_tunai']);
 
         if (!empty($this->search)) {
@@ -102,14 +103,22 @@ class extends Component {
 
     {{-- HIGHLIGHT CARDS --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        {{-- Card 1: Saldo Terkini (Real-time Wallet) --}}
-        <div class="bg-gradient-to-br from-emerald-600 to-green-800 rounded-2xl p-5 text-white shadow-lg shadow-emerald-200 relative overflow-hidden">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -mr-6 -mt-6"></div>
-            <p class="text-emerald-100 text-[10px] font-extrabold uppercase tracking-wider mb-1">Saldo Brankas Terkini</p>
-            <h3 class="text-2xl font-black tracking-tight mt-1">Rp {{ number_format($this->dompetTerkini, 0, ',', '.') }}</h3>
-            <p class="text-[10px] text-emerald-200 mt-2 font-medium bg-emerald-900/30 w-fit px-2 py-1 rounded inline-flex items-center gap-1">
-                <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Sinkronisasi Real-time
-            </p>
+        {{-- Card 1: Saldo Terkini (Real-time Wallet) — admin gradient pattern --}}
+        <div class="bg-gradient-to-br from-emerald-600 to-green-800 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-full -mr-6 -mt-6 pointer-events-none transition-transform group-hover:scale-110"></div>
+            <div class="relative z-10">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                    </div>
+                    <span class="bg-white/20 px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase">Live</span>
+                </div>
+                <p class="text-emerald-100 text-[10px] font-bold tracking-wider mb-1 uppercase">Saldo Brankas Terkini</p>
+                <h3 class="text-2xl font-extrabold tracking-tight drop-shadow-md">Rp {{ number_format($this->dompetTerkini, 0, ',', '.') }}</h3>
+                <p class="text-[10px] text-emerald-200 mt-2 font-medium inline-flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Sinkronisasi Real-time
+                </p>
+            </div>
         </div>
 
         {{-- Card 2: Pengembalian Modal --}}
@@ -177,9 +186,16 @@ class extends Component {
                                 @endif
                             </td>
                             
-                            {{-- Kolom 2: Kantin --}}
+                            {{-- Kolom 2: Kantin — link ke buku besar merchant --}}
                             <td class="px-5 py-4">
-                                <div class="text-sm font-bold text-gray-800">{{ optional($log->merchant)->name ?? 'Kantin Terhapus' }}</div>
+                                @if($log->merchant)
+                                    <a href="{{ route('lkbb.entitas.merchant-detail', $log->merchant->id) }}" wire:navigate
+                                       class="text-sm font-bold text-gray-800 hover:text-emerald-600 hover:underline transition">
+                                        {{ $log->merchant->merchantProfile->nama_kantin ?? $log->merchant->name }}
+                                    </a>
+                                @else
+                                    <span class="text-sm font-bold text-gray-400 italic">Kantin Terhapus</span>
+                                @endif
                                 <div class="text-[10px] text-gray-500 mt-0.5 truncate max-w-[200px]" title="{{ str_replace(['[QR] ', '[TUNAI] '], '', $log->description) }}">
                                     Item: {{ str_replace(['[QR] ', '[TUNAI] '], '', $log->description) }}
                                 </div>

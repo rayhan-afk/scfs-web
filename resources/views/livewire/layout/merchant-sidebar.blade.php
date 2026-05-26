@@ -18,6 +18,9 @@ new class extends Component
     $isJualActive = request()->routeIs('merchant.pos', 'merchant.riwayat', 'merchant.pesanan-online');
     $isKasActive = request()->routeIs('merchant.withdraw', 'merchant.setoran');
     $isPengaturanActive = request()->routeIs('merchant.katalog', 'merchant.profile');
+
+    // Status verifikasi merchant — kalau belum disetujui, hide menu bisnis (hanya Dashboard).
+    $isMerchantApproved = in_array(Auth::user()->merchantProfile?->status_verifikasi, ['disetujui', 'terverifikasi'], true);
 @endphp
 
 <aside 
@@ -77,6 +80,18 @@ new class extends Component
             <span x-show="sidebarOpen" x-transition class="ml-3 transition-opacity duration-300">Beranda Toko</span>
         </a>
 
+        @if(! $isMerchantApproved)
+            {{-- Locked notice — akun belum disetujui LKBB --}}
+            <div x-show="sidebarOpen" x-transition class="mt-4 mx-2 p-3 rounded-xl bg-white/10 border border-white/15 text-[11px] text-emerald-100 leading-relaxed">
+                <div class="flex items-center gap-1.5 font-black uppercase tracking-widest text-yellow-200 text-[10px] mb-1">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    Menu Terkunci
+                </div>
+                <p class="font-medium">Lengkapi data & tunggu ACC LKBB untuk membuka menu bisnis lainnya.</p>
+            </div>
+        @endif
+
+        @if($isMerchantApproved)
         {{-- 2. RANTAI PASOK --}}
         <div x-show="sidebarOpen" x-transition class="px-4 mb-1 mt-6 text-xs font-bold text-emerald-300 uppercase tracking-widest whitespace-nowrap border-t border-white/10 pt-4">
             Rantai Pasok (Bahan)
@@ -200,6 +215,7 @@ new class extends Component
                 </a>
             </div>
         </div>
+        @endif {{-- /isMerchantApproved --}}
 
         <div class="h-6"></div>
     </nav>

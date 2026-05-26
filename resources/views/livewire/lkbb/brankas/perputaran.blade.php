@@ -26,6 +26,12 @@ class extends Component {
     public function updatedBulanAktif() { $this->resetPage(); }
 
     // 🔥 KUNCI RAHASIA: MENGGABUNGKAN 2 TABEL (TRANSAKSI & PO) MENJADI 1 ALIRAN DATA
+    // BUGFIX SUMMARY:
+    //  (1) status 'sukses' tidak match — FinanceService menulis 'success'. Tambah whitelist.
+    //  (2) status PO 'disetujui_lkbb' bukan value enum yang valid. Pakai status_pembiayaan='didanai'.
+    //  (3) GMV/HPP/Fee jangan double-count: PO bukan penjualan; total_estimasi PO TIDAK
+    //      di-flow sebagai total_pokok/total_amount untuk ringkasan, hanya untuk log baris.
+    //  (4) Pagination pakai $this->getPage() supaya Livewire bisa kelola page state.
     #[Computed]
     public function unifiedData()
     {
@@ -40,59 +46,83 @@ class extends Component {
             }
         }
 
-        // 1. Sedot Data Transaksi (Jual Beli & Injeksi Donasi)
-        $txs = Transaction::with(['user', 'merchant'])
-            ->whereIn('status', ['sukses', 'lunas'])
+        // 1. Sedot Data Transaksi (Jual Beli, Topup, Donasi, dst.)
+        // Eager load user.role agar subjek bisa di-link sesuai role (merchant/mahasiswa).
+        $txs = Transaction::with(['user:id,name,role', 'merchant:id,name', 'merchant.merchantProfile:id,user_id,nama_kantin'])
+            ->whereIn('status', ['success', 'sukses', 'lunas'])
             ->whereYear('created_at', $year)
             ->whereMonth('created_at', $month)
             ->get()
             ->map(function($item) {
+                // Tentukan subjek + role + id agar UI bisa render link ke buku besar entitas yang tepat.
+                $subjekId   = null;
+                $subjekRole = 'sistem';
+                $subjekName = 'Sistem LKBB Pusat';
+                if ($item->merchant) {
+                    $subjekId   = $item->merchant->id;
+                    $subjekRole = 'merchant';
+                    $subjekName = $item->merchant->merchantProfile->nama_kantin ?? $item->merchant->name;
+                } elseif ($item->user) {
+                    $subjekId   = $item->user->id;
+                    $subjekRole = $item->user->role ?? 'sistem'; // mahasiswa/pemasok/admin/dll
+                    $subjekName = $item->user->name;
+                }
+
                 return (object) [
-                    'id' => 'tx_'.$item->id,
-                    'order_id' => $item->order_id,
-                    'waktu' => $item->created_at,
-                    'subjek' => optional($item->merchant)->name ?? (optional($item->user)->name ?? 'Sistem LKBB Pusat'),
-                    'jenis' => $item->type,
-                    'deskripsi' => str_replace(['[QR] ', '[TUNAI] '], '', $item->description),
-                    'total_pokok' => $item->total_pokok,
-                    'fee_lkbb' => $item->fee_lkbb,
-                    'total_amount' => $item->total_amount,
+                    'id'           => 'tx_'.$item->id,
+                    'order_id'     => $item->order_id,
+                    'waktu'        => $item->created_at,
+                    'subjek'       => $subjekName,
+                    'subjek_id'    => $subjekId,
+                    'subjek_role'  => $subjekRole,
+                    'jenis'        => $item->type,
+                    'deskripsi'    => str_replace(['[QR] ', '[TUNAI] '], '', $item->description ?? ''),
+                    'total_pokok'  => (float) $item->total_pokok,
+                    'fee_lkbb'     => (float) $item->fee_lkbb,
+                    'total_amount' => (float) $item->total_amount,
                     'is_investasi' => false,
                 ];
             });
 
-        // 2. Sedot Data PO (Modal Investasi ke Pemasok)
-        $pos = SupplyOrder::with(['merchant', 'pemasok'])
-            ->whereIn('status', ['disetujui_lkbb', 'diproses_pemasok', 'dikirim', 'selesai'])
+        // 2. Sedot Data PO (Modal Investasi ke Pemasok) — pakai status_pembiayaan='didanai'
+        $pos = SupplyOrder::with(['merchant:id,name', 'merchant.merchantProfile:id,user_id,nama_kantin', 'pemasok:id,name', 'pemasok.pemasokProfile:id,user_id,nama_perusahaan'])
+            ->where('status_pembiayaan', 'didanai')
             ->whereYear('created_at', $year)
             ->whereMonth('created_at', $month)
             ->get()
             ->map(function($item) {
+                $pemasokId   = $item->pemasok->id ?? null;
+                $pemasokName = $item->pemasok ? ($item->pemasok->pemasokProfile->nama_perusahaan ?? $item->pemasok->name) : 'Pemasok Terhapus';
+                $kantinName  = $item->merchant ? ($item->merchant->merchantProfile->nama_kantin ?? $item->merchant->name) : '-';
+
                 return (object) [
-                    'id' => 'po_'.$item->id,
-                    'order_id' => $item->nomor_order,
-                    'waktu' => $item->created_at,
-                    'subjek' => optional($item->pemasok)->name ?? 'Pemasok Terhapus',
-                    'jenis' => 'pendanaan_po',
-                    'deskripsi' => 'Talangan PO Kantin: ' . (optional($item->merchant)->name ?? '-'),
-                    'total_pokok' => $item->total_estimasi, 
-                    'fee_lkbb' => 0, // PO belum panen fee
-                    'total_amount' => $item->total_estimasi,
+                    'id'           => 'po_'.$item->id,
+                    'order_id'     => $item->nomor_order,
+                    'waktu'        => $item->created_at,
+                    'subjek'       => $pemasokName,
+                    'subjek_id'    => $pemasokId,
+                    'subjek_role'  => 'pemasok',
+                    'jenis'        => 'pendanaan_po',
+                    'deskripsi'    => 'Talangan PO Kantin: ' . $kantinName,
+                    'total_pokok'  => 0,                       // bukan HPP terealisasi
+                    'fee_lkbb'     => 0,                       // belum panen fee
+                    'total_amount' => 0,                       // bukan GMV penjualan
+                    'nominal_po'   => (float) $item->total_estimasi, // untuk display kolom Nilai PO
                     'is_investasi' => true,
                 ];
             });
 
-        // 3. Leburkan Kedua Data & Urutkan Berdasarkan Waktu Terbaru
-        $merged = $txs->concat($pos)->sortByDesc('waktu');
+        // 3. Leburkan & urutkan
+        $merged = $txs->concat($pos)->sortByDesc('waktu')->values();
 
-        // 4. Fitur Pencarian Dinamis
+        // 4. Search
         if (!empty($this->search)) {
             $search = strtolower(trim($this->search));
             $merged = $merged->filter(function($item) use ($search) {
-                return str_contains(strtolower($item->order_id), $search) 
-                    || str_contains(strtolower($item->subjek), $search)
-                    || str_contains(strtolower($item->deskripsi), $search);
-            });
+                return str_contains(strtolower($item->order_id ?? ''), $search)
+                    || str_contains(strtolower($item->subjek ?? ''), $search)
+                    || str_contains(strtolower($item->deskripsi ?? ''), $search);
+            })->values();
         }
 
         return $merged;
@@ -102,29 +132,35 @@ class extends Component {
     public function ringkasan()
     {
         $data = $this->unifiedData;
-        
+
+        // Penjualan (transaksi) → kontribusi ke GMV/HPP/Fee
+        $penjualan = $data->where('is_investasi', false);
+        // PO → kontribusi terpisah ke "pendanaan modal"
+        $pendanaan = $data->where('is_investasi', true);
+
         return [
-            'total_gmv'       => $data->sum('total_amount'),
-            'total_pokok'     => $data->sum('total_pokok'),
-            'total_fee'       => $data->sum('fee_lkbb'),
-            'total_transaksi' => $data->count(),
+            'total_gmv'         => $penjualan->sum('total_amount'),
+            'total_pokok'       => $penjualan->sum('total_pokok'),
+            'total_fee'         => $penjualan->sum('fee_lkbb'),
+            'total_pendanaan_po' => $pendanaan->sum('nominal_po'),
+            'total_transaksi'   => $data->count(),
         ];
     }
 
-    // Paginate Manual untuk Collection Gabungan
+    // Paginate Manual untuk Collection Gabungan — pakai Livewire $this->page
     #[Computed]
     public function logs()
     {
         $data = $this->unifiedData;
-        $page = request()->get('page', 1);
+        $page = max(1, (int) $this->getPage());
         $perPage = 15;
-        
+
         return new LengthAwarePaginator(
-            $data->forPage($page, $perPage),
+            $data->forPage($page, $perPage)->values(),
             $data->count(),
             $perPage,
             $page,
-            ['path' => request()->url(), 'query' => request()->query()]
+            ['path' => LengthAwarePaginator::resolveCurrentPath()]
         );
     }
 }; ?>
@@ -154,12 +190,20 @@ class extends Component {
 
     {{-- HIGHLIGHT CARDS --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        {{-- Card 1: Gross Merchandise Value (GMV) --}}
-        <div class="bg-gradient-to-br from-purple-600 to-indigo-800 rounded-2xl p-5 text-white shadow-lg shadow-purple-200 relative overflow-hidden">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -mr-6 -mt-6"></div>
-            <p class="text-purple-100 text-[10px] font-extrabold uppercase tracking-wider mb-1">Total Nilai Perputaran (GMV)</p>
-            <h3 class="text-2xl font-black tracking-tight mt-1">Rp {{ number_format($this->ringkasan['total_gmv'], 0, ',', '.') }}</h3>
-            <p class="text-[10px] text-purple-200 mt-2 font-medium bg-purple-900/30 w-fit px-2 py-1 rounded">Semua Aliran Uang Berputar</p>
+        {{-- Card 1: Gross Merchandise Value (GMV) — admin gradient pattern --}}
+        <div class="bg-gradient-to-br from-purple-600 to-indigo-800 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-full -mr-6 -mt-6 pointer-events-none transition-transform group-hover:scale-110"></div>
+            <div class="relative z-10">
+                <div class="flex justify-between items-start mb-4">
+                    <div class="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    </div>
+                    <span class="bg-white/20 px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase">GMV</span>
+                </div>
+                <p class="text-purple-100 text-[10px] font-bold tracking-wider mb-1 uppercase">Total Nilai Perputaran</p>
+                <h3 class="text-2xl font-extrabold tracking-tight drop-shadow-md">Rp {{ number_format($this->ringkasan['total_gmv'], 0, ',', '.') }}</h3>
+                <p class="text-[10px] text-purple-200 mt-2 font-medium">Semua aliran uang berputar (penjualan)</p>
+            </div>
         </div>
 
         {{-- Card 2: Perputaran Pokok HPP --}}
@@ -223,15 +267,37 @@ class extends Component {
                                 <div class="text-[10px] text-gray-400 mt-1">{{ \Carbon\Carbon::parse($log->waktu)->format('d M y - H:i') }}</div>
                             </td>
                             
-                            {{-- Kolom 2: Subjek (Dinamis: Pemasok, LKBB, atau Kantin) --}}
+                            {{-- Kolom 2: Subjek (Dinamis: link ke buku besar entitas sesuai role) --}}
                             <td class="px-5 py-4">
+                                @php
+                                    $icon = match($log->subjek_role) {
+                                        'pemasok'   => '🏭',
+                                        'merchant'  => '🏪',
+                                        'mahasiswa' => '🎓',
+                                        default     => '🏦',
+                                    };
+                                    $routeName = match($log->subjek_role) {
+                                        'pemasok'   => 'lkbb.entitas.pemasok-detail',
+                                        'merchant'  => 'lkbb.entitas.merchant-detail',
+                                        'mahasiswa' => 'lkbb.entitas.mahasiswa-detail',
+                                        default     => null,
+                                    };
+                                    $hoverColor = match($log->subjek_role) {
+                                        'pemasok'   => 'hover:text-indigo-600',
+                                        'merchant'  => 'hover:text-emerald-600',
+                                        'mahasiswa' => 'hover:text-amber-600',
+                                        default     => '',
+                                    };
+                                @endphp
                                 <div class="text-sm font-bold text-gray-800 flex items-center gap-1.5">
-                                    @if($log->is_investasi)
-                                        🏢 {{ $log->subjek }}
-                                    @elseif(str_contains(strtolower($log->subjek), 'pusat'))
-                                        🏦 {{ $log->subjek }}
+                                    <span class="shrink-0">{{ $icon }}</span>
+                                    @if($routeName && $log->subjek_id)
+                                        <a href="{{ route($routeName, $log->subjek_id) }}" wire:navigate
+                                           class="{{ $hoverColor }} hover:underline transition truncate">
+                                            {{ $log->subjek }}
+                                        </a>
                                     @else
-                                        🏪 {{ $log->subjek }}
+                                        <span class="truncate">{{ $log->subjek }}</span>
                                     @endif
                                 </div>
                                 <div class="text-[9px] text-gray-500 mt-1 max-w-[200px] truncate" title="{{ $log->deskripsi }}">
@@ -270,11 +336,18 @@ class extends Component {
                                 @endif
                             </td>
 
-                            {{-- Kolom 6: Gross --}}
+                            {{-- Kolom 6: Volume Berputar — untuk PO tampilkan modal pendanaan, untuk transaksi tampilkan GMV --}}
                             <td class="px-5 py-4 text-right">
-                                <span class="text-sm font-black text-gray-900 bg-gray-50 border border-gray-100 px-2.5 py-1 rounded-lg">
-                                    Rp {{ number_format($log->total_amount, 0, ',', '.') }}
-                                </span>
+                                @if($log->is_investasi)
+                                    <span class="text-sm font-black text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">
+                                        Rp {{ number_format($log->nominal_po ?? 0, 0, ',', '.') }}
+                                    </span>
+                                    <div class="text-[9px] text-gray-400 font-bold mt-1">Modal PO</div>
+                                @else
+                                    <span class="text-sm font-black text-gray-900 bg-gray-50 border border-gray-100 px-2.5 py-1 rounded-lg">
+                                        Rp {{ number_format($log->total_amount, 0, ',', '.') }}
+                                    </span>
+                                @endif
                             </td>
                         </tr>
                     @empty
