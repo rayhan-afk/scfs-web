@@ -113,4 +113,34 @@ class TrackingTimelineService
             'resi' => $order->no_resi,
         ], fn ($v) => filled($v));
     }
+
+    public function progressPercentage(SupplyOrder $order): int
+    {
+        if ($order->status === 'ditolak') {
+            return 0;
+        }
+        if ($order->status === 'selesai') {
+            return 100;
+        }
+        $position = $this->positionForStatus($order->status);
+        // Step aktif ditampilkan setengah-jalan untuk feedback visual.
+        return (int) floor((($position - 0.5) / count(self::FLOW)) * 100);
+    }
+
+    public static function normalizeWhatsappUrl(?string $phone): ?string
+    {
+        if ($phone === null) {
+            return null;
+        }
+        $digits = preg_replace('/\D/', '', $phone);
+        if ($digits === '' || $digits === null) {
+            return null;
+        }
+        if (str_starts_with($digits, '0')) {
+            $digits = '62' . substr($digits, 1);
+        } elseif (! str_starts_with($digits, '62')) {
+            $digits = '62' . $digits;
+        }
+        return 'https://wa.me/' . $digits;
+    }
 }
