@@ -1,6 +1,6 @@
-<div class="p-6 relative max-w-7xl mx-auto">
-    
-    {{-- CSS Khusus Cetak --}}
+<div class="relative mx-auto max-w-7xl px-4 sm:px-6 py-6 lg:py-8">
+
+    {{-- CSS Khusus Cetak (jangan dihapus, dipakai oleh modal surat jalan) --}}
     <style>
         @media print {
             body * { visibility: hidden; }
@@ -10,137 +10,189 @@
         }
     </style>
 
-    {{-- Header --}}
-    <div class="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-800">Pengiriman & Logistik</h1>
-            <p class="text-sm text-gray-500 mt-1">Atur armada, cetak surat jalan, dan kirim barang ke Merchant.</p>
-        </div>
-        
-        <div class="relative group">
-            <input wire:model.live="search" type="text" placeholder="Cari PO atau Nama Kantin..." 
-                   class="pl-10 pr-4 py-2.5 border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-full sm:w-72 transition-all bg-white shadow-sm font-bold text-gray-700">
-            <div class="absolute left-3 top-3 text-gray-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+    {{-- ===== Hero header dengan gradien oranye ===== --}}
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 p-6 sm:p-8 mb-6 shadow-[0_20px_50px_-20px_rgba(234,88,12,0.5)]">
+        <div class="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/10 blur-3xl"></div>
+        <div class="pointer-events-none absolute -left-10 -bottom-20 h-56 w-56 rounded-full bg-amber-300/30 blur-3xl"></div>
+
+        <div class="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div class="text-white">
+                <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-100/90">Pemasok · Operasional Armada</p>
+                <h1 class="mt-1 text-2xl sm:text-3xl font-black tracking-tight">Halo, {{ Auth::user()->name }} 👋</h1>
+                <p class="mt-1 text-sm text-amber-50/90 font-medium">Atur armada, lacak setiap paket, dan pastikan barang tiba di kantin merchant tepat waktu.</p>
+            </div>
+            <div class="relative w-full md:w-80">
+                <input wire:model.live.debounce.300ms="search" type="text" placeholder="Cari nomor PO / kantin / resi…"
+                       class="w-full rounded-2xl border border-white/40 bg-white/95 backdrop-blur pl-11 pr-4 py-3 text-sm font-bold text-gray-700 placeholder:font-medium placeholder:text-gray-400 shadow-lg shadow-orange-900/20 outline-none focus:ring-2 focus:ring-white">
+                <svg class="absolute left-3.5 top-3.5 h-5 w-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </div>
         </div>
     </div>
 
+    {{-- ===== Stats row ===== --}}
+    <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <x-tracking.stat-tile
+            label="Perlu Dikirim"
+            :value="$this->stats['perlu_dikirim']"
+            caption="armada belum diatur"
+            accent="orange"
+            :icon="'<svg class=\'w-5 h-5\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4\'/></svg>'"
+        />
+        <x-tracking.stat-tile
+            label="Sedang Jalan"
+            :value="$this->stats['sedang_jalan']"
+            caption="armada aktif"
+            accent="amber"
+            :icon="'<svg class=\'w-5 h-5\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z\'/><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8h4l3 4m0 0v3a1 1 0 01-1 1h-2M14 8h4l3 4\'/></svg>'"
+        />
+        <x-tracking.stat-tile
+            label="Selesai Bulan Ini"
+            :value="$this->stats['selesai_bulan_ini']"
+            caption="diterima merchant"
+            accent="emerald"
+            :icon="'<svg class=\'w-5 h-5\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2.5\' d=\'M5 13l4 4L19 7\'/></svg>'"
+        />
+        <x-tracking.stat-tile
+            label="Nilai Aktif"
+            :value="'Rp ' . number_format($this->stats['nilai_aktif'], 0, ',', '.')"
+            caption="dalam pengiriman"
+            accent="sky"
+            :icon="'<svg class=\'w-5 h-5\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1\'/></svg>'"
+        />
+    </div>
+
+    {{-- ===== Flash message ===== --}}
     @if (session()->has('message'))
-        <div class="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2 shadow-sm">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <div class="mb-5 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/80 backdrop-blur px-4 py-3 text-sm font-bold text-emerald-700 shadow-sm scfs-fade-in-up">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
             {{ session('message') }}
         </div>
     @endif
 
-    {{-- Tabs --}}
-    <div class="flex overflow-x-auto space-x-2 bg-white p-1.5 rounded-2xl w-full sm:w-max mb-6 border border-gray-100 shadow-sm scrollbar-hide">
-        <button wire:click="setTab('diproses_pemasok')" class="flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all relative {{ $activeTab === 'diproses_pemasok' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:bg-gray-50' }}">
-            📦 Perlu Dikirim 
+    {{-- ===== Tabs (orange-themed) ===== --}}
+    <div class="mb-6 flex w-full overflow-x-auto rounded-2xl border border-white/60 bg-white/80 p-1.5 shadow-sm backdrop-blur-xl sm:w-max scrollbar-hide">
+        <button wire:click="setTab('diproses_pemasok')" @class([
+            'relative flex-none rounded-xl px-5 py-2.5 text-sm font-bold transition-all',
+            'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-200' => $activeTab === 'diproses_pemasok',
+            'text-gray-500 hover:bg-gray-50' => $activeTab !== 'diproses_pemasok',
+        ])>
+            Perlu Dikirim
             @if($countPerluDikirim > 0)
-                <span class="ml-1 bg-red-500 text-white text-[10px] px-2 py-0.5 rounded-full">{{ $countPerluDikirim }}</span>
+                <span @class([
+                    'ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-black',
+                    'bg-white/25 text-white' => $activeTab === 'diproses_pemasok',
+                    'bg-orange-100 text-orange-600' => $activeTab !== 'diproses_pemasok',
+                ])>{{ $countPerluDikirim }}</span>
             @endif
         </button>
-        <button wire:click="setTab('dikirim')" class="flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all {{ $activeTab === 'dikirim' ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:bg-gray-50' }}">
-            🚚 Sedang Jalan
-        </button>
-        <button wire:click="setTab('selesai')" class="flex-none px-6 py-2.5 rounded-xl font-bold text-sm transition-all {{ $activeTab === 'selesai' ? 'bg-emerald-50 text-emerald-600' : 'text-gray-500 hover:bg-gray-50' }}">
-            ✅ Diterima Merchant
-        </button>
+        <button wire:click="setTab('dikirim')" @class([
+            'flex-none rounded-xl px-5 py-2.5 text-sm font-bold transition-all',
+            'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-200' => $activeTab === 'dikirim',
+            'text-gray-500 hover:bg-gray-50' => $activeTab !== 'dikirim',
+        ])>Sedang Jalan</button>
+        <button wire:click="setTab('selesai')" @class([
+            'flex-none rounded-xl px-5 py-2.5 text-sm font-bold transition-all',
+            'bg-gradient-to-r from-emerald-500 to-lime-500 text-white shadow-md shadow-emerald-200' => $activeTab === 'selesai',
+            'text-gray-500 hover:bg-gray-50' => $activeTab !== 'selesai',
+        ])>Diterima Merchant</button>
     </div>
 
-    {{-- List Pengiriman --}}
+    {{-- ===== Order list ===== --}}
     <div class="space-y-4">
-        @forelse($orders as $order)
-        <div class="bg-white rounded-[20px] border border-gray-100 shadow-sm p-5 hover:shadow-md transition">
-            
-            {{-- Header Card --}}
-            <div class="flex flex-wrap items-center justify-between border-b border-gray-100 pb-3 mb-4 gap-2">
-                <div class="flex items-center gap-3">
-                    <span class="px-3 py-1 bg-gray-50 border border-gray-200 text-gray-700 text-[10px] font-black tracking-wider rounded-lg">{{ $order->nomor_order }}</span>
-                    <span class="text-xs font-bold text-gray-400">Tgl Butuh: {{ \Carbon\Carbon::parse($order->tanggal_kebutuhan)->format('d M Y') }}</span>
-                </div>
-                <div class="text-right">
-                    <span class="text-xs font-bold text-gray-500">Nilai Pesanan:</span>
-                    <span class="text-sm font-black text-blue-600 ml-1">Rp {{ number_format($order->total_estimasi, 0, ',', '.') }}</span>
-                </div>
-            </div>
-            
-            <div class="flex flex-col lg:flex-row gap-6">
-                {{-- Info Penerima --}}
-                <div class="flex-1 flex items-start gap-4">
-                    <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0 border border-blue-100">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+        @forelse($orders as $i => $order)
+            @php $tracking = $trackingByOrder[$order->id] ?? ['events' => collect(), 'progress' => 0]; @endphp
+            <article wire:key="order-{{ $order->id }}" class="scfs-fade-in-up relative overflow-hidden rounded-3xl border border-white/60 bg-white/85 backdrop-blur-xl p-5 sm:p-6 shadow-[0_8px_30px_-12px_rgba(15,23,42,0.12)]" style="animation-delay: {{ $i * 60 }}ms;">
+
+                {{-- Header card --}}
+                <header class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4 mb-4">
+                    <div class="flex flex-wrap items-center gap-2.5">
+                        <span class="rounded-lg border border-orange-200 bg-orange-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-orange-700">{{ $order->nomor_order }}</span>
+                        <span class="text-xs font-bold text-gray-400">Butuh tgl {{ \Carbon\Carbon::parse($order->tanggal_kebutuhan)->format('d M Y') }}</span>
                     </div>
-                    <div>
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Tujuan Pengiriman</p>
-                        <h3 class="text-lg font-black text-gray-900">{{ $order->merchant->merchantProfile->nama_kantin ?? $order->merchant->name }}</h3>
-                        
-                        <div class="mt-2 space-y-1">
-                            <p class="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                                Blok/Lokasi: <span class="font-bold">{{ $order->merchant->merchantProfile->lokasi_blok ?? 'Belum diatur' }}</span>
-                            </p>
-                            <p class="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path></svg>
-                                Penerima: <span class="font-bold">{{ $order->merchant->merchantProfile->nama_pemilik ?? '-' }} ({{ $order->merchant->merchantProfile->no_hp ?? '-' }})</span>
-                            </p>
+                    <div class="text-right">
+                        <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Nilai</p>
+                        <p class="text-base font-black text-orange-600">Rp {{ number_format($order->total_estimasi, 0, ',', '.') }}</p>
+                    </div>
+                </header>
+
+                <div class="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+                    {{-- Kolom kiri: penerima + timeline + courier --}}
+                    <div class="space-y-5">
+                        {{-- Penerima --}}
+                        <div class="flex items-start gap-3">
+                            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 text-white shadow-md shadow-orange-200 ring-2 ring-white">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Tujuan</p>
+                                <h3 class="text-base font-black leading-tight text-gray-900 truncate">{{ $order->merchant->merchantProfile->nama_kantin ?? $order->merchant->name }}</h3>
+                                <p class="mt-0.5 text-xs font-medium text-gray-600">
+                                    Blok <span class="font-bold">{{ $order->merchant->merchantProfile->lokasi_blok ?? 'Belum diatur' }}</span>
+                                    · {{ $order->merchant->merchantProfile->nama_pemilik ?? '-' }}
+                                </p>
+                            </div>
                         </div>
 
+                        {{-- Progress + mini timeline --}}
+                        <div>
+                            <x-tracking.progress-track :percentage="$tracking['progress']" variant="pemasok" :label="'Progres Pengiriman'" :sublabel="$tracking['progress'] . '%'" />
+                            <div class="mt-4 rounded-2xl border border-gray-100 bg-gray-50/60 p-4">
+                                <x-tracking.status-timeline :events="$tracking['events']" variant="pemasok" />
+                            </div>
+                        </div>
+
+                        {{-- Catatan merchant --}}
                         @if($order->catatan)
-                            <div class="mt-3 p-2 bg-yellow-50 border border-yellow-100 rounded-lg inline-block">
-                                <p class="text-[10px] font-bold text-yellow-700">Catatan: {{ $order->catatan }}</p>
+                            <div class="rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-[11px] font-bold text-amber-800">
+                                ✱ Catatan merchant: {{ $order->catatan }}
                             </div>
                         @endif
                     </div>
-                </div>
 
-                {{-- Aksi Kanan --}}
-                <div class="flex flex-col justify-end lg:items-end gap-2 lg:w-64 border-t lg:border-t-0 lg:border-l border-gray-100 pt-4 lg:pt-0 lg:pl-6">
-                    @if($activeTab === 'diproses_pemasok')
-                        <button wire:click="bukaModalAtur({{ $order->id }})" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 shadow-md shadow-blue-200 transition-all text-sm">
-                            Kirim Barang
-                        </button>
-                        <div class="flex gap-2 w-full">
-                            <button wire:click="bukaModalDetail({{ $order->id }})" class="flex-1 bg-white border border-blue-200 text-blue-600 font-bold py-2 rounded-xl hover:bg-blue-50 transition-all text-xs">
-                                Lihat Detail
+                    {{-- Kolom kanan: kurir card + aksi --}}
+                    <aside class="flex flex-col gap-3 border-t border-gray-100 pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+                        @if($order->nama_kurir)
+                            <x-tracking.courier-card
+                                :name="$order->nama_kurir"
+                                :phone="$order->no_hp_kurir"
+                                :resi="$order->no_resi"
+                                :status="$order->status"
+                                variant="pemasok"
+                            />
+                        @endif
+
+                        @if($activeTab === 'diproses_pemasok')
+                            <button wire:click="bukaModalAtur({{ $order->id }})" class="w-full rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-3 text-sm font-black text-white shadow-lg shadow-orange-200 transition hover:shadow-xl hover:shadow-orange-300 active:scale-[0.98]">
+                                🛵 Atur Kurir & Kirim
                             </button>
-                            <button wire:click="cetakLabel({{ $order->id }})" class="flex-1 bg-white border border-gray-200 text-gray-600 font-bold py-2 rounded-xl hover:bg-gray-50 transition-all text-xs">
-                                Cetak Label
-                            </button>
-                        </div>
-                    @elseif($activeTab === 'dikirim')
-                        <div class="w-full text-left lg:text-right mb-2 bg-orange-50 p-2 rounded-lg border border-orange-100">
-                            <span class="text-[10px] font-extrabold text-orange-600 uppercase tracking-wider">📦 Sedang Dikirim</span>
-                        </div>
-                        <button wire:click="bukaModalDetail({{ $order->id }})" class="w-full bg-white border border-gray-200 text-gray-600 font-bold py-2.5 rounded-xl hover:bg-gray-50 transition-all text-sm">
-                            Lihat Pesanan
-                        </button>
-                    @else
-                        <div class="w-full text-left lg:text-right mb-2 bg-emerald-50 p-2 rounded-lg border border-emerald-100">
-                            <span class="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider">✅ Diterima Merchant</span>
-                            <p class="text-[9px] text-emerald-700 font-bold mt-1">{{ \Carbon\Carbon::parse($order->updated_at)->format('d M Y H:i') }}</p>
-                        </div>
-                        <button wire:click="bukaModalDetail({{ $order->id }})" class="w-full bg-white border border-gray-200 text-gray-600 font-bold py-2.5 rounded-xl hover:bg-gray-50 transition-all text-sm">
-                            Cek Rincian
-                        </button>
-                    @endif
+                            <div class="flex gap-2">
+                                <button wire:click="bukaModalDetail({{ $order->id }})" class="flex-1 rounded-2xl border border-orange-200 bg-white px-3 py-2.5 text-xs font-bold text-orange-600 transition hover:bg-orange-50">Detail</button>
+                                <button wire:click="cetakLabel({{ $order->id }})" class="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-bold text-gray-600 transition hover:bg-gray-50">Cetak Label</button>
+                            </div>
+                        @elseif($activeTab === 'dikirim')
+                            <button wire:click="bukaModalDetail({{ $order->id }})" class="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50">Lihat Detail Pesanan</button>
+                            <button wire:click="cetakLabel({{ $order->id }})" class="w-full rounded-2xl border border-orange-200 bg-orange-50 px-4 py-2.5 text-xs font-bold text-orange-600 transition hover:bg-orange-100">Cetak Ulang Surat Jalan</button>
+                        @else
+                            <div class="rounded-2xl bg-gradient-to-br from-emerald-50 to-lime-50 border border-emerald-200 px-4 py-3">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-emerald-700">✓ Diterima merchant</p>
+                                <p class="mt-0.5 text-[10px] font-bold text-emerald-600">{{ \Carbon\Carbon::parse($order->updated_at)->format('d M Y · H:i') }}</p>
+                            </div>
+                            <button wire:click="bukaModalDetail({{ $order->id }})" class="w-full rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-xs font-bold text-gray-600 transition hover:bg-gray-50">Cek Rincian</button>
+                        @endif
+                    </aside>
                 </div>
-            </div>
-        </div>
+            </article>
         @empty
-        <div class="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-200">
-            <div class="w-16 h-16 bg-gray-50 text-gray-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+            <div class="rounded-3xl border border-dashed border-gray-200 bg-white/60 py-20 text-center">
+                <div class="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-100 to-amber-100 text-orange-500">
+                    <svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/></svg>
+                </div>
+                <h3 class="text-lg font-black text-gray-800">Tidak ada pengiriman</h3>
+                <p class="mt-1 text-sm font-bold text-gray-500">Data pesanan di kategori ini masih kosong.</p>
             </div>
-            <h3 class="text-lg font-black text-gray-800">Tidak ada pengiriman</h3>
-            <p class="text-sm font-bold text-gray-500 mt-1">Data pesanan di kategori ini masih kosong.</p>
-        </div>
         @endforelse
 
-        <div class="mt-4">
-            {{ $orders->links() }}
-        </div>
+        <div class="mt-5">{{ $orders->links() }}</div>
     </div>
 
     {{-- MODAL LIHAT DETAIL PESANAN --}}
@@ -283,10 +335,34 @@
                     </div>
 
                     <div class="border-t-2 border-black pt-4 mb-4">
-                        <p class="text-xs uppercase text-gray-500 mb-1">Diantar Oleh:</p>
-                        <p class="font-bold text-sm">{{ $this->selectedOrder->nama_kurir ?? '-' }}</p>
-                        <p class="text-xs">HP: {{ $this->selectedOrder->no_hp_kurir ?? '-' }}</p>
-                        <p class="text-xs">Resi: {{ $this->selectedOrder->no_resi ?? '-' }}</p>
+                        <p class="text-[10px] uppercase tracking-widest font-bold text-gray-700 mb-2">Diantar Oleh</p>
+                        <div class="border border-black/80 rounded-lg p-3">
+                            <div class="flex items-center gap-3">
+                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-2 border-black bg-white">
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="5.5" cy="17.5" r="2.5"/>
+                                        <circle cx="18.5" cy="17.5" r="2.5"/>
+                                        <path d="M8 17.5h8"/>
+                                        <path d="M13 17.5V8h4l2 4"/>
+                                        <path d="M5.5 15 7 9h4l1.5 6"/>
+                                    </svg>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="font-black text-sm leading-tight">{{ $this->selectedOrder->nama_kurir ?? '-' }}</p>
+                                    <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] font-medium">
+                                        <span>
+                                            <span class="text-gray-600">HP:</span>
+                                            <span class="font-bold">{{ $this->selectedOrder->no_hp_kurir ?? '-' }}</span>
+                                        </span>
+                                        <span class="hidden sm:inline-block h-0.5 w-0.5 rounded-full bg-black/40"></span>
+                                        <span>
+                                            <span class="text-gray-600">Resi:</span>
+                                            <span class="font-bold uppercase tracking-wider">{{ $this->selectedOrder->no_resi ?? '-' }}</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="border-t-2 border-black pt-4">
