@@ -85,6 +85,54 @@ class PengirimanLogistik extends Component
         return SupplyOrder::with(['merchant.merchantProfile', 'details'])->find($this->selectedOrderId);
     }
 
+    /**
+     * Statistik ringkasan pengiriman untuk pemasok yang sedang login.
+     */
+    #[Computed]
+    public function stats(): array
+    {
+        $base = SupplyOrder::where('pemasok_id', Auth::id());
+
+        return [
+            'perlu_dikirim' => (clone $base)->where('status', 'diproses_pemasok')->count(),
+            'sedang_jalan' => (clone $base)->where('status', 'dikirim')->count(),
+            'selesai_bulan_ini' => (clone $base)
+                ->where('status', 'selesai')
+                ->whereMonth('updated_at', now()->month)
+                ->whereYear('updated_at', now()->year)
+                ->count(),
+            'nilai_aktif' => (clone $base)
+                ->whereIn('status', ['diproses_pemasok', 'dikirim'])
+                ->sum('total_estimasi'),
+        ];
+    }
+
+    /**
+     * Timeline event untuk order yang sedang dibuka di modal detail.
+     */
+    #[Computed]
+    public function selectedOrderEvents()
+    {
+        if (! $this->selectedOrder) {
+            return collect();
+        }
+        return app(\App\Services\Tracking\TrackingTimelineService::class)
+            ->buildEvents($this->selectedOrder);
+    }
+
+    /**
+     * Persentase progres pengiriman untuk order yang sedang dibuka di modal detail.
+     */
+    #[Computed]
+    public function selectedOrderProgress(): int
+    {
+        if (! $this->selectedOrder) {
+            return 0;
+        }
+        return app(\App\Services\Tracking\TrackingTimelineService::class)
+            ->progressPercentage($this->selectedOrder);
+    }
+
     public function render()
     {
         $orders = SupplyOrder::with(['merchant.merchantProfile', 'details'])
@@ -106,9 +154,19 @@ class PengirimanLogistik extends Component
             ->where('status', 'diproses_pemasok')
             ->count();
 
+        // Bangun map tracking per order untuk ditampilkan di baris tabel
+        $svc = app(\App\Services\Tracking\TrackingTimelineService::class);
+        $trackingByOrder = $orders->getCollection()->mapWithKeys(fn ($o) => [
+            $o->id => [
+                'events' => $svc->buildEvents($o),
+                'progress' => $svc->progressPercentage($o),
+            ],
+        ]);
+
         return view('livewire.pemasok.pengiriman-logistik', [
             'orders' => $orders,
-            'countPerluDikirim' => $countPerluDikirim
+            'countPerluDikirim' => $countPerluDikirim,
+            'trackingByOrder' => $trackingByOrder,
         ])->layout('layouts.app');
     }
 }
