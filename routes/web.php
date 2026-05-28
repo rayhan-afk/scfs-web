@@ -39,20 +39,13 @@ Route::middleware(['auth'])->group(function () {
         } elseif ($user->role === 'lkbb') {
             return redirect()->route('lkbb.dashboard');
         } elseif ($user->role === 'merchant') {
+            // Dashboard merchant selalu accessible (form onboarding + cek status).
+            // Gate `verified.entity` di route bisnis lain yang akan redirect ke pending-verification.
             return redirect()->route('merchant.dashboard');
         } elseif ($user->role === 'pemasok') {
-            
-            // AMBIL STATUS VERIFIKASI PEMASOK
-            $pemasokStatus = $user->pemasokProfile?->status_verifikasi;
-
-            // Kunci akses jika statusnya belum resmi disetujui oleh LKBB
-            if ($pemasokStatus !== 'disetujui') {
-                return redirect()->route('pemasok.application-status');
-            }
-
-            return redirect()->route('pemasok.dashboard'); 
+            return redirect()->route('pemasok.dashboard');
         } else {
-            return redirect()->route('profile'); 
+            return redirect()->route('profile');
         }
     })->name('dashboard');
 
@@ -123,6 +116,14 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/lkbb/brankas/operasional', 'lkbb.brankas.operasional')->name('lkbb.brankas.operasional');
     Volt::route('/lkbb/brankas/perputaran', 'lkbb.brankas.perputaran')->name('lkbb.brankas.perputaran');
 
+    // 🔥 BUKU BESAR ENTITAS (Audit per-aktor: Pemasok & Merchant/Kantin)
+    Volt::route('/lkbb/entitas/pemasok',          'lkbb.entitas.pemasok-index')->name('lkbb.entitas.pemasok-index');
+    Volt::route('/lkbb/entitas/pemasok/{id}',     'lkbb.entitas.pemasok-detail')->name('lkbb.entitas.pemasok-detail');
+    Volt::route('/lkbb/entitas/merchant',         'lkbb.entitas.merchant-index')->name('lkbb.entitas.merchant-index');
+    Volt::route('/lkbb/entitas/merchant/{id}',    'lkbb.entitas.merchant-detail')->name('lkbb.entitas.merchant-detail');
+    Volt::route('/lkbb/entitas/mahasiswa',        'lkbb.entitas.mahasiswa-index')->name('lkbb.entitas.mahasiswa-index');
+    Volt::route('/lkbb/entitas/mahasiswa/{id}',   'lkbb.entitas.mahasiswa-detail')->name('lkbb.entitas.mahasiswa-detail');
+
     Route::view('/lkbb/products', 'livewire.lkbb.product-index')->name('products.index');
     Volt::route('/users', 'lkbb.user-management')->name('users.index');
 
@@ -159,45 +160,52 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('/lkbb/riwayat/mahasiswa/{id}', 'lkbb.riwayat.detail-mahasiswa')->name('lkbb.mahasiswa.detail');
 
     Route::get('/lkbb/monitoring-return', \App\Livewire\Lkbb::class . '\MonitoringReturn')->name('lkbb.monitoring-return');
+    // ==========================================================
+    //  HALAMAN PENDING VERIFICATION (selalu accessible — tanpa middleware verified.entity)
+    //  Tujuan redirect dari middleware EnsureVerified.
+    // ==========================================================
+    Volt::route('/pending-verification', 'auth.pending-verification')->name('pending-verification');
+
     // ----------------------------------------------------------
     // MERCHANT ROUTES
+    //   Dashboard + profile + application-status BEBAS (untuk onboarding/lengkapi data).
+    //   Menu bisnis lain di-gate `verified.entity` (harus sudah ACC LKBB).
     // ----------------------------------------------------------
     Volt::route('/merchant/dashboard', 'dashboard.merchant')->name('merchant.dashboard');
-    Volt::route('/merchant/pos', 'merchant.pos-merchant')->name('merchant.pos');
-    
-    // ROUTE BARU: DAPUR PESANAN ONLINE
-    Volt::route('/merchant/pesanan-online', 'merchant.pesanan-online')->name('merchant.pesanan-online');
-    
-    Volt::route('/merchant/withdraw', 'merchant.withdraw')->name('merchant.withdraw');
-    Volt::route('/merchant/katalog', 'merchant.katalog')->name('merchant.katalog');
     Volt::route('/merchant/profile', 'merchant.profile')->name('merchant.profile');
     Volt::route('/merchant/application-status', 'merchant.application-status')->name('merchant.application-status');
-    Volt::route('/merchant/order', 'merchant.order-bahan')->name('merchant.order');
-    Volt::route('/merchant/riwayat', 'merchant.riwayat')->name('merchant.riwayat');
-    Volt::route('/merchant/penerimaan', 'merchant.penerimaan')->name('merchant.penerimaan');
-    Route::get('/merchant/riwayat-po', \App\Livewire\Merchant\RiwayatPo::class)->name('merchant.riwayat-po');
-    Volt::route('/merchant/setoran', 'merchant.setoran')->name('merchant.setoran');
-    
-    // Sisi Merchant
-    Route::get('/merchant/return/ajukan/{orderId}', \App\Livewire\Merchant\FormReturn::class)->name('merchant.form-return');
-    // Top-up Merchant dihapus karena sekarang menggunakan skema LKBB Financing
+
+    Route::middleware(['verified.entity'])->group(function () {
+        Volt::route('/merchant/pos', 'merchant.pos-merchant')->name('merchant.pos');
+        Volt::route('/merchant/pesanan-online', 'merchant.pesanan-online')->name('merchant.pesanan-online');
+        Volt::route('/merchant/withdraw', 'merchant.withdraw')->name('merchant.withdraw');
+        Volt::route('/merchant/katalog', 'merchant.katalog')->name('merchant.katalog');
+        Volt::route('/merchant/order', 'merchant.order-bahan')->name('merchant.order');
+        Volt::route('/merchant/riwayat', 'merchant.riwayat')->name('merchant.riwayat');
+        Volt::route('/merchant/penerimaan', 'merchant.penerimaan')->name('merchant.penerimaan');
+        Route::get('/merchant/riwayat-po', \App\Livewire\Merchant\RiwayatPo::class)->name('merchant.riwayat-po');
+        Volt::route('/merchant/setoran', 'merchant.setoran')->name('merchant.setoran');
+        Route::get('/merchant/return/ajukan/{orderId}', \App\Livewire\Merchant\FormReturn::class)->name('merchant.form-return');
+    });
 
     // ----------------------------------------------------------
     // PEMASOK ROUTES
+    //   Dashboard + profil + application-status BEBAS (untuk onboarding/lengkapi data).
+    //   Menu bisnis lain di-gate `verified.entity`.
     // ----------------------------------------------------------
-    // Route Status Pengajuan (Bisa diakses meski belum di-approve)
-    Volt::route('/pemasok/application-status', 'pemasok.application-status')->name('pemasok.application-status');
-    // Berikan middleware tambahan atau pengecekan manual di component dashboard kamu agar jika belum approved tidak bisa tembus route bawah ini
     Volt::route('/pemasok/dashboard', 'dashboard.pemasok')->name('pemasok.dashboard');
-    Route::get('/pemasok/inventaris', ManajemenProduk::class)->name('pemasok.inventaris');
+    Volt::route('/pemasok/application-status', 'pemasok.application-status')->name('pemasok.application-status');
     Route::get('/pemasok/profil', ProfilePemasok::class)->name('pemasok.profil');
-    Route::get('/pemasok/laporan', LaporanAnalitik::class)->name('pemasok.laporan');
-    Route::get('/pemasok/riwayat-produksi', RiwayatProduksi::class)->name('pemasok.riwayat-produksi');
-    Route::get('/pemasok/pesanan-masuk', PesananMasuk::class)->name('pemasok.pesanan-masuk');
-    Route::get('/pemasok/tarik-dana', TarikDana::class)->name('pemasok.tarik-dana');
-    Route::get('/pemasok/pengiriman', PengirimanLogistik::class)->name('pemasok.pengiriman');
-    // Pengajuan Dana LKBB (Pemasok) dihapus karena otomatis cair dari Approval PO Merchant
-    Route::get('/pemasok/manajemen-return', \App\Livewire\Pemasok\ManajemenReturn::class)->name('pemasok.manajemen-return');
+
+    Route::middleware(['verified.entity'])->group(function () {
+        Route::get('/pemasok/inventaris', ManajemenProduk::class)->name('pemasok.inventaris');
+        Route::get('/pemasok/laporan', LaporanAnalitik::class)->name('pemasok.laporan');
+        Route::get('/pemasok/riwayat-produksi', RiwayatProduksi::class)->name('pemasok.riwayat-produksi');
+        Route::get('/pemasok/pesanan-masuk', PesananMasuk::class)->name('pemasok.pesanan-masuk');
+        Route::get('/pemasok/tarik-dana', TarikDana::class)->name('pemasok.tarik-dana');
+        Route::get('/pemasok/pengiriman', PengirimanLogistik::class)->name('pemasok.pengiriman');
+        Route::get('/pemasok/manajemen-return', \App\Livewire\Pemasok\ManajemenReturn::class)->name('pemasok.manajemen-return');
+    });
 
     
 }); // PENUTUP MIDDLEWARE AUTH (Semua rute di atas aman!)

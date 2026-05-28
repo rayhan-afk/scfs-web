@@ -21,6 +21,9 @@ class extends Component {
 
     public $nama_kantin, $nama_pemilik, $nik, $no_hp, $lokasi_blok;
 
+    // Usulan bagi hasil (persentase) yang merchant tawarkan ke LKBB.
+    public $usulan_fee_merchant = null;
+
     public $nama_bank = 'BCA';
     public $bank_lainnya = '';
     public $no_rekening = '';
@@ -47,6 +50,7 @@ class extends Component {
                 }
 
                 $this->no_rekening = $profile->no_rekening;
+            $this->usulan_fee_merchant = $profile->usulan_fee_merchant;
         } else {
             $this->nama_pemilik = Auth::user()->name;
         }
@@ -187,22 +191,25 @@ class extends Component {
             'nama_bank'      => 'required|string',
             'bank_lainnya'   => 'required_if:nama_bank,Lainnya',
             'no_rekening'    => 'required|numeric',
-            'foto_ktp'       => $this->profile->foto_ktp ? 'nullable|image|max:2048' : 'required|image|max:2048', 
-            'foto_kantin'    => $this->profile->foto_kantin ? 'nullable|image|max:2048' : 'required|image|max:2048', 
+            'usulan_fee_merchant' => 'required|numeric|min:0|max:100',
+            'foto_ktp'       => $this->profile->foto_ktp ? 'nullable|image|max:2048' : 'required|image|max:2048',
+            'foto_kantin'    => $this->profile->foto_kantin ? 'nullable|image|max:2048' : 'required|image|max:2048',
+        ], [
+            'usulan_fee_merchant.required' => 'Usulan bagi hasil wajib diisi.',
+            'usulan_fee_merchant.numeric'  => 'Usulan harus berupa angka.',
+            'usulan_fee_merchant.max'      => 'Usulan maksimal 100%.',
         ]);
 
         $updateData = [
-            'nama_kantin'       => $this->nama_kantin,
-            'nama_pemilik'      => $this->nama_pemilik,
-            'nik'               => $this->nik,
-            'no_hp'             => $this->no_hp,
-            'lokasi_blok'       => $this->lokasi_blok,
-            'status_verifikasi' => 'menunggu_review', 
-            'nama_bank' => $this->nama_bank === 'Lainnya'
-                ? $this->bank_lainnya
-                : $this->nama_bank,
-
-            'no_rekening' => $this->no_rekening,
+            'nama_kantin'         => $this->nama_kantin,
+            'nama_pemilik'        => $this->nama_pemilik,
+            'nik'                 => $this->nik,
+            'no_hp'               => $this->no_hp,
+            'lokasi_blok'         => $this->lokasi_blok,
+            'usulan_fee_merchant' => $this->usulan_fee_merchant,
+            'status_verifikasi'   => 'menunggu_review',
+            'nama_bank'           => $this->nama_bank === 'Lainnya' ? $this->bank_lainnya : $this->nama_bank,
+            'no_rekening'         => $this->no_rekening,
         ];
 
         if ($this->foto_ktp && !is_string($this->foto_ktp)) {
@@ -237,139 +244,220 @@ class extends Component {
     {{-- FASE 1: ONBOARDING BELUM MELENGKAPI DATA   --}}
     {{-- ========================================== --}}
     @if($this->profile->status_verifikasi === 'belum_melengkapi')
-        <div class="max-w-3xl">
-            <div class="mb-8">
-                <h2 class="text-2xl font-bold text-gray-900">Selamat Datang di Mitra Kantin SCFS!</h2>
-                <p class="text-gray-500 mt-1">Sebelum mulai berjualan tanpa modal, mohon lengkapi profil usaha Anda.</p>
+        <div class="max-w-5xl mx-auto">
+            {{-- Hero header --}}
+            <div class="mb-8 text-center sm:text-left">
+                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-widest mb-3">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Mitra Kantin SCFS
+                </span>
+                <h2 class="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">Selamat Datang! Lengkapi Data Kantin Anda</h2>
+                <p class="text-gray-500 text-sm sm:text-base mt-2 max-w-2xl">Lengkapi profil usaha, ajukan usulan bagi hasil, dan upload dokumen pendukung. Tim LKBB akan memverifikasi dalam 1×24 jam.</p>
             </div>
-            
-            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="p-6 space-y-5">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+            <div class="space-y-5">
+
+                {{-- SECTION 1: Informasi Usaha --}}
+                <section class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <header class="px-5 sm:px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16M5 9h14M5 13h14M5 17h14"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-gray-900 text-base">Informasi Usaha</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Identitas kantin & lokasi.</p>
+                        </div>
+                    </header>
+                    <div class="p-5 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama Kantin / Usaha</label>
-                            <input wire:model="nama_kantin" type="text" class="w-full text-sm rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 py-2.5">
-                            @error('nama_kantin') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                            <input wire:model="nama_kantin" type="text" placeholder="cth: Kantin Bu Sari" class="w-full text-base rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 py-3 px-4">
+                            @error('nama_kantin') <span class="text-[11px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
                         </div>
                         <div>
                             <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Lokasi / Blok Kantin</label>
-                            <input wire:model="lokasi_blok" type="text" class="w-full text-sm rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 py-2.5">
-                            @error('lokasi_blok') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                            <input wire:model="lokasi_blok" type="text" placeholder="cth: Blok A No 5" class="w-full text-base rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 py-3 px-4">
+                            @error('lokasi_blok') <span class="text-[11px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                </section>
+
+                {{-- SECTION 2: Informasi Pemilik --}}
+                <section class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <header class="px-5 sm:px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        </div>
                         <div>
+                            <h3 class="font-bold text-gray-900 text-base">Informasi Pemilik</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Data diri sesuai KTP.</p>
+                        </div>
+                    </header>
+                    <div class="p-5 sm:p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <div class="md:col-span-1">
                             <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nama Pemilik (Sesuai KTP)</label>
-                            <input wire:model="nama_pemilik" type="text" class="w-full text-sm rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 py-2.5">
-                            @error('nama_pemilik') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                            <input wire:model="nama_pemilik" type="text" class="w-full text-base rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 py-3 px-4">
+                            @error('nama_pemilik') <span class="text-[11px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
                         </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Nomor Induk Kependudukan (NIK)</label>
-                            <input 
-                                wire:model.defer="nik"
-                                type="text"
-                                maxlength="16"
-                                inputmode="numeric"
-                                pattern="[0-9]*"
+                        <div class="md:col-span-1">
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">NIK (16 digit)</label>
+                            <input wire:model.defer="nik" type="text" maxlength="16" inputmode="numeric" pattern="[0-9]*"
                                 oninput="this.value=this.value.replace(/\D/g,'').slice(0,16)"
-                                class="w-full py-2.5 px-4 text-sm font-mono border border-gray-300 rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition"
-                            >
-                            @error('nik') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                                placeholder="3xxxxxxxxxxxxxxx"
+                                class="w-full text-base font-mono rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 py-3 px-4">
+                            @error('nik') <span class="text-[11px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                        </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">No HP / WA Aktif</label>
+                            <input wire:model="no_hp" type="text" placeholder="08xxxxxxxxxx" class="w-full text-base font-mono rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 py-3 px-4">
+                            @error('no_hp') <span class="text-[11px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div>
-                            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">No Handphone / WA Aktif</label>
-                            <input wire:model="no_hp" type="text" class="w-full text-sm rounded-xl border-gray-300 focus:border-emerald-500 focus:ring-emerald-500 py-2.5">
-                            @error('no_hp') <span class="text-[10px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                </section>
+
+                {{-- SECTION 3: Rekening Pencairan --}}
+                <section class="bg-white rounded-2xl border border-blue-200 shadow-sm overflow-hidden">
+                    <header class="px-5 sm:px-6 py-4 border-b border-blue-100 bg-blue-50/50 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M5 7h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z"/></svg>
                         </div>
                         <div>
-                            <label class="block text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1.5">
-                                Rekening / E-Wallet Pencairan
-                            </label>
+                            <h3 class="font-bold text-blue-900 text-base">Rekening Pencairan</h3>
+                            <p class="text-xs text-blue-700/70 mt-0.5">Tujuan transfer dana hasil penjualan.</p>
+                        </div>
+                    </header>
+                    <div class="p-5 sm:p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <div>
+                            <label class="block text-[10px] font-bold text-blue-700 uppercase tracking-wider mb-1.5">Bank / E-Wallet</label>
+                            <select wire:model.live="nama_bank" class="w-full text-base rounded-xl border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 py-3 px-4 bg-white">
+                                <option value="BCA">BCA</option>
+                                <option value="BNI">BNI</option>
+                                <option value="BRI">BRI</option>
+                                <option value="Mandiri">Mandiri</option>
+                                <option value="BJB">BJB</option>
+                                <option value="GoPay">GoPay</option>
+                                <option value="OVO">OVO</option>
+                                <option value="Lainnya">Lainnya...</option>
+                            </select>
+                            @error('nama_bank') <span class="text-[11px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                            @if($nama_bank === 'Lainnya')
+                                <input wire:model="bank_lainnya" type="text" placeholder="Nama bank..." class="mt-2 w-full text-base rounded-xl border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 py-3 px-4 bg-white">
+                                @error('bank_lainnya') <span class="text-[11px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                            @endif
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-[10px] font-bold text-blue-700 uppercase tracking-wider mb-1.5">Nomor Rekening / E-Wallet</label>
+                            <input wire:model="no_rekening" type="text" inputmode="numeric" placeholder="1234567890"
+                                class="w-full text-base font-mono rounded-xl border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 py-3 px-4 bg-white">
+                            @error('no_rekening') <span class="text-[11px] text-red-500 mt-1 font-bold block">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+                </section>
 
-                            <div class="flex flex-col md:flex-row gap-3">
+                {{-- SECTION 4: Usulan Bagi Hasil --}}
+                <section class="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden">
+                    <header class="px-5 sm:px-6 py-4 border-b border-amber-100 bg-amber-50/50 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-amber-900 text-base">Usulan Bagi Hasil untuk Saya (Merchant)</h3>
+                            <p class="text-xs text-amber-700/80 mt-0.5">Berapa % keuntungan tiap transaksi yang akan jadi bagian Anda? Sisanya jadi bagian LKBB.</p>
+                        </div>
+                    </header>
+                    <div class="p-5 sm:p-6">
+                        <p class="text-sm text-gray-600 leading-relaxed mb-4">
+                            Tentukan persentase profit yang ingin Anda ambil untuk diri sendiri. Sisanya ({{ 100 - (int)($usulan_fee_merchant ?? 0) }}%) otomatis jadi bagian LKBB sebagai biaya layanan (talangan modal, sistem pembayaran, audit).
+                            Nilai ini bersifat <span class="font-bold">usulan</span> — LKBB akan meninjau, kalau dirasa kebesaran mereka akan minta revisi.
+                        </p>
 
-                                {{-- Jenis Bank --}}
-                                <div class="w-full md:w-1/3">
-                                    <select wire:model.live="nama_bank"
-                                        class="w-full text-sm rounded-xl border-blue-200 focus:border-blue-500 focus:ring-blue-500 py-2.5 bg-blue-50/30">
-
-                                        <option value="BCA">BCA</option>
-                                        <option value="BNI">BNI</option>
-                                        <option value="BRI">BRI</option>
-                                        <option value="Mandiri">Mandiri</option>
-                                        <option value="BJB">BJB</option>
-                                        <option value="GoPay">GoPay</option>
-                                        <option value="OVO">OVO</option>
-                                        <option value="Lainnya">Bank Lainnya...</option>
-                                    </select>
-
-                                    @error('nama_bank')
-                                        <span class="text-[10px] text-red-500 mt-1 font-bold block">
-                                            {{ $message }}
-                                        </span>
-                                    @enderror
-
-                                    @if($nama_bank === 'Lainnya')
-                                        <input wire:model="bank_lainnya"
-                                            type="text"
-                                            placeholder="Nama bank..."
-                                            class="mt-2 w-full text-sm rounded-xl border-blue-200 focus:border-blue-500 focus:ring-blue-500 py-2.5 bg-blue-50/30">
-
-                                        @error('bank_lainnya')
-                                            <span class="text-[10px] text-red-500 mt-1 font-bold block">
-                                                {{ $message }}
-                                            </span>
-                                        @enderror
-                                    @endif
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {{-- Bagian Merchant (input) --}}
+                            <div class="rounded-2xl border-2 border-amber-300 bg-amber-50/50 p-4">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-amber-700 mb-2">🏪 Bagian Saya (Merchant)</p>
+                                <div class="relative">
+                                    <input wire:model.live="usulan_fee_merchant" type="number" step="5" min="0" max="100" placeholder="70"
+                                        class="w-full text-3xl font-black text-amber-900 rounded-xl border border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-100 py-4 pl-5 pr-14 bg-white">
+                                    <span class="absolute inset-y-0 right-0 flex items-center pr-5 text-amber-600 font-black text-xl">%</span>
                                 </div>
+                                @error('usulan_fee_merchant') <span class="text-[11px] text-red-500 mt-2 font-bold block">{{ $message }}</span> @enderror
+                            </div>
 
-                                {{-- Nomor Rekening --}}
-                                <div class="w-full md:w-2/3">
-                                    <input wire:model="no_rekening"
-                                        type="text"
-                                        placeholder="Nomor rekening / nomor e-wallet"
-                                        class="w-full text-sm rounded-xl border-blue-200 focus:border-blue-500 focus:ring-blue-500 py-2.5 bg-blue-50/30">
-
-                                    @error('no_rekening')
-                                        <span class="text-[10px] text-red-500 mt-1 font-bold block">
-                                            {{ $message }}
-                                        </span>
-                                    @enderror
+                            {{-- Bagian LKBB (preview, read-only) --}}
+                            <div class="rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/50 p-4">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-blue-700 mb-2">🏦 Bagian LKBB (Otomatis)</p>
+                                <div class="relative">
+                                    <div class="w-full text-3xl font-black text-blue-900 rounded-xl border-2 border-blue-200 py-4 pl-5 pr-14 bg-white">
+                                        {{ 100 - (int)($usulan_fee_merchant ?? 0) }}
+                                    </div>
+                                    <span class="absolute inset-y-0 right-0 flex items-center pr-5 text-blue-600 font-black text-xl">%</span>
                                 </div>
-
+                                <p class="text-[10px] text-blue-700/80 mt-2 font-medium">Biaya layanan platform SCFS</p>
                             </div>
                         </div>
+
+                        {{-- Preset Tombol Cepat (bagian Merchant) --}}
+                        <div class="mt-5">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Pilih cepat (bagian Merchant)</p>
+                            <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                                @foreach([60, 65, 70, 75, 80, 85] as $preset)
+                                    <button type="button" wire:click="$set('usulan_fee_merchant', {{ $preset }})"
+                                        class="py-2 rounded-lg border font-bold text-sm transition
+                                        {{ (int)$usulan_fee_merchant === $preset ? 'border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-200' : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100' }}">
+                                        {{ $preset }}%
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                        <p class="text-[11px] text-gray-400 mt-3">💡 Tombol naik/turun input menambah 5% per klik. Default standar industri: <span class="font-bold">70% merchant — 30% LKBB</span>.</p>
                     </div>
-                    <hr class="border-gray-100 my-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:bg-gray-50 transition relative">
-                            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Upload Foto KTP *</label>
+                </section>
+
+                {{-- SECTION 5: Dokumen Pendukung --}}
+                <section class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                    <header class="px-5 sm:px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-gray-900 text-base">Dokumen Pendukung</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">Foto KTP & foto depan kantin (max 2MB).</p>
+                        </div>
+                    </header>
+                    <div class="p-5 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <label class="block border-2 border-dashed border-gray-200 rounded-xl p-5 text-center hover:bg-gray-50 transition cursor-pointer">
+                            <span class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Foto KTP *</span>
                             <input wire:model="foto_ktp" type="file" accept="image/*" class="w-full text-xs text-gray-500 cursor-pointer">
-                            @error('foto_ktp') <span class="text-[10px] text-red-500 mt-2 font-bold block">{{ $message }}</span> @enderror
+                            @error('foto_ktp') <span class="text-[11px] text-red-500 mt-2 font-bold block">{{ $message }}</span> @enderror
                             @if($foto_ktp && !is_string($foto_ktp))
-                                <img src="{{ $foto_ktp->temporaryUrl() }}" class="mt-3 mx-auto h-24 rounded-lg object-cover shadow-sm border border-gray-200">
+                                <img src="{{ $foto_ktp->temporaryUrl() }}" class="mt-3 mx-auto h-28 rounded-lg object-cover shadow-sm border border-gray-200">
                             @elseif($this->profile->foto_ktp)
-                                <div class="mt-3 text-xs text-emerald-600 font-bold">✓ Tersimpan</div>
+                                <div class="mt-3 text-xs text-emerald-600 font-bold">✓ KTP Tersimpan</div>
                             @endif
-                        </div>
-                        <div class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:bg-gray-50 transition relative">
-                            <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Upload Foto Depan Kantin *</label>
+                        </label>
+                        <label class="block border-2 border-dashed border-gray-200 rounded-xl p-5 text-center hover:bg-gray-50 transition cursor-pointer">
+                            <span class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Foto Depan Kantin *</span>
                             <input wire:model="foto_kantin" type="file" accept="image/*" class="w-full text-xs text-gray-500 cursor-pointer">
-                            @error('foto_kantin') <span class="text-[10px] text-red-500 mt-2 font-bold block">{{ $message }}</span> @enderror
+                            @error('foto_kantin') <span class="text-[11px] text-red-500 mt-2 font-bold block">{{ $message }}</span> @enderror
                             @if($foto_kantin && !is_string($foto_kantin))
-                                <img src="{{ $foto_kantin->temporaryUrl() }}" class="mt-3 mx-auto h-24 rounded-lg object-cover shadow-sm border border-gray-200">
+                                <img src="{{ $foto_kantin->temporaryUrl() }}" class="mt-3 mx-auto h-28 rounded-lg object-cover shadow-sm border border-gray-200">
                             @elseif($this->profile->foto_kantin)
-                                <div class="mt-3 text-xs text-emerald-600 font-bold">✓ Tersimpan</div>
+                                <div class="mt-3 text-xs text-emerald-600 font-bold">✓ Foto Kantin Tersimpan</div>
                             @endif
-                        </div>
+                        </label>
                     </div>
-                </div>
-                <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 text-right">
-                    <button wire:click="submitOnboarding" wire:loading.attr="disabled" class="px-6 py-2.5 bg-emerald-600 text-white font-bold text-sm rounded-xl shadow-sm hover:bg-emerald-700 transition disabled:opacity-50">
-                        <span wire:loading.remove wire:target="submitOnboarding">Kirim Pengajuan</span>
-                        <span wire:loading wire:target="submitOnboarding">Memproses...</span>
+                </section>
+
+                {{-- SUBMIT --}}
+                <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-6 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
+                    <p class="text-xs text-gray-500 leading-relaxed">
+                        Dengan menekan tombol di samping, Anda mengirim pengajuan pendaftaran ke LKBB. Tim akan meninjau dalam <span class="font-bold text-gray-700">1×24 jam</span>.
+                    </p>
+                    <button wire:click="submitOnboarding" wire:loading.attr="disabled"
+                        class="px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-emerald-700 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-200 hover:opacity-95 active:scale-[0.98] transition disabled:opacity-50 flex items-center justify-center gap-2">
+                        <svg wire:loading.remove wire:target="submitOnboarding" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        <svg wire:loading wire:target="submitOnboarding" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                        <span wire:loading.remove wire:target="submitOnboarding">Kirim Pengajuan ke LKBB</span>
+                        <span wire:loading wire:target="submitOnboarding">Mengirim...</span>
                     </button>
                 </div>
             </div>

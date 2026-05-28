@@ -34,12 +34,14 @@ class extends Component {
     }
 
     // 2. Query Utama: Menarik data pendanaan PO (Uang Keluar ke Pemasok)
-    // Asumsi: Status PO yang sudah didanai/disetujui LKBB
+    // BUGFIX: status enum supply_orders TIDAK punya value 'disetujui_lkbb'.
+    // PO yang sudah didanai LKBB ditandai oleh kolom dedicated `status_pembiayaan='didanai'`
+    // (di-set oleh ApprovalPo.php saat LKBB approve pencairan modal).
     #[Computed]
     public function baseQuery()
     {
-        $query = SupplyOrder::with(['merchant', 'pemasok'])
-            ->whereIn('status', ['disetujui_lkbb', 'diproses_pemasok', 'dikirim', 'selesai']);
+        $query = SupplyOrder::with(['merchant.merchantProfile', 'pemasok.pemasokProfile'])
+            ->where('status_pembiayaan', 'didanai');
 
         if (!empty($this->search)) {
             $query->where('nomor_order', 'like', '%' . trim($this->search) . '%');
@@ -100,14 +102,22 @@ class extends Component {
 
     {{-- HIGHLIGHT CARDS --}}
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        {{-- Card 1: Saldo Terkini (Sisa Modal) --}}
-        <div class="bg-gradient-to-br from-indigo-600 to-blue-800 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200 relative overflow-hidden">
-            <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-10 rounded-full -mr-10 -mt-10"></div>
-            <p class="text-indigo-200 text-[10px] font-extrabold uppercase tracking-widest mb-1">Sisa Brankas Investasi</p>
-            <h3 class="text-3xl font-black tracking-tight mt-1">Rp {{ number_format($this->dompetTerkini, 0, ',', '.') }}</h3>
-            <p class="text-[10px] text-indigo-100 mt-3 font-medium bg-indigo-900/40 w-fit px-2.5 py-1 rounded-md inline-flex items-center gap-1.5">
-                <span class="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse"></span> Dana siap disuntikkan ke Pemasok
-            </p>
+        {{-- Card 1: Saldo Terkini (Sisa Modal) — admin gradient pattern --}}
+        <div class="bg-gradient-to-br from-indigo-600 to-blue-800 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden group">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-white opacity-5 rounded-full -mr-10 -mt-10 pointer-events-none transition-transform group-hover:scale-110"></div>
+            <div class="relative z-10">
+                <div class="flex justify-between items-start mb-6">
+                    <div class="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+                        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M5 7h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z"/></svg>
+                    </div>
+                    <span class="bg-white/20 px-3 py-1 rounded-full text-[9px] font-bold tracking-widest uppercase">Brankas</span>
+                </div>
+                <p class="text-indigo-200 text-[10px] font-bold tracking-wider mb-1 uppercase">Sisa Brankas Investasi</p>
+                <h3 class="text-3xl font-extrabold tracking-tight drop-shadow-md">Rp {{ number_format($this->dompetTerkini, 0, ',', '.') }}</h3>
+                <p class="text-[10px] text-indigo-100 mt-3 font-medium inline-flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 bg-indigo-300 rounded-full animate-pulse"></span> Dana siap disuntikkan ke Pemasok
+                </p>
+            </div>
         </div>
 
         {{-- Card 2: Total Pendanaan Keluar --}}
@@ -170,18 +180,32 @@ class extends Component {
                                 </div>
                             </td>
                             
-                            {{-- Kolom 2: Pemasok (Yang dibayar) --}}
+                            {{-- Kolom 2: Pemasok (Yang dibayar) — link ke buku besar pemasok --}}
                             <td class="px-5 py-4">
                                 <div class="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                    <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
-                                    {{ optional($log->pemasok)->name ?? 'Pemasok Terhapus' }}
+                                    <span class="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+                                    @if($log->pemasok)
+                                        <a href="{{ route('lkbb.entitas.pemasok-detail', $log->pemasok->id) }}" wire:navigate
+                                           class="hover:text-indigo-600 hover:underline transition truncate">
+                                            {{ $log->pemasok->pemasokProfile->nama_perusahaan ?? $log->pemasok->name }}
+                                        </a>
+                                    @else
+                                        <span class="text-gray-400 italic">Pemasok Terhapus</span>
+                                    @endif
                                 </div>
                                 <div class="text-[10px] text-gray-500 mt-1 ml-4">Vendor Barang</div>
                             </td>
 
-                            {{-- Kolom 3: Kantin (Yang ngutang/minta barang) --}}
+                            {{-- Kolom 3: Kantin — link ke buku besar merchant --}}
                             <td class="px-5 py-4">
-                                <div class="text-sm font-bold text-gray-700">{{ optional($log->merchant)->name ?? 'Kantin Terhapus' }}</div>
+                                @if($log->merchant)
+                                    <a href="{{ route('lkbb.entitas.merchant-detail', $log->merchant->id) }}" wire:navigate
+                                       class="text-sm font-bold text-gray-700 hover:text-emerald-600 hover:underline transition">
+                                        {{ $log->merchant->merchantProfile->nama_kantin ?? $log->merchant->name }}
+                                    </a>
+                                @else
+                                    <span class="text-sm font-bold text-gray-400 italic">Kantin Terhapus</span>
+                                @endif
                                 <div class="text-[10px] text-gray-500 mt-1">Pemohon PO</div>
                             </td>
 

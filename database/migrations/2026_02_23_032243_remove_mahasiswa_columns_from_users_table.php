@@ -9,13 +9,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
+            // Drop unique index on nim before dropping the column (required for SQLite compatibility)
+            $table->dropUnique('users_nim_unique');
             // Kita buang kolom-kolom ini dari tabel users
             $table->dropColumn([
-                'nim', 
-                'jurusan', 
-                'ktm_image', 
-                'status_verifikasi', 
-                'status_bantuan', 
+                'nim',
+                'jurusan',
+                'ktm_image',
+                'status_verifikasi',
+                'status_bantuan',
                 'saldo'
             ]);
         });

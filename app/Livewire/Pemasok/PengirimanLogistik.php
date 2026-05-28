@@ -22,7 +22,8 @@ class PengirimanLogistik extends Component
     public $selectedOrderId = null;
 
     // Form Atur Pengiriman
-    public $kurir = '';
+    public $nama_kurir = '';
+    public $no_hp_kurir = '';
     public $no_resi = '';
 
     public function setTab($tab)
@@ -40,8 +41,9 @@ class PengirimanLogistik extends Component
     public function bukaModalAtur($id)
     {
         $this->selectedOrderId = $id;
-        $this->no_resi = 'SCFS-' . strtoupper(substr(uniqid(), -6)); // Generate resi otomatis
-        $this->kurir = '';
+        $this->no_resi = 'SCFS-' . strtoupper(substr(uniqid(), -6));
+        $this->nama_kurir = '';
+        $this->no_hp_kurir = '';
         $this->showModalAtur = true;
     }
 
@@ -54,25 +56,26 @@ class PengirimanLogistik extends Component
     public function simpanPengiriman()
     {
         $this->validate([
-            'kurir' => 'required', 
-            'no_resi' => 'required'
+            'nama_kurir' => 'required|string|max:100',
+            'no_hp_kurir' => 'required|digits_between:10,15',
+            'no_resi' => 'required',
         ]);
 
         $order = SupplyOrder::where('pemasok_id', Auth::id())->find($this->selectedOrderId);
-        
+
         if ($order && $order->status === 'diproses_pemasok') {
-            $infoPengiriman = "Dikirim via: " . $this->kurir . " | Resi: " . $this->no_resi;
-            
             $order->update([
                 'status' => 'dikirim',
-                'catatan' => $order->catatan ? $order->catatan . "\n\n[UPDATE LOGISTIK]\n" . $infoPengiriman : "[UPDATE LOGISTIK]\n" . $infoPengiriman
+                'nama_kurir' => $this->nama_kurir,
+                'no_hp_kurir' => $this->no_hp_kurir,
+                'no_resi' => $this->no_resi,
             ]);
 
             session()->flash('message', 'Pengiriman berhasil diatur! Pesanan sekarang SEDANG DIKIRIM.');
         }
 
         $this->showModalAtur = false;
-        $this->reset(['kurir', 'no_resi', 'selectedOrderId']);
+        $this->reset(['nama_kurir', 'no_hp_kurir', 'no_resi', 'selectedOrderId']);
     }
 
     #[Computed]
@@ -80,6 +83,54 @@ class PengirimanLogistik extends Component
     {
         if (!$this->selectedOrderId) return null;
         return SupplyOrder::with(['merchant.merchantProfile', 'details'])->find($this->selectedOrderId);
+    }
+
+    /**
+     * Statistik ringkasan pengiriman untuk pemasok yang sedang login.
+     */
+    #[Computed]
+    public function stats(): array
+    {
+        $base = SupplyOrder::where('pemasok_id', Auth::id());
+
+        return [
+            'perlu_dikirim' => (clone $base)->where('status', 'diproses_pemasok')->count(),
+            'sedang_jalan' => (clone $base)->where('status', 'dikirim')->count(),
+            'selesai_bulan_ini' => (clone $base)
+                ->where('status', 'selesai')
+                ->whereMonth('updated_at', now()->month)
+                ->whereYear('updated_at', now()->year)
+                ->count(),
+            'nilai_aktif' => (clone $base)
+                ->whereIn('status', ['diproses_pemasok', 'dikirim'])
+                ->sum('total_estimasi'),
+        ];
+    }
+
+    /**
+     * Timeline event untuk order yang sedang dibuka di modal detail.
+     */
+    #[Computed]
+    public function selectedOrderEvents()
+    {
+        if (! $this->selectedOrder) {
+            return collect();
+        }
+        return app(\App\Services\Tracking\TrackingTimelineService::class)
+            ->buildEvents($this->selectedOrder);
+    }
+
+    /**
+     * Persentase progres pengiriman untuk order yang sedang dibuka di modal detail.
+     */
+    #[Computed]
+    public function selectedOrderProgress(): int
+    {
+        if (! $this->selectedOrder) {
+            return 0;
+        }
+        return app(\App\Services\Tracking\TrackingTimelineService::class)
+            ->progressPercentage($this->selectedOrder);
     }
 
     public function render()
@@ -103,9 +154,19 @@ class PengirimanLogistik extends Component
             ->where('status', 'diproses_pemasok')
             ->count();
 
+        // Bangun map tracking per order untuk ditampilkan di baris tabel
+        $svc = app(\App\Services\Tracking\TrackingTimelineService::class);
+        $trackingByOrder = $orders->getCollection()->mapWithKeys(fn ($o) => [
+            $o->id => [
+                'events' => $svc->buildEvents($o),
+                'progress' => $svc->progressPercentage($o),
+            ],
+        ]);
+
         return view('livewire.pemasok.pengiriman-logistik', [
             'orders' => $orders,
-            'countPerluDikirim' => $countPerluDikirim
+            'countPerluDikirim' => $countPerluDikirim,
+            'trackingByOrder' => $trackingByOrder,
         ])->layout('layouts.app');
     }
 }
