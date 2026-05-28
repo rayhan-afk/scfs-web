@@ -1,11 +1,108 @@
-<div class="p-6 max-w-7xl mx-auto space-y-6 relative">
-    
+<div
+    x-data="{
+        showConfirm: false,
+        confirmTitle: '',
+        confirmMessage: '',
+        confirmIcon: '',
+        confirmColor: '',
+        confirmLabel: '',
+        confirmAction: null,
+
+        openConfirm(title, message, icon, color, label, action) {
+            this.confirmTitle   = title;
+            this.confirmMessage = message;
+            this.confirmIcon    = icon;
+            this.confirmColor   = color;
+            this.confirmLabel   = label;
+            this.confirmAction  = action;
+            this.showConfirm    = true;
+        },
+
+        doConfirm() {
+            if (this.confirmAction) this.confirmAction();
+            this.showConfirm = false;
+        }
+    }"
+    class="p-6 max-w-7xl mx-auto space-y-6 relative"
+>
+
+    {{-- ===== CUSTOM CONFIRM DIALOG ===== --}}
+    <div
+        x-show="showConfirm"
+        x-cloak
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm"
+    >
+        <div
+            x-show="showConfirm"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-90"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-150"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-90"
+            class="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
+            @click.outside="showConfirm = false"
+        >
+            {{-- Top color bar --}}
+            <div class="h-1.5 w-full" :class="{
+                'bg-gradient-to-r from-emerald-400 to-teal-400'  : confirmColor === 'emerald',
+                'bg-gradient-to-r from-amber-400 to-orange-400'  : confirmColor === 'amber',
+                'bg-gradient-to-r from-rose-400 to-red-500'      : confirmColor === 'rose'
+            }"></div>
+
+            <div class="p-8">
+                {{-- Icon --}}
+                <div class="flex justify-center mb-5">
+                    <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl shadow-sm"
+                        :class="{
+                            'bg-emerald-100' : confirmColor === 'emerald',
+                            'bg-amber-100'   : confirmColor === 'amber',
+                            'bg-rose-100'    : confirmColor === 'rose'
+                        }"
+                        x-text="confirmIcon">
+                    </div>
+                </div>
+
+                {{-- Text --}}
+                <div class="text-center mb-8">
+                    <h3 class="text-xl font-black text-gray-900 mb-2" x-text="confirmTitle"></h3>
+                    <p class="text-sm text-gray-500 leading-relaxed" x-text="confirmMessage"></p>
+                </div>
+
+                {{-- Buttons --}}
+                <div class="flex gap-3">
+                    <button
+                        @click="showConfirm = false"
+                        class="flex-1 px-6 py-3 text-sm font-bold text-gray-600 bg-gray-100 rounded-2xl hover:bg-gray-200 transition-all duration-200">
+                        Batal
+                    </button>
+                    <button
+                        @click="doConfirm()"
+                        class="flex-1 px-6 py-3 text-sm font-bold text-white rounded-2xl transition-all duration-200 active:scale-95"
+                        :class="{
+                            'bg-emerald-600 hover:bg-emerald-500 shadow-lg shadow-emerald-200' : confirmColor === 'emerald',
+                            'bg-amber-500 hover:bg-amber-400 shadow-lg shadow-amber-200'       : confirmColor === 'amber',
+                            'bg-rose-600 hover:bg-rose-500 shadow-lg shadow-rose-200'          : confirmColor === 'rose'
+                        }"
+                        x-text="confirmLabel">
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
             <h1 class="text-2xl font-black text-gray-900">Approval Pembiayaan PO</h1>
             <p class="text-sm font-medium text-gray-500 mt-1">Review permintaan stok dari Merchant dan cairkan dana ke Pemasok.</p>
         </div>
-        
+
         <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full sm:w-auto">
             <div class="bg-[#4338CA] px-5 py-2.5 rounded-xl text-right w-full sm:w-auto shadow-md">
                 <p class="text-[10px] font-extrabold text-indigo-200 uppercase tracking-widest">Saldo Brankas Investasi</p>
@@ -34,7 +131,7 @@
     <div class="grid grid-cols-1 gap-4">
         @forelse($orders as $order)
             <div class="bg-white rounded-[20px] shadow-sm border border-gray-100 p-5 flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-md transition">
-                
+
                 <div class="flex-1 w-full grid grid-cols-1 md:grid-cols-3 gap-6">
                     {{-- Info PO --}}
                     <div>
@@ -44,7 +141,7 @@
                         <p class="text-[10px] text-gray-500 font-bold bg-gray-50 p-1 rounded inline-block mt-1">Tgl Butuh: {{ \Carbon\Carbon::parse($order->tanggal_kebutuhan)->format('d M Y') }}</p>
                     </div>
 
-                    {{-- Info Rantai Pasok (Merchant -> Pemasok) --}}
+                    {{-- Info Rantai Pasok --}}
                     <div class="col-span-2 flex flex-col sm:flex-row sm:items-center gap-4 bg-gray-50/80 p-3 rounded-xl border border-gray-100">
                         <div class="flex-1 text-left sm:text-right">
                             <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Pemohon (Kantin)</p>
@@ -67,10 +164,14 @@
 
                 <div class="w-full md:w-auto flex flex-col md:items-end gap-3 border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6 shrink-0">
                     <div class="text-left md:text-right">
-                        <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Total Pendanaan</p>
+                        <p class="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-0.5">Total Pendanaan</p>
                         <p class="text-xl font-black text-[#4338CA]">Rp {{ number_format($order->total_estimasi, 0, ',', '.') }}</p>
                     </div>
-                    <button wire:click="bukaModal({{ $order->id }})" class="w-full md:w-auto bg-[#4338CA] text-white font-bold px-6 py-2.5 rounded-xl text-sm hover:bg-indigo-800 transition shadow-md shadow-indigo-200">
+                    <button wire:click="bukaModal({{ $order->id }})"
+                        class="w-full md:w-auto bg-[#4338CA] text-white font-bold px-6 py-2.5 rounded-xl text-sm
+                               hover:bg-indigo-800 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-200
+                               active:translate-y-0 active:scale-95
+                               transition-all duration-200 shadow-md shadow-indigo-200">
                         Review & Cairkan
                     </button>
                 </div>
@@ -82,7 +183,7 @@
                 <p class="text-sm font-medium text-gray-500 mt-1">Semua permintaan pendanaan dari Merchant sudah diproses.</p>
             </div>
         @endforelse
-        
+
         <div class="mt-4">
             {{ $orders->links() }}
         </div>
@@ -93,7 +194,7 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm" wire:click="tutupModal"></div>
             <div class="bg-white rounded-[24px] shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] z-10">
-                
+
                 <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 shrink-0">
                     <div>
                         <h3 class="font-black text-gray-900 text-lg">Review Pendanaan PO</h3>
@@ -198,7 +299,6 @@
                         </div>
 
                         <div class="p-4 space-y-4">
-                            {{-- 5 KRITERIA OTOMATIS (READ-ONLY) --}}
                             <div>
                                 <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Validasi Otomatis (Data Registrasi)</p>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -208,9 +308,7 @@
                                             $reason = $validationReasons[$key] ?? null;
                                         @endphp
                                         <div class="flex items-start gap-3 p-3 rounded-xl border-2 transition
-                                            {{ $passed
-                                                ? 'border-emerald-300 bg-emerald-50/40'
-                                                : 'border-rose-200 bg-rose-50/40' }}">
+                                            {{ $passed ? 'border-emerald-300 bg-emerald-50/40' : 'border-rose-200 bg-rose-50/40' }}">
                                             <div class="w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5
                                                 {{ $passed ? 'bg-emerald-500' : 'bg-rose-500' }}">
                                                 @if($passed)
@@ -234,16 +332,13 @@
                                 </div>
                             </div>
 
-                            {{-- 1 KRITERIA MANUAL (INTERACTIVE) --}}
                             <div>
                                 <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Verifikasi Manual Approver</p>
                                 @php $manualChecked = $validationChecklist[$manualItem['key']] ?? false; @endphp
                                 <label class="cursor-pointer block group">
                                     <input type="checkbox" wire:model.live="validationChecklist.{{ $manualItem['key'] }}" class="sr-only" />
                                     <div class="flex items-start gap-3 p-3 rounded-xl border-2 transition
-                                        {{ $manualChecked
-                                            ? 'border-emerald-400 bg-emerald-50/50'
-                                            : 'border-amber-300 bg-amber-50/40 hover:border-amber-400' }}">
+                                        {{ $manualChecked ? 'border-emerald-400 bg-emerald-50/50' : 'border-amber-300 bg-amber-50/40 hover:border-amber-400' }}">
                                         <div class="w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 transition
                                             {{ $manualChecked ? 'bg-emerald-500 border border-emerald-500' : 'bg-white border-2 border-amber-400' }}">
                                             @if($manualChecked)
@@ -272,7 +367,7 @@
                         @endif
                     </div>
 
-                    {{-- Form Catatan untuk Revisi / Tolak Final --}}
+                    {{-- Catatan Revisi / Tolak --}}
                     <div class="bg-rose-50/50 p-4 rounded-xl border border-rose-100">
                         <label class="block text-[10px] uppercase font-bold text-rose-600 mb-1.5 tracking-wider">Catatan untuk Merchant (wajib jika Revisi / Tolak)</label>
                         <textarea wire:model="alasanPenolakan" rows="2" class="w-full border-rose-200 bg-white rounded-xl focus:ring-rose-500 focus:border-rose-500 text-sm" placeholder="Contoh: Merchant masih punya tunggakan aktif Rp 500.000, lunasi dulu sebelum ajukan ulang..."></textarea>
@@ -284,30 +379,62 @@
                     </div>
                 </div>
 
+                {{-- Footer Buttons --}}
                 <div class="p-5 border-t border-gray-100 bg-white flex flex-col sm:flex-row justify-between gap-3 shrink-0">
                     <div class="flex gap-2">
-                        <button wire:click="mintaRevisi"
-                                wire:confirm="Kirim PO kembali ke merchant untuk direvisi?"
-                                wire:loading.attr="disabled"
-                                class="px-5 py-3 bg-white border border-amber-200 text-amber-700 font-bold rounded-xl hover:bg-amber-50 transition shadow-sm disabled:opacity-50">
+                        {{-- Minta Revisi --}}
+                        <button wire:loading.attr="disabled"
+                            @click="openConfirm(
+                                'Minta Revisi PO?',
+                                'PO akan dikembalikan ke merchant untuk diperbaiki dan diajukan ulang.',
+                                '⟲',
+                                'amber',
+                                'Ya, Minta Revisi',
+                                () => $wire.mintaRevisi()
+                            )"
+                            class="px-5 py-3 bg-white border border-amber-200 text-amber-700 font-bold rounded-xl
+                                   hover:bg-amber-50 hover:-translate-y-0.5 hover:shadow-md
+                                   active:translate-y-0 active:scale-95
+                                   transition-all duration-200 shadow-sm disabled:opacity-50">
                             <span wire:loading.remove wire:target="mintaRevisi">⟲ Minta Revisi</span>
                             <span wire:loading wire:target="mintaRevisi">Memproses...</span>
                         </button>
-                        <button wire:click="tolakFinal"
-                                wire:confirm="TOLAK FINAL akan menutup PO ini permanen. Lanjutkan?"
-                                wire:loading.attr="disabled"
-                                class="px-5 py-3 bg-white border border-rose-200 text-rose-600 font-bold rounded-xl hover:bg-rose-50 transition shadow-sm disabled:opacity-50">
+
+                        {{-- Tolak Final --}}
+                        <button wire:loading.attr="disabled"
+                            @click="openConfirm(
+                                'Tolak Final PO?',
+                                'PO akan ditutup permanen. Tindakan ini tidak dapat dibatalkan.',
+                                '✕',
+                                'rose',
+                                'Ya, Tolak Final',
+                                () => $wire.tolakFinal()
+                            )"
+                            class="px-5 py-3 bg-white border border-rose-200 text-rose-600 font-bold rounded-xl
+                                   hover:bg-rose-50 hover:-translate-y-0.5 hover:shadow-md
+                                   active:translate-y-0 active:scale-95
+                                   transition-all duration-200 shadow-sm disabled:opacity-50">
                             <span wire:loading.remove wire:target="tolakFinal">✕ Tolak Final</span>
                             <span wire:loading wire:target="tolakFinal">Memproses...</span>
                         </button>
                     </div>
-                    <button wire:click="setujuiPendanaan"
-                            wire:confirm="Dana akan dipotong dari Brankas dan ditransfer ke Pemasok. Lanjutkan?"
-                            wire:loading.attr="disabled"
-                            @disabled(! $this->isChecklistComplete)
-                            class="flex-1 px-6 py-3 bg-[#4338CA] text-white font-black rounded-xl shadow-lg shadow-indigo-200 transition flex items-center justify-center gap-2
-                                {{ $this->isChecklistComplete ? 'hover:bg-indigo-800' : 'opacity-50 cursor-not-allowed' }}
-                                disabled:opacity-50">
+
+                    {{-- Setujui & Cairkan --}}
+                    <button wire:loading.attr="disabled"
+                        @disabled(! $this->isChecklistComplete)
+                        @click="openConfirm(
+                            'Setujui & Cairkan Dana?',
+                            'Dana akan dipotong dari Brankas dan ditransfer ke rekening Pemasok. Pastikan semua validasi sudah benar.',
+                            '✅',
+                            'emerald',
+                            'Ya, Cairkan Dana',
+                            () => $wire.setujuiPendanaan()
+                        )"
+                        class="flex-1 px-6 py-3 text-white font-black rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center gap-2
+                               {{ $this->isChecklistComplete
+                                   ? 'bg-[#4338CA] hover:bg-indigo-700 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-200 active:translate-y-0 active:scale-95 shadow-indigo-200'
+                                   : 'bg-gray-300 cursor-not-allowed opacity-50' }}
+                               disabled:opacity-50">
                         <span wire:loading.remove wire:target="setujuiPendanaan">Setujui & Cairkan Rp {{ number_format($selectedOrder->total_estimasi, 0, ',', '.') }}</span>
                         <span wire:loading wire:target="setujuiPendanaan">Memproses Pencairan...</span>
                     </button>

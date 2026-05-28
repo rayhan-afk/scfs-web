@@ -50,7 +50,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
         $pemasok = $this->selectedPemasok;
         if (!$pemasok || $pemasok->status_verifikasi !== 'menunggu_review') {
             $this->closeModal();
-            $this->dispatch('show-toast', type: 'error', message: 'Aksi tidak valid atau status pemasok sudah berubah.');
+            session()->flash('error', 'Aksi tidak valid atau status pemasok sudah berubah.');
             return;
         }
 
@@ -64,7 +64,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
         $pemasok->user->notify(new PemasokApproved());
 
         $this->closeModal();
-        $this->dispatch('show-toast', type: 'success', message: "Pemasok {$namaPerusahaan} berhasil disetujui dan diaktifkan!");
+        session()->flash('message', "Pemasok {$namaPerusahaan} berhasil disetujui dan diaktifkan!");
     }
 
     public function rejectPemasok()
@@ -74,7 +74,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
         $pemasok = $this->selectedPemasok;
         if (!$pemasok || $pemasok->status_verifikasi !== 'menunggu_review') {
             $this->closeModal();
-            $this->dispatch('show-toast', type: 'error', message: 'Aksi tidak valid.');
+            session()->flash('error', 'Aksi tidak valid.');
             return;
         }
 
@@ -87,17 +87,12 @@ new #[Layout('layouts.lkbb')] class extends Component {
         $pemasok->user->notify(new PemasokRejected($this->catatan_penolakan));
 
         $this->closeModal();
-        $this->dispatch('show-toast', type: 'error', message: "Pendaftaran {$namaPerusahaan} berhasil ditolak.");
+        session()->flash('error', "Pendaftaran {$namaPerusahaan} berhasil ditolak.");
     }
 }; ?>
 
 <div
     x-data="{
-        showToast: false,
-        toastType: '',
-        toastMessage: '',
-        toastTimer: null,
-
         showConfirm: false,
         confirmType: '',
         confirmTitle: '',
@@ -115,60 +110,10 @@ new #[Layout('layouts.lkbb')] class extends Component {
         doConfirm() {
             if (this.confirmAction) this.confirmAction();
             this.showConfirm = false;
-        },
-
-        triggerToast(type, message) {
-            clearTimeout(this.toastTimer);
-            this.toastType = type;
-            this.toastMessage = message;
-            this.showToast = true;
-            this.toastTimer = setTimeout(() => { this.showToast = false; }, 4500);
         }
     }"
-    x-on:show-toast.window="triggerToast($event.detail.type, $event.detail.message)"
     class="p-6 max-w-7xl mx-auto"
 >
-
-    {{-- ===== TOAST NOTIFICATION ===== --}}
-    <div
-        x-show="showToast"
-        x-cloak
-        x-transition:enter="transition ease-out duration-400"
-        x-transition:enter-start="opacity-0 translate-y-6 scale-95"
-        x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-        x-transition:leave="transition ease-in duration-300"
-        x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-        x-transition:leave-end="opacity-0 translate-y-6 scale-95"
-        class="fixed bottom-6 right-6 z-[9999] w-full max-w-sm"
-    >
-        <div x-show="toastType === 'success'" class="flex items-start gap-4 bg-white border border-green-100 rounded-2xl shadow-2xl shadow-green-100/60 p-5 relative overflow-hidden">
-            <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-green-400 to-emerald-500 rounded-l-2xl"></div>
-            <div class="flex-shrink-0 w-11 h-11 bg-green-100 rounded-xl flex items-center justify-center ml-2">
-                <svg class="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-            <div class="flex-1 pt-0.5 min-w-0">
-                <p class="text-sm font-black text-gray-900">Berhasil!</p>
-                <p class="text-xs text-gray-500 mt-1 leading-relaxed" x-text="toastMessage"></p>
-            </div>
-            <button @click="showToast = false" class="flex-shrink-0 text-gray-300 hover:text-gray-500 transition mt-0.5">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-        </div>
-
-        <div x-show="toastType === 'error'" class="flex items-start gap-4 bg-white border border-red-100 rounded-2xl shadow-2xl shadow-red-100/60 p-5 relative overflow-hidden">
-            <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-red-400 to-rose-500 rounded-l-2xl"></div>
-            <div class="flex-shrink-0 w-11 h-11 bg-red-100 rounded-xl flex items-center justify-center ml-2">
-                <svg class="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-            <div class="flex-1 pt-0.5 min-w-0">
-                <p class="text-sm font-black text-gray-900">Pemberitahuan</p>
-                <p class="text-xs text-gray-500 mt-1 leading-relaxed" x-text="toastMessage"></p>
-            </div>
-            <button @click="showToast = false" class="flex-shrink-0 text-gray-300 hover:text-gray-500 transition mt-0.5">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-        </div>
-    </div>
 
     {{-- ===== CONFIRM DIALOG ===== --}}
     <div
@@ -191,7 +136,7 @@ new #[Layout('layouts.lkbb')] class extends Component {
             </div>
             <div class="flex gap-3">
                 <button @click="showConfirm = false" class="flex-1 px-6 py-3 text-sm font-bold text-gray-600 bg-gray-100 rounded-2xl hover:bg-gray-200 transition-all duration-200">Batal</button>
-                <button @click="doConfirm()" :class="confirmType === 'approve' ? 'flex-1 px-6 py-3 text-sm font-bold text-white bg-[#2463EB] rounded-2xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all duration-200' : 'flex-1 px-6 py-3 text-sm font-bold text-white bg-red-500 rounded-2xl shadow-lg shadow-red-200 hover:bg-red-600 transition-all duration-200'" x-text="confirmType === 'approve' ? 'Ya, Setujui' : 'Ya, Tolak'"></button>
+                <button @click="doConfirm()" :class="confirmType === 'approve' ? 'flex-1 px-6 py-3 text-sm font-bold text-white bg-[#28a745] rounded-2xl shadow-lg shadow-green-200 hover:bg-green-700 transition-all duration-200' : 'flex-1 px-6 py-3 text-sm font-bold text-white bg-red-500 rounded-2xl shadow-lg shadow-red-200 hover:bg-red-600 transition-all duration-200'" x-text="confirmType === 'approve' ? 'Ya, Setujui' : 'Ya, Tolak'"></button>
             </div>
         </div>
     </div>
@@ -202,6 +147,25 @@ new #[Layout('layouts.lkbb')] class extends Component {
             <p class="text-gray-500 text-sm mt-1">Verifikasi legalitas gudang dan data pemilik pemasok rantai pasok.</p>
         </div>
     </div>
+
+    {{-- ===== FLASH NOTIFICATION ===== --}}
+    @if (session()->has('message'))
+        <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl relative mb-4 shadow-sm flex items-center gap-2">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="font-medium">{{ session('message') }}</span>
+        </div>
+    @endif
+
+    @if (session()->has('error'))
+        <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl relative mb-4 shadow-sm flex items-center gap-2">
+            <svg class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span class="font-medium">{{ session('error') }}</span>
+        </div>
+    @endif
 
     <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
         <div class="overflow-x-auto">

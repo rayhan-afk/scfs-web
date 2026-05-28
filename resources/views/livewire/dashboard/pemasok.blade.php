@@ -423,7 +423,7 @@ class extends Component {
                 <h2 class="text-2xl font-bold text-gray-900">Halo, {{ $this->profile->nama_perusahaan }}! 👋</h2>
                 <p class="text-gray-500 text-sm mt-1">Pantau pesanan dan kelola suplai barang ke LKBB di sini.</p>
             </div>
-            <a href="{{ route('pemasok.pesanan-masuk') ?? '#' }}" wire:navigate class="px-6 py-3 bg-[#059669] text-white font-bold text-sm rounded-xl transition shadow-lg shadow-emerald-200 flex items-center gap-2 hover:bg-emerald-700">
+            <a href="{{ route('pemasok.pesanan-masuk') ?? '#' }}" wire:navigate class="px-6 py-3 bg-[#d97706] text-white font-bold text-sm rounded-xl transition shadow-lg shadow-amber-200 flex items-center gap-2 hover:bg-amber-700">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                 Kelola Pesanan Suplai
             </a>

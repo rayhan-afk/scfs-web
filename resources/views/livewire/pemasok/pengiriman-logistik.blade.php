@@ -92,7 +92,7 @@
         ])>Sedang Jalan</button>
         <button wire:click="setTab('selesai')" @class([
             'flex-none rounded-xl px-5 py-2.5 text-sm font-bold transition-all',
-            'bg-gradient-to-r from-emerald-500 to-lime-500 text-white shadow-md shadow-emerald-200' => $activeTab === 'selesai',
+            'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-200' => $activeTab === 'selesai',
             'text-gray-500 hover:bg-gray-50' => $activeTab !== 'selesai',
         ])>Diterima Merchant</button>
     </div>
@@ -110,19 +110,19 @@
                         style="animation-delay: {{ $i * 40 }}ms;">
                     <div class="flex items-center gap-4">
                         {{-- Status icon --}}
-                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-lime-500 text-white shadow-md shadow-emerald-200 ring-2 ring-white">
+                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-lime-500 text-white shadow-md shadow-amber-200 ring-2 ring-white">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                         </div>
 
                         {{-- Info --}}
                         <div class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-center gap-2">
-                                <span class="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-700">{{ $order->nomor_order }}</span>
+                                <span class="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700">{{ $order->nomor_order }}</span>
                                 <span class="text-[10px] font-bold text-gray-400">Diterima {{ \Carbon\Carbon::parse($order->updated_at)->format('d M Y · H:i') }}</span>
                             </div>
                             <p class="mt-1 text-sm font-black leading-tight text-gray-900 truncate">{{ $order->merchant->merchantProfile->nama_kantin ?? $order->merchant->name }}</p>
                             <p class="text-[11px] font-medium text-gray-500">
-                                {{ $order->details->count() }} item · <span class="font-black text-emerald-600">Rp {{ number_format($order->total_estimasi, 0, ',', '.') }}</span>
+                                {{ $order->details->count() }} item · <span class="font-black text-amber-600">Rp {{ number_format($order->total_estimasi, 0, ',', '.') }}</span>
                                 @if($order->nama_kurir)
                                     · 🛵 {{ $order->nama_kurir }}
                                 @endif
@@ -130,11 +130,11 @@
                         </div>
 
                         {{-- CTA --}}
-                        <div class="hidden sm:flex items-center gap-1 text-[11px] font-black text-emerald-600 group-hover:translate-x-0.5 transition">
+                        <div class="hidden sm:flex items-center gap-1 text-[11px] font-black text-amber-600 group-hover:translate-x-0.5 transition">
                             Rincian
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                         </div>
-                        <svg class="sm:hidden h-5 w-5 shrink-0 text-gray-300 group-hover:text-emerald-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+                        <svg class="sm:hidden h-5 w-5 shrink-0 text-gray-300 group-hover:text-amber-500 transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
                     </div>
                 </button>
 
@@ -212,7 +212,13 @@
                                 <button wire:click="cetakLabel({{ $order->id }})" class="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-bold text-gray-600 transition hover:bg-gray-50">Cetak Label</button>
                             </div>
                         @elseif($activeTab === 'dikirim')
-                            <button wire:click="bukaModalDetail({{ $order->id }})" class="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-bold text-gray-700 transition hover:bg-gray-50">Lihat Detail Pesanan</button>
+                            <button wire:click="bukaModalDetail({{ $order->id }})" 
+                                class="w-full bg-white border-2 border-emerald-500 text-emerald-600 font-bold py-2.5 rounded-xl 
+                                    hover:bg-emerald-500 hover:text-white hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-200
+                                    active:translate-y-0 active:scale-95
+                                    transition-all duration-200 text-sm">
+                                    Lihat Detail Pesanan
+                            </button>
                             <button wire:click="cetakLabel({{ $order->id }})" class="w-full rounded-2xl border border-orange-200 bg-orange-50 px-4 py-2.5 text-xs font-bold text-orange-600 transition hover:bg-orange-100">Cetak Ulang Surat Jalan</button>
                         @else
                             <div class="rounded-2xl bg-gradient-to-br from-emerald-50 to-lime-50 border border-emerald-200 px-4 py-3">

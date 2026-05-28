@@ -39,14 +39,14 @@
                 </div>
                 <div class="text-right">
                     <span class="text-xs font-bold text-gray-500">Nilai Pendanaan:</span>
-                    <span class="text-sm font-black text-blue-600 ml-1">Rp {{ number_format($order->total_estimasi, 0, ',', '.') }}</span>
+                    <span class="text-sm font-black text-orange-600 ml-1">Rp {{ number_format($order->total_estimasi, 0, ',', '.') }}</span>
                 </div>
             </div>
             
             <div class="flex flex-col lg:flex-row gap-6">
                 {{-- Info Pemesan (Kantin) --}}
                 <div class="flex-1 flex items-start gap-4">
-                    <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center flex-shrink-0 border border-blue-100">
+                    <div class="w-12 h-12 bg-orange-50 text-orange-600 rounded-full flex items-center justify-center flex-shrink-0 border border-blue-100">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
                     </div>
                     <div>
@@ -68,10 +68,10 @@
                 <div class="flex flex-col justify-end lg:items-end gap-2 lg:w-72 border-t lg:border-t-0 lg:border-l border-gray-100 pt-4 lg:pt-0 lg:pl-6">
                     
                     @if($order->status === 'menunggu_pemasok')
-                        <div class="w-full text-left lg:text-right mb-2 bg-indigo-50 p-2 rounded-lg border border-indigo-100">
-                            <span class="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider">⚠️ Perlu Konfirmasi Anda</span>
+                        <div class="w-full text-left lg:text-right mb-2 bg-orange-50 p-2 rounded-lg border border-indigo-100">
+                            <span class="text-[10px] font-extrabold text-orange-600 uppercase tracking-wider">⚠️ Perlu Konfirmasi Anda</span>
                         </div>
-                        <button wire:click="bukaModalDetail({{ $order->id }})" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 shadow-md shadow-blue-200 transition-all text-sm">
+                        <button wire:click="bukaModalDetail({{ $order->id }})" class="w-full bg-orange-600 text-white font-bold py-2.5 rounded-xl hover:bg-orange-700 shadow-md shadow-orange-200 transition-all text-sm">
                             Review & Konfirmasi
                         </button>
 
@@ -79,7 +79,11 @@
                         <div class="w-full text-left lg:text-right mb-2 bg-amber-50 p-2 rounded-lg border border-amber-100">
                             <span class="text-[10px] font-extrabold text-amber-600 uppercase tracking-wider">⏳ Menunggu Pencairan LKBB</span>
                         </div>
-                        <button wire:click="bukaModalDetail({{ $order->id }})" class="w-full bg-white border border-gray-200 text-gray-600 font-bold py-2.5 rounded-xl hover:bg-gray-50 transition-all text-sm">
+                        <button wire:click="bukaModalDetail({{ $order->id }})" 
+                            class="w-full bg-white border-2 border-emerald-500 text-emerald-600 font-bold py-2.5 rounded-xl 
+                                hover:bg-emerald-500 hover:text-white hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-200
+                                active:translate-y-0 active:scale-95
+                                transition-all duration-200 text-sm">
                             Lihat Pesanan
                         </button>
 
@@ -102,7 +106,11 @@
                             </div>
                             
                             {{-- Tombol Lihat Rincian Style Baru --}}
-                            <button wire:click="bukaModalDetail({{ $order->id }})" class="w-full bg-white border border-gray-200 text-[#0f766e] font-black py-3 rounded-2xl hover:bg-gray-50 hover:border-gray-300 transition-all text-sm shadow-sm">
+                            <button wire:click="bukaModalDetail({{ $order->id }})" 
+                                class="w-full bg-white border-2 border-emerald-500 text-emerald-600 font-bold py-2.5 rounded-xl 
+                                    hover:bg-emerald-500 hover:text-white hover:-translate-y-0.5 hover:shadow-lg hover:shadow-emerald-200
+                                    active:translate-y-0 active:scale-95
+                                    transition-all duration-200 text-sm">
                                 Lihat Rincian
                             </button>
                         </div>
@@ -146,14 +154,14 @@
             
             <div class="p-6 overflow-y-auto">
                 @if($this->selectedOrder)
-                <div class="mb-6 grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                <div class="mb-6 grid grid-cols-2 gap-4 bg-orange-50 p-4 rounded-xl border border-orange-100">
                     <div>
-                        <p class="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Pemesan (Kantin)</p>
+                        <p class="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">Pemesan (Kantin)</p>
                         <p class="text-sm font-black text-gray-900">{{ $this->selectedOrder->merchant->merchantProfile->nama_kantin ?? $this->selectedOrder->merchant->name }}</p>
                         <p class="text-xs font-medium text-gray-700 mt-1">{{ $this->selectedOrder->merchant->merchantProfile->nama_pemilik ?? '-' }} ({{ $this->selectedOrder->merchant->merchantProfile->no_hp ?? '-' }})</p>
                     </div>
                     <div>
-                        <p class="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Diminta Tgl</p>
+                        <p class="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">Diminta Tgl</p>
                         <p class="text-xs font-bold text-gray-700">{{ \Carbon\Carbon::parse($this->selectedOrder->tanggal_kebutuhan)->format('d F Y') }}</p>
                         
                         @if($this->selectedOrder->catatan)
@@ -188,7 +196,7 @@
                         <tfoot class="bg-gray-50">
                             <tr>
                                 <td colspan="3" class="px-4 py-3 text-right font-black text-gray-600 text-xs uppercase">Estimasi Pencairan:</td>
-                                <td class="px-4 py-3 text-right font-black text-blue-600 text-base">Rp {{ number_format($this->selectedOrder->total_estimasi, 0, ',', '.') }}</td>
+                                <td class="px-4 py-3 text-right font-black text-emerald-600 text-base">Rp {{ number_format($this->selectedOrder->total_estimasi, 0, ',', '.') }}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -199,12 +207,18 @@
             <div class="p-4 border-t border-gray-100 bg-white shrink-0 flex justify-end gap-3">
                 @if($this->selectedOrder && $this->selectedOrder->status === 'menunggu_pemasok')
                     <button wire:click="bukaModalTolak" class="px-6 py-2.5 bg-white border border-red-200 text-red-600 font-bold rounded-xl text-sm hover:bg-red-50 transition shadow-sm">Tolak Pesanan</button>
-                    <button wire:click="setujuiPesanan" class="px-6 py-2.5 bg-blue-600 text-white font-black rounded-xl text-sm hover:bg-blue-700 transition shadow-lg shadow-blue-200 flex items-center gap-2">
+                    <button wire:click="setujuiPesanan" class="px-6 py-2.5 bg-emerald-600 text-white font-black rounded-xl text-sm hover:bg-emerald-500 hover:-translate-y-0.5 hover:shadow-emerald-200 transition-all duration-200 shadow-lg shadow-emerald-200 flex items-center gap-2 active:translate-y-0 active:scale-95">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
                         Setujui & Teruskan ke LKBB
                     </button>
                 @else
-                    <button @click="open = false" class="px-6 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-200">Tutup Form</button>
+                    <button @click="open = false" 
+                        class="px-6 py-2.5 bg-white border-2 border-gray-300 text-gray-600 font-bold rounded-xl text-sm 
+                            hover:border-gray-400 hover:text-gray-800 hover:bg-gray-50 hover:-translate-y-0.5 hover:shadow-md
+                            active:translate-y-0 active:scale-95
+                            transition-all duration-200">
+                        Tutup Form
+                    </button>
                 @endif
             </div>
         </div>
