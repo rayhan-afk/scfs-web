@@ -212,7 +212,7 @@ class extends Component {
                 <div>
                     <p class="text-emerald-200 text-[10px] font-bold tracking-wider mb-1 uppercase">Saldo Kantin</p>
                     <h3 class="text-3xl font-extrabold tracking-tight drop-shadow-md truncate">
-                        Rp {{ number_format($user->wallet->balance ?? 0, 0, ',', '.') }}
+                        Rp {{ number_format($profile?->saldo_token ?? 0, 0, ',', '.') }}
                     </h3>
                 </div>
             </div>

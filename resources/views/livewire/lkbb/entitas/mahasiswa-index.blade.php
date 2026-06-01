@@ -28,9 +28,6 @@ class extends Component {
             ->with([
                 'mahasiswaProfile:id,user_id,nim,jurusan,no_hp,semester,ipk,status_verifikasi,status_bantuan,saldo',
             ])
-            ->withSum(['wallets as saldo_wallet' => function ($q) {
-                $q->where('type', 'MAHASISWA');
-            }], 'balance')
             ->withSum(['transactions as total_bantuan_cair' => function ($q) {
                 $q->where('type', 'penerimaan_bantuan')->whereIn('status', ['success', 'sukses', 'lunas']);
             }], 'total_amount')
@@ -144,8 +141,8 @@ class extends Component {
 
                             {{-- Saldo --}}
                             <td class="px-6 py-4 text-right">
-                                <div class="text-sm font-bold {{ ($mhs->saldo_wallet ?? 0) > 0 ? 'text-green-600' : 'text-gray-400' }}">
-                                    Rp {{ number_format($mhs->saldo_wallet ?? 0, 0, ',', '.') }}
+                                <div class="text-sm font-bold {{ ($profile?->saldo ?? 0) > 0 ? 'text-green-600' : 'text-gray-400' }}">
+                                    Rp {{ number_format($profile?->saldo ?? 0, 0, ',', '.') }}
                                 </div>
                             </td>
 

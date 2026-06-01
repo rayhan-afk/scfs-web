@@ -3,6 +3,7 @@
 use Livewire\Volt\Component;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use App\Models\Withdrawal;
 use App\Models\MerchantProfile;
@@ -29,16 +30,23 @@ class extends Component {
     public function approve($id)
     {
         try {
-            $wd = Withdrawal::findOrFail($id);
-            
-            // Ubah status jadi disetujui
-            $wd->update([
-                'status' => 'disetujui',
-                'catatan_lkbb' => 'Dana telah ditransfer ke rekening tujuan.'
-            ]);
-            
+            DB::transaction(function () use ($id) {
+                $wd = Withdrawal::where('id', $id)->lockForUpdate()->firstOrFail();
+
+                if ($wd->status !== 'pending') {
+                    throw new \Exception('Pengajuan ini sudah diproses sebelumnya.');
+                }
+
+                $wd->update([
+                    'status'       => 'disetujui',
+                    'catatan_lkbb' => 'Dana telah ditransfer ke rekening tujuan.',
+                    'approved_by'  => Auth::id(),
+                    'approved_at'  => now(),
+                ]);
+            });
+
             session()->flash('success', 'Penarikan berhasil disetujui. Pastikan Anda sudah mentransfer uangnya!');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             session()->flash('error', 'Terjadi kesalahan: ' . $e->getMessage());
         }
     }

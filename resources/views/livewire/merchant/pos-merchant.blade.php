@@ -15,9 +15,8 @@ class extends Component {
     
     public $kategoriAktif = 'semua';
     public $search = '';
-    public array $cart = []; 
-    public $metode_pembayaran = 'digital'; 
-    public $uang_diterima = ''; 
+    public array $cart = [];
+    public $metode_pembayaran = 'digital';
 
     // STATE UNTUK QRIS / SCAN MAHASISWA
     public $showQrModal = false;
@@ -82,7 +81,7 @@ class extends Component {
     public function clearCart()
     {
         $this->cart = [];
-        $this->reset(['uang_diterima', 'pendingOrderId', 'showQrModal', 'qrPayloadString']);
+        $this->reset(['pendingOrderId', 'showQrModal', 'qrPayloadString']);
     }
 
     #[Computed]
@@ -101,47 +100,68 @@ class extends Component {
     public function prosesPembayaranTunai()
     {
         if (empty($this->cart)) return;
-        $this->validate(['uang_diterima' => 'numeric|min:' . $this->cartSummary['total']]);
 
         try {
             DB::transaction(function () {
                 $merchant = MerchantProfile::where('user_id', Auth::id())->lockForUpdate()->firstOrFail();
-                
-                $dbTotalAmount = 0; $dbTotalPokok = 0; $dbTotalProfit = 0; $deskripsiTransaksi = [];
+
+                $dbTotalAmount = 0; $dbTotalPokok = 0; $dbTotalProfit = 0;
+                $deskripsiTransaksi = []; $cartSnapshot = [];
 
                 foreach ($this->cart as $item) {
                     $realProduct = MerchantProduct::where('merchant_id', $merchant->user_id)->lockForUpdate()->findOrFail($item['id']);
                     if ($realProduct->stok < $item['qty']) throw new \Exception("Stok {$realProduct->nama_produk} habis.");
 
-                    $realProduct->decrement('stok', $item['qty']); 
-                    
-                    $subtotalJual = $item['harga_jual'] * $item['qty'];
+                    $realProduct->decrement('stok', $item['qty']);
+
+                    $subtotalJual  = $item['harga_jual']  * $item['qty'];
                     $subtotalPokok = $item['harga_pokok'] * $item['qty'];
-                    
+
                     $dbTotalAmount += $subtotalJual;
-                    $dbTotalPokok += $subtotalPokok;
-                    $dbTotalProfit += ($subtotalJual - $subtotalPokok); 
-                    
+                    $dbTotalPokok  += $subtotalPokok;
+                    $dbTotalProfit += ($subtotalJual - $subtotalPokok);
+
                     $deskripsiTransaksi[] = "{$item['qty']}x {$realProduct->nama_produk}";
+                    $cartSnapshot[] = [
+                        'product_id'  => $realProduct->id,
+                        'nama_produk' => $realProduct->nama_produk,
+                        'qty'         => (int) $item['qty'],
+                        'harga_jual'  => (float) $item['harga_jual'],
+                        'harga_pokok' => (float) $item['harga_pokok'],
+                    ];
                 }
-                
+
                 $persentaseLKBB = $merchant->persentase_fee_merchant ?? 0;
-                $feeLKBB = ($dbTotalProfit * $persentaseLKBB) / 100;
-                $tagihanKeLKBB = $dbTotalPokok + $feeLKBB; 
+                $feeLKBB        = ($dbTotalProfit * $persentaseLKBB) / 100;
+                $tagihanKeLKBB  = $dbTotalPokok + $feeLKBB;
 
                 $merchant->increment('tagihan_setoran_tunai', $tagihanKeLKBB);
-                
-                Transaction::create([
-                    'order_id'    => 'UMM-' . strtoupper(uniqid()),
-                    'user_id'     => Auth::id(), 
-                    'merchant_id' => $merchant->user_id,
-                    'type'        => 'pembayaran_makanan_tunai',
-                    'total_amount'=> $dbTotalAmount,
-                    'total_pokok' => $dbTotalPokok,
-                    'fee_lkbb'    => $feeLKBB,
-                    'status'      => 'sukses',
-                    'description' => '[UMUM] ' . implode(', ', $deskripsiTransaksi)
+
+                $trx = Transaction::create([
+                    'order_id'      => 'UMM-' . strtoupper(uniqid()),
+                    'user_id'       => Auth::id(),
+                    'merchant_id'   => $merchant->user_id,
+                    'type'          => 'pembayaran_makanan_tunai',
+                    'total_amount'  => $dbTotalAmount,
+                    'total_pokok'   => $dbTotalPokok,
+                    'fee_lkbb'      => $feeLKBB,
+                    'status'        => 'sukses',
+                    'description'   => '[UMUM] ' . implode(', ', $deskripsiTransaksi),
+                    'cart_snapshot' => $cartSnapshot,
                 ]);
+
+                // Audit ledger: bagi hasil + modal LKBB diakrukan sebagai klaim tagihan
+                // (uang fisik belum masuk ke wallet — direalisasikan saat petugas terima setoran).
+                $walletOperasional = \App\Models\Wallet::where('type', 'LKBB_OPERATIONAL')->first();
+                if ($walletOperasional && $tagihanKeLKBB > 0) {
+                    \App\Models\LedgerEntry::create([
+                        'transaction_id' => $trx->id,
+                        'wallet_id'      => $walletOperasional->id,
+                        'entry_type'     => 'ACCRUAL_TUNAI',
+                        'amount'         => $tagihanKeLKBB,
+                        'balance_after'  => $walletOperasional->balance,
+                    ]);
+                }
             });
 
             $this->clearCart();
@@ -162,45 +182,54 @@ class extends Component {
         try {
             DB::transaction(function () {
                 $merchant = MerchantProfile::where('user_id', Auth::id())->firstOrFail();
-                
-                $dbTotalAmount = 0; $dbTotalPokok = 0; $dbTotalProfit = 0; $deskripsiTransaksi = [];
+
+                $dbTotalAmount = 0; $dbTotalPokok = 0; $dbTotalProfit = 0;
+                $deskripsiTransaksi = []; $cartSnapshot = [];
 
                 foreach ($this->cart as $item) {
                     $realProduct = MerchantProduct::where('merchant_id', $merchant->user_id)->lockForUpdate()->findOrFail($item['id']);
                     if ($realProduct->stok < $item['qty']) throw new \Exception("Stok {$realProduct->nama_produk} tidak mencukupi.");
 
-                    $realProduct->decrement('stok', $item['qty']); 
-                    
-                    $subtotalJual = $item['harga_jual'] * $item['qty'];
+                    $realProduct->decrement('stok', $item['qty']);
+
+                    $subtotalJual  = $item['harga_jual']  * $item['qty'];
                     $subtotalPokok = $item['harga_pokok'] * $item['qty'];
-                    
+
                     $dbTotalAmount += $subtotalJual;
-                    $dbTotalPokok += $subtotalPokok;
-                    $dbTotalProfit += ($subtotalJual - $subtotalPokok); 
-                    
+                    $dbTotalPokok  += $subtotalPokok;
+                    $dbTotalProfit += ($subtotalJual - $subtotalPokok);
+
                     $deskripsiTransaksi[] = "{$item['qty']}x {$realProduct->nama_produk}";
+                    $cartSnapshot[] = [
+                        'product_id'  => $realProduct->id,
+                        'nama_produk' => $realProduct->nama_produk,
+                        'qty'         => (int) $item['qty'],
+                        'harga_jual'  => (float) $item['harga_jual'],
+                        'harga_pokok' => (float) $item['harga_pokok'],
+                    ];
                 }
-                
+
                 $persentaseLKBB = $merchant->persentase_fee_merchant ?? 0;
-                $feeLKBB = ($dbTotalProfit * $persentaseLKBB) / 100;
-                
+                $feeLKBB        = ($dbTotalProfit * $persentaseLKBB) / 100;
+
                 $this->pendingOrderId = 'DIG-' . strtoupper(uniqid());
 
                 Transaction::create([
-                    'order_id'    => $this->pendingOrderId,
-                    'user_id'     => Auth::id(), 
-                    'merchant_id' => $merchant->user_id,
-                    'type'        => 'pembayaran_makanan', 
-                    'total_amount'=> $dbTotalAmount,
-                    'total_pokok' => $dbTotalPokok,
-                    'fee_lkbb'    => $feeLKBB,
-                    'status'      => 'pending',
-                    'description' => '[QR] ' . implode(', ', $deskripsiTransaksi)
+                    'order_id'      => $this->pendingOrderId,
+                    'user_id'       => Auth::id(),
+                    'merchant_id'   => $merchant->user_id,
+                    'type'          => 'pembayaran_makanan',
+                    'total_amount'  => $dbTotalAmount,
+                    'total_pokok'   => $dbTotalPokok,
+                    'fee_lkbb'      => $feeLKBB,
+                    'status'        => 'pending',
+                    'description'   => '[QR] ' . implode(', ', $deskripsiTransaksi),
+                    'cart_snapshot' => $cartSnapshot,
                 ]);
 
                 $this->qrPayloadString = json_encode([
-                    'order_id' => $this->pendingOrderId,
-                    'merchant_id' => $merchant->user_id,
+                    'order_id'     => $this->pendingOrderId,
+                    'merchant_id'  => $merchant->user_id,
                     'total_amount' => $dbTotalAmount
                 ]);
 
@@ -216,12 +245,18 @@ class extends Component {
     {
         if ($this->pendingOrderId) {
             DB::transaction(function () {
-                $trx = Transaction::where('order_id', $this->pendingOrderId)->first();
+                $trx = Transaction::where('order_id', $this->pendingOrderId)
+                            ->lockForUpdate()
+                            ->first();
+
                 if ($trx && $trx->status === 'pending') {
-                    foreach ($this->cart as $item) {
-                        MerchantProduct::where('id', $item['id'])->increment('stok', $item['qty']);
+                    // Restore stok dari snapshot (lebih reliable daripada $this->cart in-memory)
+                    $snapshot = $trx->cart_snapshot ?? [];
+                    foreach ($snapshot as $item) {
+                        MerchantProduct::where('id', $item['product_id'])
+                            ->increment('stok', (int) $item['qty']);
                     }
-                    $trx->delete(); 
+                    $trx->delete();
                 }
             });
             $this->pendingOrderId = null;
@@ -375,22 +410,14 @@ class extends Component {
                     <button wire:click="$set('metode_pembayaran', 'tunai')" class="flex-1 py-2.5 text-[11px] font-black tracking-wide rounded-lg transition-all {{ $metode_pembayaran == 'tunai' ? 'bg-[#059669] text-white shadow-sm border border-emerald-700' : 'text-gray-500 hover:text-gray-800' }}">💵 TUNAI UMUM</button>
                 </div>
 
-                {{-- Input Conditional --}}
+                {{-- Info Pembayaran --}}
                 <div class="space-y-4 mb-5 min-h-[4.5rem]">
                     @if($metode_pembayaran === 'tunai')
-                        <div class="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100">
-                            <p class="text-[9px] text-emerald-800 font-bold mb-1.5 uppercase tracking-wider">Uang Fisik Diterima (Opsional)</p>
-                            <div class="relative">
-                                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-[#059669] font-black text-sm">Rp</span>
-                                <input wire:model="uang_diterima" wire:keydown.enter="prosesPembayaranTunai" type="number" placeholder="Nominal Uang Pas/Lebih" 
-                                    class="w-full py-3 pl-10 pr-3 text-sm font-black text-[#059669] bg-white border border-emerald-200 rounded-xl focus:ring-4 focus:ring-emerald-100 focus:border-[#059669] transition shadow-sm">
+                        <div class="flex items-center gap-3 p-3.5 bg-emerald-50/50 border border-emerald-100 rounded-xl">
+                            <div class="p-2 bg-emerald-100 text-emerald-700 rounded-lg shrink-0">
+                                <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                             </div>
-                            @if($uang_diterima && (int)$uang_diterima >= $this->cartSummary['total'] && $this->cartSummary['total'] > 0)
-                                <div class="mt-2.5 flex justify-between items-center bg-white p-2.5 rounded-lg border border-emerald-100">
-                                    <span class="text-[10px] font-bold text-gray-500">Kembalian:</span>
-                                    <span class="text-sm font-black text-orange-500">Rp {{ number_format((int)$uang_diterima - $this->cartSummary['total'], 0, ',', '.') }}</span>
-                                </div>
-                            @endif
+                            <p class="text-[10px] font-bold text-emerald-800 leading-relaxed">Terima uang tunai sesuai total tagihan. Klik tombol di bawah untuk mencatat transaksi.</p>
                         </div>
                     @else
                         <div class="flex items-center gap-3 p-3.5 bg-blue-50/50 border border-blue-100 rounded-xl">

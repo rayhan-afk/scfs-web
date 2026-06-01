@@ -25,7 +25,7 @@ new class extends Component
     // DETEKSI AKTIF UNTUK DROPDOWN BUKU BESAR ENTITAS (Pemasok & Merchant)
     $isEntitasActive = request()->routeIs('lkbb.entitas.*') || request()->is('lkbb/entitas/*');
 
-    $isKeuanganActive = request()->is('keuangan/pencairan*') || request()->routeIs('lkbb.withdraw.merchant.approval', 'lkbb.withdraw.pemasok.approval');
+    $isKeuanganActive = request()->routeIs('lkbb.withdraw.merchant.approval', 'lkbb.withdraw.pemasok.approval');
 @endphp
 
 <aside 
@@ -284,9 +284,6 @@ new class extends Component
                 </a>
                 <a href="{{ route('lkbb.withdraw.pemasok.approval') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('lkbb.withdraw.pemasok.approval') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
                     Approval WD Pemasok
-                </a>
-                <a href="{{ route('keuangan.pencairan') }}" class="flex items-center px-4 py-2.5 text-sm rounded-lg transition-all {{ request()->routeIs('keuangan.pencairan') ? 'text-[#4338CA] bg-white font-extrabold border-l-4 border-yellow-400 -ml-[2px]' : 'text-indigo-100 hover:text-white hover:bg-white/10 font-semibold' }}">
-                    Log Pencairan Selesai
                 </a>
             </div>
         </div>

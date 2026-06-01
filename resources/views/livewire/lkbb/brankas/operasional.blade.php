@@ -6,6 +6,8 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Computed;
 use App\Models\Transaction;
 use App\Models\Wallet;
+use App\Models\MerchantProfile;
+use App\Models\SetoranTunai;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -26,12 +28,34 @@ class extends Component {
     public function updatedSearch() { $this->resetPage(); }
     public function updatedBulanAktif() { $this->resetPage(); }
 
-    // 1. Ambil Saldo Terkini Dompet Operasional
+    // 1. Saldo Wallet LKBB_OPERATIONAL — uang fisik+digital yang sudah benar-benar masuk brankas.
+    //    Naik dari: payQr (QR Mahasiswa sukses) + terimaSetoran (uang fisik tunai diterima petugas).
     #[Computed]
     public function dompetTerkini()
     {
         $wallet = Wallet::where('type', 'LKBB_OPERATIONAL')->first();
-        return $wallet ? $wallet->balance : 0;
+        return $wallet ? (float) $wallet->balance : 0;
+    }
+
+    // 1b. Total tagihan tunai BELUM DISETOR ke LKBB — masih ada di laci kantin.
+    //     Sumber: running balance `tagihan_setoran_tunai` per kantin (akumulasi POS Tunai
+    //     dikurangi setoran fisik yang diterima petugas & potongan via Withdraw).
+    #[Computed]
+    public function pendingTunai(): array
+    {
+        $totalBelumSetor = (float) MerchantProfile::sum('tagihan_setoran_tunai');
+
+        $menungguJemput = (float) SetoranTunai::where('status', 'menunggu_penjemputan')
+                            ->sum('nominal');
+
+        // Belum dijadwalkan jemput = total tagihan aktif - tiket menunggu_penjemputan.
+        $belumDijadwalkan = max(0, $totalBelumSetor - $menungguJemput);
+
+        return [
+            'total'             => $totalBelumSetor,
+            'menunggu_jemput'   => $menungguJemput,
+            'belum_dijadwalkan' => $belumDijadwalkan,
+        ];
     }
 
     // 2. Query Utama (Hanya hitung transaksi yang sukses/lunas)
@@ -103,21 +127,45 @@ class extends Component {
 
     {{-- HIGHLIGHT CARDS --}}
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        {{-- Card 1: Saldo Terkini (Real-time Wallet) — admin gradient pattern --}}
-        <div class="bg-gradient-to-br from-emerald-600 to-green-800 rounded-2xl p-5 text-white shadow-lg relative overflow-hidden group">
-            <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-5 rounded-full -mr-6 -mt-6 pointer-events-none transition-transform group-hover:scale-110"></div>
-            <div class="relative z-10">
-                <div class="flex justify-between items-start mb-4">
-                    <div class="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-                        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+        {{-- Card 1: Split jadi 2 mini-card vertikal --}}
+        {{--   (a) Saldo Realized di Wallet LKBB_OPERATIONAL (QR mhs + tunai sudah disetor) --}}
+        {{--   (b) Pending Tunai (uang fisik di laci kantin yang belum disetor)             --}}
+        <div class="flex flex-col gap-3">
+            {{-- 1a. Saldo Realized --}}
+            <div class="bg-gradient-to-br from-emerald-600 to-green-800 rounded-2xl p-4 text-white shadow-lg relative overflow-hidden group flex-1">
+                <div class="absolute top-0 right-0 w-20 h-20 bg-white opacity-5 rounded-full -mr-6 -mt-6 pointer-events-none transition-transform group-hover:scale-110"></div>
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                        </div>
+                        <span class="bg-white/20 px-2 py-0.5 rounded-full text-[8px] font-bold tracking-widest uppercase">Realized</span>
                     </div>
-                    <span class="bg-white/20 px-2.5 py-0.5 rounded-full text-[9px] font-bold tracking-widest uppercase">Live</span>
+                    <p class="text-emerald-100 text-[9px] font-bold tracking-wider mb-0.5 uppercase">Saldo Wallet LKBB</p>
+                    <h3 class="text-xl font-extrabold tracking-tight drop-shadow-md">Rp {{ number_format($this->dompetTerkini, 0, ',', '.') }}</h3>
+                    <p class="text-[9px] text-emerald-200 mt-1 font-medium leading-tight">QR Mhs + Tunai sudah disetor</p>
                 </div>
-                <p class="text-emerald-100 text-[10px] font-bold tracking-wider mb-1 uppercase">Saldo Brankas Terkini</p>
-                <h3 class="text-2xl font-extrabold tracking-tight drop-shadow-md">Rp {{ number_format($this->dompetTerkini, 0, ',', '.') }}</h3>
-                <p class="text-[10px] text-emerald-200 mt-2 font-medium inline-flex items-center gap-1">
-                    <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span> Sinkronisasi Real-time
-                </p>
+            </div>
+
+            {{-- 1b. Pending Tunai --}}
+            <div class="bg-gradient-to-br from-amber-500 to-orange-700 rounded-2xl p-4 text-white shadow-lg relative overflow-hidden group flex-1">
+                <div class="absolute top-0 right-0 w-20 h-20 bg-white opacity-5 rounded-full -mr-6 -mt-6 pointer-events-none transition-transform group-hover:scale-110"></div>
+                <div class="relative z-10">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm">
+                            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        </div>
+                        <span class="bg-white/20 px-2 py-0.5 rounded-full text-[8px] font-bold tracking-widest uppercase">Pending</span>
+                    </div>
+                    <p class="text-amber-100 text-[9px] font-bold tracking-wider mb-0.5 uppercase">Tunai Belum Disetor</p>
+                    <h3 class="text-xl font-extrabold tracking-tight drop-shadow-md">Rp {{ number_format($this->pendingTunai['total'], 0, ',', '.') }}</h3>
+                    <div class="flex items-center gap-2 mt-1 text-[9px] font-medium leading-tight">
+                        <span class="inline-flex items-center gap-1 bg-white/15 px-1.5 py-0.5 rounded">
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-200 animate-pulse"></span>
+                            Jemput: Rp {{ number_format($this->pendingTunai['menunggu_jemput'], 0, ',', '.') }}
+                        </span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -135,11 +183,15 @@ class extends Component {
              <p class="text-[10px] text-purple-600 font-bold mt-1">Potongan bagi hasil dari kantin</p>
         </div>
 
-        {{-- Card 4: Total Aliran Masuk --}}
+        {{-- Card 4: Total Klaim (Bulan Filter) — termasuk yang belum disetor.
+             Selisih dengan Card 1a = porsi tunai yang masih ngantung di laci kantin. --}}
         <div class="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm flex flex-col justify-center bg-gray-50/50">
-             <p class="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider mb-1">Total Uang Masuk</p>
+             <p class="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider mb-1">Total Klaim Masuk (Bulan Ini)</p>
              <h3 class="text-xl font-black text-emerald-600">Rp {{ number_format($this->ringkasan['total_aliran_masuk'], 0, ',', '.') }}</h3>
-             <p class="text-[10px] text-gray-500 font-bold mt-1">Dari {{ number_format($this->ringkasan['jumlah_transaksi'], 0, ',', '.') }} Transaksi Sukses</p>
+             <p class="text-[10px] text-gray-500 font-bold mt-1">
+                Dari {{ number_format($this->ringkasan['jumlah_transaksi'], 0, ',', '.') }} transaksi
+                <span class="block text-[9px] text-gray-400 font-medium mt-0.5">QR direalisasi langsung; tunai baru saat disetor.</span>
+             </p>
         </div>
     </div>
 

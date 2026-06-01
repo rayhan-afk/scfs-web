@@ -7,17 +7,22 @@ use Illuminate\Database\Eloquent\Model;
 class Transaction extends Model
 {
     protected $fillable = [
-        'order_id', 
-        'user_id', 
-        'merchant_id', 
-        'sender_wallet_id',   // <--- PASTIKAN INI ADA
-        'receiver_wallet_id', // <--- Tambahan baru
-        'type', 
-        'status', 
+        'order_id',
+        'user_id',
+        'merchant_id',
+        'sender_wallet_id',
+        'receiver_wallet_id',
+        'type',
+        'status',
         'total_amount',
-        'total_pokok', 
-        'fee_lkbb',     // <--- Tambahan baru
-        'description'
+        'total_pokok',
+        'fee_lkbb',
+        'description',
+        'cart_snapshot',
+    ];
+
+    protected $casts = [
+        'cart_snapshot' => 'array',
     ];
 
     // Relasi ke pemilik transaksi

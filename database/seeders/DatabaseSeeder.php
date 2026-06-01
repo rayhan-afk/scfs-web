@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use App\Models\Wallet;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
@@ -26,12 +27,25 @@ class DatabaseSeeder extends Seeder
             'role' => 'merchant',
         ]);
 
-        User::create([
+        $lkbbUser = User::create([
             'name' => 'LKBB',
             'email' => 'lkbb@gmail.com',
             'password' => Hash::make('password'),
             'role' => 'lkbb',
         ]);
+
+        // Wallet inti LKBB — wajib ada agar payQr (split payment) tidak gagal di runtime.
+        foreach (['LKBB_OPERATIONAL', 'LKBB_DONATION', 'LKBB_INVESTMENT'] as $type) {
+            Wallet::firstOrCreate(
+                ['type' => $type],
+                [
+                    'user_id'        => $lkbbUser->id,
+                    'account_number' => 'LKBB-' . $type,
+                    'balance'        => 0,
+                    'is_active'      => true,
+                ]
+            );
+        }
 
         // 4. Akun Pemasok
         User::create([

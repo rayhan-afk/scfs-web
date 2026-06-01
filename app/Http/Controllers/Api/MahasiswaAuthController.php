@@ -92,20 +92,21 @@ class MahasiswaAuthController extends Controller
     public function payQr(Request $request)
     {
         $request->validate([
-            'order_id' => 'required|string',
+            'order_id'    => 'required|string',
+            'merchant_id' => 'required|integer',
         ]);
 
         try {
             DB::transaction(function () use ($request) {
-                // 1. Kunci data mahasiswa yang sedang login
                 $mahasiswa = $request->user();
                 $profileMhs = MahasiswaProfile::where('user_id', $mahasiswa->id)
                                 ->lockForUpdate()
                                 ->firstOrFail();
 
-                // 2. Cari transaksi PENDING yang dibuat oleh mesin kasir (laptop)
+                // Cari transaksi PENDING yang dibuat mesin kasir + belum expired (15 menit).
                 $trx = Transaction::where('order_id', $request->order_id)
                         ->where('status', 'pending')
+                        ->where('created_at', '>', now()->subMinutes(15))
                         ->lockForUpdate()
                         ->first();
 
@@ -113,45 +114,49 @@ class MahasiswaAuthController extends Controller
                     throw new \Exception('Transaksi tidak ditemukan atau kadaluwarsa. Minta Ibu Kantin me-refresh mesin kasir.');
                 }
 
-                // 3. Validasi Saldo Mahasiswa
+                // Verifikasi merchant_id payload QR sesuai dengan transaksi (anti QR bocor lintas merchant).
+                if ((int) $trx->merchant_id !== (int) $request->merchant_id) {
+                    throw new \Exception('QR tidak valid untuk merchant ini.');
+                }
+
                 if ($profileMhs->saldo < $trx->total_amount) {
                     throw new \Exception('Saldo beasiswa Anda tidak mencukupi untuk transaksi ini.');
                 }
 
-                // 4. Potong Saldo Mahasiswa (Dipotong full sesuai harga jual menu)
                 $profileMhs->decrement('saldo', $trx->total_amount);
 
-                // =========================================================================
-                // 🔥 LOGIKA BARU: SPLIT PAYMENT SCFS (BAGI HASIL DAN MODAL)
-                // =========================================================================
-                // Hak LKBB     = Harga Pokok (Modal Barang) + Fee LKBB (Bagi hasil keuntungan)
-                // Hak Merchant = Keuntungan Bersih Kantin setelah dipotong modal & fee lkbb
-                $hakLkbb = $trx->total_pokok + $trx->fee_lkbb; 
-                $hakMerchant = ($trx->total_amount - $trx->total_pokok) - $trx->fee_lkbb; 
+                // Split payment SCFS — hak LKBB (pokok+fee) & hak merchant (profit-fee).
+                $hakLkbb     = $trx->total_pokok + $trx->fee_lkbb;
+                $hakMerchant = ($trx->total_amount - $trx->total_pokok) - $trx->fee_lkbb;
 
-                // 5. Masukkan keuntungan bersih ke dompet digital kantin
                 $merchantProfile = MerchantProfile::where('user_id', $trx->merchant_id)
                                     ->lockForUpdate()
                                     ->firstOrFail();
                 $merchantProfile->increment('saldo_token', $hakMerchant);
 
-                // 6. Masukkan Modal + Bagi Hasil ke Dompet Operasional LKBB
-                $walletOperasional = \App\Models\Wallet::where('type', 'LKBB_OPERATIONAL')->first();
-                if ($walletOperasional) {
-                    $walletOperasional->increment('balance', $hakLkbb);
-                } else {
-                    // Opsional: Buat dompetnya otomatis jika belum pernah dibuat sama sekali
-                    \App\Models\Wallet::create([
-                        'type' => 'LKBB_OPERATIONAL',
-                        'balance' => $hakLkbb
-                    ]);
-                }
-                // =========================================================================
+                // Wallet LKBB_OPERATIONAL adalah konfigurasi infra. Tidak boleh auto-create.
+                $walletOperasional = \App\Models\Wallet::where('type', 'LKBB_OPERATIONAL')
+                                        ->lockForUpdate()
+                                        ->first();
 
-                // 7. Ubah status transaksi POS menjadi SUKSES & catat penanggung jawab bayar
+                if (!$walletOperasional) {
+                    throw new \Exception('Wallet LKBB_OPERATIONAL belum dikonfigurasi. Hubungi admin.');
+                }
+
+                $walletOperasional->increment('balance', $hakLkbb);
+
+                // Audit ledger: dana realisasi ke LKBB dari pembayaran QR.
+                \App\Models\LedgerEntry::create([
+                    'transaction_id' => $trx->id,
+                    'wallet_id'      => $walletOperasional->id,
+                    'entry_type'     => 'CREDIT',
+                    'amount'         => $hakLkbb,
+                    'balance_after'  => $walletOperasional->fresh()->balance,
+                ]);
+
                 $trx->update([
-                    'user_id' => $mahasiswa->id, 
-                    'status' => 'sukses'
+                    'user_id' => $mahasiswa->id,
+                    'status'  => 'sukses'
                 ]);
             });
 
@@ -164,7 +169,7 @@ class MahasiswaAuthController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => $e->getMessage()
-            ], 400); 
+            ], 400);
         }
     }
 

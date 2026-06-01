@@ -76,7 +76,7 @@ class extends Component {
     public function statHariIni()
     {
         $today = Carbon::today();
-        
+
         $baseQuery = Transaction::where('merchant_id', Auth::id())
             ->whereIn('status', ['sukses', 'lunas'])
             ->whereIn('type', ['pembayaran_makanan', 'pembayaran_makanan_tunai'])
@@ -86,9 +86,38 @@ class extends Component {
         $penjualanTunai = (clone $baseQuery)->where('type', 'pembayaran_makanan_tunai');
 
         return [
-            'total_nominal' => $penjualanTotal->sum('total_amount'),
-            'total_pesanan' => $penjualanTotal->count(),
-            'uang_laci_hari_ini' => $penjualanTunai->sum('total_amount') 
+            'total_nominal'      => $penjualanTotal->sum('total_amount'),
+            'total_pesanan'      => $penjualanTotal->count(),
+            'uang_laci_hari_ini' => $penjualanTunai->sum('total_amount')
+        ];
+    }
+
+    // Profit tunai cash di laci kantin (hari ini + bulan ini).
+    // = total_amount - total_pokok - fee_lkbb untuk type tunai.
+    // Display-only, TIDAK masuk saldo_token (sudah dipegang kantin sebagai uang fisik).
+    #[Computed]
+    public function profitTunai(): array
+    {
+        $now = Carbon::now();
+
+        $baseQuery = Transaction::where('merchant_id', Auth::id())
+            ->whereIn('status', ['sukses', 'lunas'])
+            ->where('type', 'pembayaran_makanan_tunai');
+
+        $hariIni = (clone $baseQuery)
+            ->whereDate('created_at', Carbon::today())
+            ->get()
+            ->sum(fn($t) => (float) $t->total_amount - (float) $t->total_pokok - (float) $t->fee_lkbb);
+
+        $bulanIni = (clone $baseQuery)
+            ->whereMonth('created_at', $now->month)
+            ->whereYear('created_at', $now->year)
+            ->get()
+            ->sum(fn($t) => (float) $t->total_amount - (float) $t->total_pokok - (float) $t->fee_lkbb);
+
+        return [
+            'hari_ini'  => $hariIni,
+            'bulan_ini' => $bulanIni,
         ];
     }
 
@@ -514,14 +543,35 @@ class extends Component {
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-6">
-            
-            {{-- Card 1: Saldo Hak Merchant (Untung Murni) --}}
-            <div class="bg-gradient-to-br from-[#059669] to-teal-700 rounded-2xl p-5 text-white shadow-lg shadow-emerald-200/50 relative overflow-hidden">
-                <div class="absolute top-0 right-0 w-24 h-24 bg-white opacity-10 rounded-full -mr-8 -mt-8 pointer-events-none"></div>
-                <div class="relative z-10 flex flex-col h-full justify-between">
-                    <p class="text-emerald-100 text-[10px] font-extrabold tracking-widest mb-1">SALDO E-WALLET (HAK ANDA)</p>
-                    <h3 class="text-3xl font-black tracking-tight truncate py-2">Rp {{ number_format($this->profile->saldo_token ?? 0, 0, ',', '.') }}</h3>
-                    <a href="{{ route('merchant.withdraw') ?? '#' }}" class="text-[10px] font-bold text-white hover:text-emerald-100 underline underline-offset-2">Tarik Dana Sekarang →</a>
+
+            {{-- Card 1: Split jadi 2 mini-card vertikal — Profit kantin per jalur --}}
+            {{--   (a) Saldo E-Wallet digital (dari QR Beasiswa, bisa di-withdraw)        --}}
+            {{--   (b) Profit Tunai (uang fisik di laci, sudah cash di tangan kantin)     --}}
+            <div class="flex flex-col gap-3">
+                {{-- 1a. Saldo E-Wallet (QR Digital) --}}
+                <div class="bg-gradient-to-br from-[#059669] to-teal-700 rounded-2xl p-4 text-white shadow-lg shadow-emerald-200/50 relative overflow-hidden flex-1">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-white opacity-10 rounded-full -mr-6 -mt-6 pointer-events-none"></div>
+                    <div class="relative z-10">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-emerald-100 text-[9px] font-extrabold tracking-widest">💳 SALDO QR DIGITAL</p>
+                            <span class="bg-white/20 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider">Withdraw</span>
+                        </div>
+                        <h3 class="text-xl font-black tracking-tight truncate">Rp {{ number_format($this->profile->saldo_token ?? 0, 0, ',', '.') }}</h3>
+                        <a href="{{ route('merchant.withdraw') ?? '#' }}" wire:navigate class="text-[9px] font-bold text-white hover:text-emerald-100 underline underline-offset-2 mt-0.5 inline-block">Tarik Dana →</a>
+                    </div>
+                </div>
+
+                {{-- 1b. Profit Tunai (Cash di Laci) --}}
+                <div class="bg-gradient-to-br from-emerald-700 to-green-900 rounded-2xl p-4 text-white shadow-lg shadow-emerald-300/40 relative overflow-hidden flex-1">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-white opacity-10 rounded-full -mr-6 -mt-6 pointer-events-none"></div>
+                    <div class="relative z-10">
+                        <div class="flex items-center justify-between mb-1">
+                            <p class="text-emerald-100 text-[9px] font-extrabold tracking-widest">💵 PROFIT TUNAI (HARI INI)</p>
+                            <span class="bg-white/20 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider">Cash</span>
+                        </div>
+                        <h3 class="text-xl font-black tracking-tight truncate">Rp {{ number_format($this->profitTunai['hari_ini'], 0, ',', '.') }}</h3>
+                        <p class="text-[9px] text-emerald-200 mt-0.5 font-medium">Bulan ini: Rp {{ number_format($this->profitTunai['bulan_ini'], 0, ',', '.') }} • Sudah di laci</p>
+                    </div>
                 </div>
             </div>
 

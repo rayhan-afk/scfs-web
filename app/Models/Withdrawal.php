@@ -22,7 +22,18 @@ class Withdrawal extends Model
         'info_pencairan',
         'status',
         'catatan_lkbb',
+        'approved_by',
+        'approved_at',
     ];
+
+    protected $casts = [
+        'approved_at' => 'datetime',
+    ];
+
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
 
     /**
      * Relasi ke entitas User (Pemilik Akun)

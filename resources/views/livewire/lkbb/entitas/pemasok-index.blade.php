@@ -25,9 +25,6 @@ class extends Component {
             ->with([
                 'pemasokProfile:id,user_id,nama_perusahaan,kategori_barang,no_hp,status_verifikasi,status_kemitraan,status_operasional,saldo_pendapatan,tagihan_berjalan',
             ])
-            ->withSum(['wallets as saldo_wallet' => function ($q) {
-                $q->where('type', 'PEMASOK');
-            }], 'balance')
             ->withCount(['supplyOrdersAsPemasok as total_po_didanai' => function ($q) {
                 $q->where('status_pembiayaan', 'didanai');
             }])
@@ -164,10 +161,10 @@ class extends Component {
 
                             {{-- Saldo --}}
                             <td class="px-6 py-4 text-right">
-                                <div class="text-sm font-bold {{ ($pemasok->saldo_wallet ?? 0) > 0 ? 'text-gray-900' : 'text-gray-400' }}">
-                                    Rp {{ number_format($pemasok->saldo_wallet ?? 0, 0, ',', '.') }}
+                                <div class="text-sm font-bold {{ ($profile?->saldo_pendapatan ?? 0) > 0 ? 'text-gray-900' : 'text-gray-400' }}">
+                                    Rp {{ number_format($profile?->saldo_pendapatan ?? 0, 0, ',', '.') }}
                                 </div>
-                                <div class="text-[10px] text-gray-400 font-medium mt-0.5">Tertahan: Rp {{ number_format($profile?->saldo_pendapatan ?? 0, 0, ',', '.') }}</div>
+                                <div class="text-[10px] text-gray-400 font-medium mt-0.5">Saldo Pendapatan</div>
                             </td>
 
                             {{-- Aksi --}}
