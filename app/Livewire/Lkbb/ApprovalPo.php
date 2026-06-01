@@ -22,8 +22,11 @@ class ApprovalPo extends Component
     public $alasanPenolakan = '';
 
     /**
-     * 5 kriteria otomatis (di-set dari PoValidationService).
-     * 1 kriteria manual: 'no_tunggakan' (di-toggle approver LKBB).
+     * Checklist validasi pendanaan PO. Semua kriteria di-evaluasi otomatis,
+     * kecuali `no_tunggakan` yang punya state 3-level:
+     *   - safe    → auto true
+     *   - warning → false sampai approver override manual via checkbox
+     *   - blocked → forced false (button approve disabled)
      */
     public array $validationChecklist = [
         'merchant_verified' => false,
@@ -35,6 +38,20 @@ class ApprovalPo extends Component
 
     /** Reason string per-kriteria saat hasil evaluasi otomatis = false. */
     public array $validationReasons = [];
+
+    /**
+     * Detail status tunggakan untuk UI (3-state).
+     * status: safe|warning|blocked
+     */
+    public array $tunggakanCheck = [
+        'status'   => 'safe',
+        'amount'   => 0.0,
+        'po_total' => 0.0,
+        'reason'   => '',
+    ];
+
+    /** Override manual approver saat status tunggakan = warning. */
+    public bool $tunggakanOverride = false;
 
     /** Daftar key kriteria yang di-evaluasi otomatis (read-only di UI). */
     public const AUTO_KEYS = [
@@ -50,12 +67,28 @@ class ApprovalPo extends Component
         return ! in_array(false, $this->validationChecklist, true);
     }
 
+    public function updatedTunggakanOverride($value): void
+    {
+        // Override hanya berlaku saat status warning. Tolak set true bila blocked/safe.
+        $status = $this->tunggakanCheck['status'] ?? 'safe';
+
+        if ($status === 'warning') {
+            $this->validationChecklist['no_tunggakan'] = (bool) $value;
+        } else {
+            // safe → auto true; blocked → forced false. User input diabaikan.
+            $this->tunggakanOverride = ($status === 'safe');
+            $this->validationChecklist['no_tunggakan'] = ($status === 'safe');
+        }
+    }
+
     private function resetChecklist(): void
     {
         foreach ($this->validationChecklist as $k => $_) {
             $this->validationChecklist[$k] = false;
         }
         $this->validationReasons = [];
+        $this->tunggakanCheck = ['status' => 'safe', 'amount' => 0.0, 'po_total' => 0.0, 'reason' => ''];
+        $this->tunggakanOverride = false;
     }
 
     private function autoEvaluateChecklist(): void
@@ -67,6 +100,26 @@ class ApprovalPo extends Component
         foreach (self::AUTO_KEYS as $key) {
             $this->validationChecklist[$key]  = $result[$key]['passed'] ?? false;
             $this->validationReasons[$key]    = $result[$key]['reason'] ?? null;
+        }
+
+        // Evaluasi tunggakan 3-state.
+        $this->tunggakanCheck = $result['tunggakan'] ?? [
+            'status' => 'safe', 'amount' => 0.0, 'po_total' => 0.0, 'reason' => '',
+        ];
+
+        switch ($this->tunggakanCheck['status']) {
+            case 'safe':
+                $this->validationChecklist['no_tunggakan'] = true;
+                $this->tunggakanOverride = true;
+                break;
+            case 'warning':
+                $this->validationChecklist['no_tunggakan'] = (bool) $this->tunggakanOverride;
+                break;
+            case 'blocked':
+            default:
+                $this->validationChecklist['no_tunggakan'] = false;
+                $this->tunggakanOverride = false;
+                break;
         }
     }
 
@@ -122,6 +175,16 @@ class ApprovalPo extends Component
         // Re-evaluasi kriteria otomatis untuk cegah tampering client-side
         // pada checklist read-only sebelum approval di-eksekusi.
         $this->autoEvaluateChecklist();
+
+        // Guard server-side: tunggakan blocked = mutlak tolak.
+        if (($this->tunggakanCheck['status'] ?? 'safe') === 'blocked') {
+            session()->flash('error',
+                'Pencairan diblokir: tunggakan setoran merchant (Rp '
+                . number_format($this->tunggakanCheck['amount'], 0, ',', '.')
+                . ') sama atau lebih besar dari nilai PO. Lunasi setoran terlebih dahulu.'
+            );
+            return;
+        }
 
         if (in_array(false, $this->validationChecklist, true)) {
             session()->flash('error', 'Validasi pendanaan belum lengkap. Pastikan seluruh kriteria terpenuhi sebelum mencairkan dana.');

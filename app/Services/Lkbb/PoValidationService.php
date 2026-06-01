@@ -7,25 +7,17 @@ use App\Models\SupplyOrder;
 /**
  * Evaluasi kriteria pendanaan PO untuk approval LKBB.
  *
- * Lima kriteria di-evaluasi otomatis dari data registrasi & PO.
- * Kriteria "no_tunggakan" sengaja TIDAK di-handle di sini karena
- * masih melibatkan proses pembayaran tunai/offline yang belum
- * fully tracked oleh sistem — wajib di-checklist manual oleh
- * approver LKBB.
+ * Semua kriteria di-evaluasi otomatis dari data registrasi, PO, dan
+ * running balance tagihan_setoran_tunai merchant.
+ *
+ * Khusus "tunggakan": output state 3 level (safe/warning/blocked).
+ * - safe    : tagihan = 0 → langsung lolos.
+ * - warning : tagihan > 0 & tagihan < total PO → boleh approve dengan
+ *             override manual approver.
+ * - blocked : tagihan >= total PO → tidak boleh approve sama sekali.
  */
 class PoValidationService
 {
-    /**
-     * Evaluasi seluruh kriteria otomatis untuk sebuah PO.
-     *
-     * Return array dengan struktur:
-     *   [
-     *     'merchant_verified' => ['passed' => bool, 'reason' => string|null],
-     *     'supplier_verified' => [...],
-     *     'rekening_valid'    => [...],
-     *     'po_complete'       => [...],
-     *   ]
-     */
     public function evaluate(SupplyOrder $order): array
     {
         $merchant        = $order->merchant;
@@ -37,6 +29,42 @@ class PoValidationService
             'supplier_verified' => $this->evaluateSupplierVerified($pemasokProfile),
             'rekening_valid'    => $this->evaluateRekeningValid($pemasokProfile),
             'po_complete'       => $this->evaluatePoComplete($order),
+            'tunggakan'         => $this->evaluateTunggakan($merchantProfile, $order),
+        ];
+    }
+
+    /**
+     * Evaluasi tagihan_setoran_tunai merchant vs total PO.
+     * Output: ['status' => safe|warning|blocked, 'amount' => float, 'po_total' => float, 'reason' => string]
+     */
+    private function evaluateTunggakan($profile, SupplyOrder $order): array
+    {
+        $tagihan = (float) ($profile?->tagihan_setoran_tunai ?? 0);
+        $poTotal = (float) $order->total_estimasi;
+
+        if ($tagihan <= 0) {
+            return [
+                'status'   => 'safe',
+                'amount'   => 0.0,
+                'po_total' => $poTotal,
+                'reason'   => 'Merchant tidak memiliki tunggakan setoran aktif.',
+            ];
+        }
+
+        if ($tagihan >= $poTotal) {
+            return [
+                'status'   => 'blocked',
+                'amount'   => $tagihan,
+                'po_total' => $poTotal,
+                'reason'   => 'Tunggakan setoran merchant melebihi nilai PO. Pencairan diblokir hingga setoran dilunasi.',
+            ];
+        }
+
+        return [
+            'status'   => 'warning',
+            'amount'   => $tagihan,
+            'po_total' => $poTotal,
+            'reason'   => 'Merchant masih punya tunggakan setoran namun di bawah nilai PO. Memerlukan override approver.',
         ];
     }
 

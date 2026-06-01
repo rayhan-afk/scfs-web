@@ -272,13 +272,18 @@
                             'rekening_valid'    => ['label' => 'Rekening valid',         'desc' => 'Rekening tujuan pemasok terdaftar.'],
                             'po_complete'       => ['label' => 'Detail PO lengkap',      'desc' => 'Item, qty, harga, dan tanggal kebutuhan sesuai.'],
                         ];
-                        $manualItem = [
-                            'key'   => 'no_tunggakan',
-                            'label' => 'Tidak ada tunggakan',
-                            'desc'  => 'Konfirmasi manual: merchant tidak memiliki tunggakan pembiayaan aktif.',
-                        ];
-                        $checkedCount = count(array_filter($validationChecklist));
-                        $totalCount   = count($validationChecklist);
+                        $checkedCount  = count(array_filter($validationChecklist));
+                        $totalCount    = count($validationChecklist);
+                        $tunggakanStatus  = $tunggakanCheck['status'] ?? 'safe';
+                        $tunggakanAmount  = (float) ($tunggakanCheck['amount'] ?? 0);
+                        $tunggakanPoTotal = (float) ($tunggakanCheck['po_total'] ?? 0);
+                        $tunggakanRatio   = $tunggakanPoTotal > 0 ? min(1, $tunggakanAmount / $tunggakanPoTotal) : 0;
+
+                        $tStyle = match($tunggakanStatus) {
+                            'safe'    => ['border' => 'border-emerald-300', 'bg' => 'bg-emerald-50/50', 'text' => 'text-emerald-800', 'accent' => 'emerald', 'icon' => '✅', 'badge' => 'AMAN'],
+                            'warning' => ['border' => 'border-amber-400',   'bg' => 'bg-amber-50/60',   'text' => 'text-amber-900',   'accent' => 'amber',   'icon' => '⚠️', 'badge' => 'WASPADA'],
+                            'blocked' => ['border' => 'border-rose-400',    'bg' => 'bg-rose-50/60',    'text' => 'text-rose-900',    'accent' => 'rose',    'icon' => '🛑', 'badge' => 'DIBLOKIR'],
+                        };
                     @endphp
 
                     <div class="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -289,7 +294,7 @@
                                 </div>
                                 <div>
                                     <h4 class="text-xs font-black text-gray-800 uppercase tracking-widest">Validasi Pendanaan LKBB</h4>
-                                    <p class="text-[11px] font-medium text-gray-500 mt-0.5">5 kriteria otomatis + 1 verifikasi manual approver.</p>
+                                    <p class="text-[11px] font-medium text-gray-500 mt-0.5">5 kriteria otomatis — termasuk cek tunggakan setoran tunai.</p>
                                 </div>
                             </div>
                             <div class="text-right shrink-0">
@@ -332,34 +337,110 @@
                                 </div>
                             </div>
 
+                            {{-- ============================================ --}}
+                            {{-- CARD TUNGGAKAN — 3-STATE (safe/warning/blocked) --}}
+                            {{-- ============================================ --}}
                             <div>
-                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Verifikasi Manual Approver</p>
-                                @php $manualChecked = $validationChecklist[$manualItem['key']] ?? false; @endphp
-                                <label class="cursor-pointer block group">
-                                    <input type="checkbox" wire:model.live="validationChecklist.{{ $manualItem['key'] }}" class="sr-only" />
-                                    <div class="flex items-start gap-3 p-3 rounded-xl border-2 transition
-                                        {{ $manualChecked ? 'border-emerald-400 bg-emerald-50/50' : 'border-amber-300 bg-amber-50/40 hover:border-amber-400' }}">
-                                        <div class="w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 transition
-                                            {{ $manualChecked ? 'bg-emerald-500 border border-emerald-500' : 'bg-white border-2 border-amber-400' }}">
-                                            @if($manualChecked)
-                                                <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                    Cek Tunggakan Setoran Tunai
+                                    <span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[8px] font-black tracking-wider">AUTO</span>
+                                </p>
+
+                                <div class="rounded-2xl border-2 {{ $tStyle['border'] }} {{ $tStyle['bg'] }} overflow-hidden">
+                                    <div class="flex items-start gap-4 p-4">
+                                        <div class="text-3xl shrink-0 leading-none mt-0.5">{{ $tStyle['icon'] }}</div>
+
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center gap-2 flex-wrap mb-1">
+                                                <p class="text-sm font-black {{ $tStyle['text'] }}">
+                                                    @if($tunggakanStatus === 'safe') Merchant Bersih dari Tunggakan
+                                                    @elseif($tunggakanStatus === 'warning') Ada Tunggakan, Masih Bisa Lanjut
+                                                    @else Tunggakan Melebihi Nilai PO
+                                                    @endif
+                                                </p>
+                                                <span class="text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider
+                                                    @if($tunggakanStatus === 'safe') bg-emerald-100 text-emerald-700
+                                                    @elseif($tunggakanStatus === 'warning') bg-amber-100 text-amber-800
+                                                    @else bg-rose-100 text-rose-700 @endif">
+                                                    {{ $tStyle['badge'] }}
+                                                </span>
+                                            </div>
+                                            <p class="text-[11px] font-medium leading-relaxed {{ $tStyle['text'] }}/80">
+                                                {{ $tunggakanCheck['reason'] ?? '' }}
+                                            </p>
+
+                                            {{-- Angka detail --}}
+                                            <div class="grid grid-cols-2 gap-3 mt-3">
+                                                <div class="bg-white/80 rounded-lg p-2.5 border border-gray-100">
+                                                    <p class="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Tunggakan Aktif</p>
+                                                    <p class="text-sm font-black {{ $tStyle['text'] }}">Rp {{ number_format($tunggakanAmount, 0, ',', '.') }}</p>
+                                                </div>
+                                                <div class="bg-white/80 rounded-lg p-2.5 border border-gray-100">
+                                                    <p class="text-[9px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">Nilai PO Ini</p>
+                                                    <p class="text-sm font-black text-[#4338CA]">Rp {{ number_format($tunggakanPoTotal, 0, ',', '.') }}</p>
+                                                </div>
+                                            </div>
+
+                                            {{-- Rasio bar --}}
+                                            @if($tunggakanAmount > 0)
+                                                <div class="mt-3">
+                                                    <div class="flex justify-between items-center mb-1">
+                                                        <span class="text-[9px] font-bold text-gray-500 uppercase tracking-wider">Rasio Tunggakan : PO</span>
+                                                        <span class="text-[10px] font-black {{ $tStyle['text'] }}">{{ number_format($tunggakanRatio * 100, 0) }}%</span>
+                                                    </div>
+                                                    <div class="w-full h-2 bg-white rounded-full overflow-hidden border border-gray-100">
+                                                        <div class="h-full transition-all duration-500
+                                                            @if($tunggakanStatus === 'safe') bg-emerald-500
+                                                            @elseif($tunggakanStatus === 'warning') bg-gradient-to-r from-amber-400 to-orange-500
+                                                            @else bg-gradient-to-r from-rose-500 to-red-600 @endif"
+                                                            style="width: {{ $tunggakanRatio * 100 }}%">
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             @endif
                                         </div>
-                                        <div class="flex-1 min-w-0">
-                                            <div class="flex items-center gap-2 flex-wrap">
-                                                <p class="text-sm font-bold {{ $manualChecked ? 'text-emerald-800' : 'text-amber-900' }}">{{ $manualItem['label'] }}</p>
-                                                <span class="text-[9px] px-1.5 py-0.5 rounded-md font-black uppercase tracking-wider bg-amber-100 text-amber-800">Manual</span>
-                                            </div>
-                                            <p class="text-[11px] font-medium mt-0.5 {{ $manualChecked ? 'text-emerald-700/70' : 'text-amber-800/80' }}">
-                                                {{ $manualItem['desc'] }}
-                                            </p>
-                                        </div>
                                     </div>
-                                </label>
+
+                                    {{-- Override box (hanya muncul saat WARNING) --}}
+                                    @if($tunggakanStatus === 'warning')
+                                        <div class="border-t-2 border-amber-200 bg-white p-4">
+                                            <label class="cursor-pointer flex items-start gap-3 group">
+                                                <input type="checkbox" wire:model.live="tunggakanOverride" class="sr-only" />
+                                                <div class="w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5 transition
+                                                    {{ $tunggakanOverride ? 'bg-emerald-500 border border-emerald-500' : 'bg-white border-2 border-amber-400 group-hover:border-amber-500' }}">
+                                                    @if($tunggakanOverride)
+                                                        <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                                    @endif
+                                                </div>
+                                                <div class="flex-1">
+                                                    <p class="text-sm font-bold text-gray-900">Saya tetap menyetujui pencairan dengan risiko ini.</p>
+                                                    <p class="text-[11px] text-gray-500 leading-relaxed mt-0.5">
+                                                        Tunggakan masih di bawah nilai PO. Override approver akan tercatat di audit log.
+                                                    </p>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    @endif
+
+                                    {{-- Banner blocker (hanya saat BLOCKED) --}}
+                                    @if($tunggakanStatus === 'blocked')
+                                        <div class="border-t-2 border-rose-200 bg-gradient-to-r from-rose-50 to-red-50 p-4 flex items-start gap-3">
+                                            <svg class="w-5 h-5 text-rose-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                            <div>
+                                                <p class="text-xs font-black text-rose-900 mb-0.5">Pencairan Otomatis Diblokir Sistem</p>
+                                                <p class="text-[11px] font-medium text-rose-800/90 leading-relaxed">
+                                                    Tunggakan setoran kantin (Rp {{ number_format($tunggakanAmount, 0, ',', '.') }})
+                                                    melebihi nilai PO (Rp {{ number_format($tunggakanPoTotal, 0, ',', '.') }}).
+                                                    Minta merchant melunasi setoran terlebih dahulu via halaman Penagihan, lalu ulangi review PO ini.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    @endif
+                                </div>
                             </div>
                         </div>
 
-                        @if(! $this->isChecklistComplete)
+                        @if(! $this->isChecklistComplete && $tunggakanStatus !== 'blocked')
                             <div class="mx-4 mb-4 flex items-start gap-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
                                 <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
                                 <p class="text-xs font-bold text-amber-800 leading-relaxed">Pendanaan belum dapat dicairkan sebelum seluruh validasi terpenuhi.</p>
@@ -419,9 +500,13 @@
                         </button>
                     </div>
 
-                    {{-- Setujui & Cairkan --}}
+                    {{-- Setujui & Cairkan — blocked saat tunggakan >= PO --}}
+                    @php
+                        $isBlocked    = ($tunggakanCheck['status'] ?? 'safe') === 'blocked';
+                        $canApprove   = $this->isChecklistComplete && ! $isBlocked;
+                    @endphp
                     <button wire:loading.attr="disabled"
-                        @disabled(! $this->isChecklistComplete)
+                        @disabled(! $canApprove)
                         @click="openConfirm(
                             'Setujui & Cairkan Dana?',
                             'Dana akan dipotong dari Brankas dan ditransfer ke rekening Pemasok. Pastikan semua validasi sudah benar.',
@@ -431,11 +516,18 @@
                             () => $wire.setujuiPendanaan()
                         )"
                         class="flex-1 px-6 py-3 text-white font-black rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center gap-2
-                               {{ $this->isChecklistComplete
-                                   ? 'bg-[#4338CA] hover:bg-indigo-700 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-200 active:translate-y-0 active:scale-95 shadow-indigo-200'
-                                   : 'bg-gray-300 cursor-not-allowed opacity-50' }}
+                               @if($isBlocked) bg-rose-300 cursor-not-allowed opacity-60
+                               @elseif($canApprove) bg-[#4338CA] hover:bg-indigo-700 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-indigo-200 active:translate-y-0 active:scale-95 shadow-indigo-200
+                               @else bg-gray-300 cursor-not-allowed opacity-50
+                               @endif
                                disabled:opacity-50">
-                        <span wire:loading.remove wire:target="setujuiPendanaan">Setujui & Cairkan Rp {{ number_format($selectedOrder->total_estimasi, 0, ',', '.') }}</span>
+                        <span wire:loading.remove wire:target="setujuiPendanaan">
+                            @if($isBlocked)
+                                🛑 Diblokir: Tunggakan ≥ PO
+                            @else
+                                Setujui & Cairkan Rp {{ number_format($selectedOrder->total_estimasi, 0, ',', '.') }}
+                            @endif
+                        </span>
                         <span wire:loading wire:target="setujuiPendanaan">Memproses Pencairan...</span>
                     </button>
                 </div>
