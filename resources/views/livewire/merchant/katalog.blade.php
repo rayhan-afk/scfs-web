@@ -223,7 +223,10 @@ class extends Component {
             <h2 class="text-2xl font-black text-gray-900 tracking-tight">Katalog Menu & Etalase Kasir</h2>
             <p class="text-gray-500 text-sm mt-1 font-medium">Olah kiriman produk logistik Pemasok menjadi menu aktif di sistem kasir penjualan Anda.</p>
         </div>
-        <button wire:click="openModalManual" class="px-5 py-2.5 bg-gray-900 text-white font-black text-sm rounded-xl transition shadow-lg flex items-center gap-2 hover:bg-black">
+        <button wire:click="openModalManual" 
+            class="px-5 py-2.5 bg-green-700 text-white font-black text-sm rounded-xl transition-all duration-200 shadow-lg shadow-green-200 flex items-center gap-2 
+                hover:bg-green-600 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-green-200
+                active:translate-y-0 active:scale-95">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
             Buat Menu F&B Baru
         </button>
@@ -236,18 +239,18 @@ class extends Component {
         </div>
     @endif
 
-    <div class="bg-indigo-50/50 border border-indigo-100 rounded-[24px] p-6 mb-8">
+    <div class="bg-indigo-50/50 border border-emerald-100 rounded-[24px] p-6 mb-8">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 border-b border-indigo-100 pb-4">
             <div class="flex items-center gap-2">
-                <span class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-black">📦</span>
-                <h3 class="font-black text-indigo-900 text-lg">Inbound Logistik (Daftar Pengiriman PO)</h3>
+                <span class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black">📦</span>
+                <h3 class="font-black text-emerald-900 text-lg">Inbound Logistik (Daftar Pengiriman PO)</h3>
             </div>
             
-            <div class="flex gap-2 bg-indigo-100/60 p-1 rounded-xl shrink-0">
-                <button wire:click="$set('tabGudang', 'tersedia')" class="px-4 py-1.5 text-xs font-black rounded-lg transition-all {{ $tabGudang == 'tersedia' ? 'bg-white text-indigo-700 shadow-sm' : 'text-indigo-500 hover:text-indigo-700' }}">
+            <div class="flex gap-2 bg-emerald-100/60 p-1 rounded-xl shrink-0">
+                <button wire:click="$set('tabGudang', 'tersedia')" class="px-4 py-1.5 text-xs font-black rounded-lg transition-all {{ $tabGudang == 'tersedia' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-500 hover:text-emerald-700' }}">
                     📥 Menunggu Dimasukkan ({{ $this->poTersedia->count() }})
                 </button>
-                <button wire:click="$set('tabGudang', 'habis')" class="px-4 py-1.5 text-xs font-black rounded-lg transition-all {{ $tabGudang == 'habis' ? 'bg-white text-indigo-700 shadow-sm' : 'text-indigo-500 hover:text-indigo-700' }}">
+                <button wire:click="$set('tabGudang', 'habis')" class="px-4 py-1.5 text-xs font-black rounded-lg transition-all {{ $tabGudang == 'habis' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-500 hover:text-emerald-700' }}">
                     ✅ Sudah di Kasir (Selesai)
                 </button>
             </div>
@@ -256,10 +259,10 @@ class extends Component {
         <div class="flex overflow-x-auto gap-5 pb-4 scrollbar-hide">
             @if($tabGudang == 'tersedia')
                 @forelse($this->poTersedia as $gudang)
-                    <div class="min-w-[280px] max-w-[280px] bg-white border border-indigo-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between hover:border-indigo-300 transition-colors">
+                    <div class="min-w-[280px] max-w-[280px] bg-white border border-emerald-100 rounded-2xl p-4 shadow-sm flex flex-col justify-between hover:border-emerald-300 transition-colors">
                         <div class="space-y-3">
                             <div class="flex justify-between items-start">
-                                <span class="text-[9px] font-black text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded font-mono shadow-inner">{{ $gudang->supplyOrder->nomor_order }}</span>
+                                <span class="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded font-mono shadow-inner">{{ $gudang->supplyOrder->nomor_order }}</span>
                                 <span class="text-[9px] font-bold text-gray-400">{{ \Carbon\Carbon::parse($gudang->supplyOrder->updated_at)->format('H:i Wib') }}</span>
                             </div>
 
@@ -273,7 +276,7 @@ class extends Component {
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <h4 class="font-black text-gray-800 text-sm truncate leading-tight" title="{{ $gudang->nama_produk_snapshot }}">{{ $gudang->nama_produk_snapshot }}</h4>
-                                    <p class="text-[11px] text-gray-500 font-bold mt-0.5">Kuantitas: <span class="text-indigo-600 font-black">{{ $gudang->qty }}</span> Unit</p>
+                                    <p class="text-[11px] text-gray-500 font-bold mt-0.5">Kuantitas: <span class="text-emerald-600 font-black">{{ $gudang->qty }}</span> Unit</p>
                                 </div>
                             </div>
 
@@ -283,12 +286,12 @@ class extends Component {
                             </div>
                         </div>
                         
-                        <button wire:click="jadikanMenu({{ $gudang->id }})" class="mt-4 w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl transition shadow-md shadow-indigo-200/50">
+                        <button wire:click="jadikanMenu({{ $gudang->id }})" class="mt-4 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl transition shadow-md shadow-emerald-200/50">
                             + Pindahkan ke Kasir POS
                         </button>
                     </div>
                 @empty
-                    <div class="w-full py-8 text-center text-indigo-400 font-bold text-sm">Gudang kosong! Belum ada kiriman PO baru yang menunggu diproses.</div>
+                    <div class="w-full py-8 text-center text-gray-400 text-sm">Gudang kosong! Belum ada kiriman PO baru yang menunggu diproses.</div>
                 @endforelse
             @else
                 @forelse($this->poHabis as $gudang)
